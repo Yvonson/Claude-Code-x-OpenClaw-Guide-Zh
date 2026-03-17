@@ -4,7 +4,7 @@
 >
 > **遇到问题？** 这里收集了社区最常见的问题和解决方案。用 `Ctrl+F`（或 `Cmd+F`）搜索关键词，快速定位你的问题
 >
-> **最常见的 5 个问题：** [Q1: 命令找不到](#q1-openclaw-命令找不到command-not-found) | [Q2: Node.js 版本不兼容](#q2-nodejs-版本不兼容) | [Q3: API Key 无效](#q3-api-key-配置后仍然报错) | [Q5: Gateway 启动失败](#q5-gateway-启动失败) | [Q8: WhatsApp 连接问题](#q8-whatsapp-连接失败)
+> **最常见的 5 个问题：** [Q1: 命令找不到](#q1-openclaw-命令找不到command-not-found) | [Q2: Node.js 版本不兼容](#q2-nodejs-版本不兼容) | [Q26: API Key 无效](#q26-api-调用报错-401-unauthorized) | [Q12: Gateway 启动失败](#q12-windows-上安装后-gateway-启动失败) | [Q16: WhatsApp 连接问题](#q16-whatsapp-扫码后频繁断开)
 
 这篇 FAQ 收集了 OpenClaw 社区中最常见的问题和解决方案。按类别组织，方便你快速定位问题。
 
@@ -171,8 +171,8 @@ npm install -g windows-build-tools
 # 打开系统自带的终端应用
 
 # 方案二：跳过引导，手动配置
-openclaw config set providers.openai.apiKey "sk-proj-xxxxx"
-openclaw config set providers.openai.model "gpt-5.2"
+openclaw config set models.providers.openai.apiKey "sk-proj-xxxxx"
+openclaw config set models.providers.openai.model "gpt-5.2"
 openclaw gateway start
 
 # 方案三：检查配置文件是否损坏
@@ -215,12 +215,12 @@ nano ~/.openclaw/openclaw.json
 
 ```bash
 # 分别配置不同提供商的 Key
-openclaw config set providers.openai.apiKey "sk-proj-xxxxx"
-openclaw config set providers.anthropic.apiKey "sk-ant-xxxxx"
-openclaw config set providers.google.apiKey "AIzaSy-xxxxx"
+openclaw config set models.providers.openai.apiKey "sk-proj-xxxxx"
+openclaw config set models.providers.anthropic.apiKey "sk-ant-xxxxx"
+openclaw config set models.providers.google.apiKey "AIzaSy-xxxxx"
 
 # 设置默认模型
-openclaw config set defaultModel "openai:gpt-5.2"
+openclaw config set defaultModel "openai/gpt-5.2"
 
 # 也可以通过环境变量配置（优先级高于配置文件）
 export OPENAI_API_KEY="sk-proj-xxxxx"
@@ -278,7 +278,7 @@ npm view openclaw versions --json
 npm install -g openclaw@2026.1.0
 
 # Docker 回滚
-docker pull openclaw/openclaw:2026.1.0
+docker pull openclaw/openclaw:v2026.1.0
 # 修改 docker-compose.yml 中的 image tag 后重启
 ```
 
@@ -391,7 +391,7 @@ openclaw channels logout whatsapp
 openclaw channels login whatsapp
 
 # 第四步：查看断开原因
-openclaw logs --filter whatsapp --tail 50
+openclaw logs --limit 50 | grep whatsapp
 ```
 
 其他注意事项：
@@ -421,7 +421,7 @@ openclaw config get channels.telegram.botToken
 # 关闭隐私模式后，Bot 才能接收群组中的所有消息
 
 # 第四步：检查日志
-openclaw logs --filter telegram --tail 50
+openclaw logs --limit 50 | grep telegram
 
 # 第五步：重新连接
 openclaw channels logout telegram
@@ -490,7 +490,7 @@ openclaw channels login discord
 
 ```bash
 # 第一步：排查是哪个环节慢
-openclaw logs --tail 20
+openclaw logs --limit 20
 # 看日志中的时间戳，判断延迟发生在哪里
 
 # 第二步：测试模型 API 延迟
@@ -502,7 +502,7 @@ openclaw sessions list
 
 # 第四步：优化措施
 # 使用更快的模型
-openclaw config set defaultModel "openai:gpt-5.2-mini"
+openclaw config set defaultModel "openai/gpt-5.2-mini"
 # 启用流式响应
 openclaw config set streaming.enabled true
 # 减少系统提示词长度（Token 越少，响应越快）
@@ -543,7 +543,7 @@ curl https://your-domain.com:18789/health
 # 需要订阅的事件：im.message.receive_v1
 
 # 第三步：检查日志
-openclaw logs --filter feishu --tail 50
+openclaw logs --limit 50 | grep feishu
 
 # 第四步：确认 Bot 权限
 # 飞书开放平台 → 应用权限 → 确保开启了：
@@ -630,7 +630,7 @@ openclaw config set multimodal.supportedTypes '["image/png","image/jpeg","applic
 
 ```bash
 # 第一步：检查 Key 是否配置正确
-openclaw config get providers.openai.apiKey
+openclaw config get models.providers.openai.apiKey
 # 确认 Key 没有多余的空格或换行
 
 # 第二步：测试 Key 是否有效
@@ -643,7 +643,7 @@ openclaw health
 # 确认 Key 没有被撤销，账户余额充足
 
 # 第四步：重新设置 Key
-openclaw config set providers.openai.apiKey "sk-proj-new-key-here"
+openclaw config set models.providers.openai.apiKey "sk-proj-new-key-here"
 openclaw gateway restart
 ```
 
@@ -659,15 +659,15 @@ openclaw gateway restart
 # 方案一：启用模型故障转移（推荐）
 # 主模型被限流时自动切换到备用模型
 openclaw config set fallback.enabled true
-openclaw config set fallback.models '["openai:gpt-5.2","anthropic:claude-sonnet-4-20250514","openai:gpt-5.2-mini"]'
+openclaw config set fallback.models '["openai/gpt-5.2","anthropic/claude-sonnet-4-20250514","openai/gpt-5.2-mini"]'
 
 # 方案二：配置请求重试
 openclaw config set retry.maxRetries 3
 openclaw config set retry.retryDelay 2000  # 毫秒
 
 # 方案三：使用 OpenRouter（聚合多个提供商，限流更宽松）
-openclaw config set providers.openrouter.apiKey "sk-or-xxxxx"
-openclaw config set defaultModel "openrouter:openai/gpt-5.2"
+openclaw config set models.providers.openrouter.apiKey "sk-or-xxxxx"
+openclaw config set defaultModel "openrouter/openai/gpt-5.2"
 ```
 
 ### Q28: 模型回复很慢
@@ -680,7 +680,7 @@ openclaw config set defaultModel "openrouter:openai/gpt-5.2"
 
 ```bash
 # 方案一：换用更快的小模型
-openclaw config set defaultModel "openai:gpt-5.2-mini"
+openclaw config set defaultModel "openai/gpt-5.2-mini"
 # gpt-5.2-mini 速度是 gpt-5.2 的 3-5 倍，日常对话足够用
 
 # 方案二：启用流式响应（边生成边发送）
@@ -693,8 +693,8 @@ openclaw agents list
 
 # 方案四：使用本地模型（延迟最低）
 ollama pull llama3.1:8b
-openclaw config set providers.ollama.baseUrl "http://127.0.0.1:11434"
-openclaw config set defaultModel "ollama:llama3.1:8b"
+openclaw config set models.providers.ollama.baseUrl "http://127.0.0.1:11434"
+openclaw config set defaultModel "ollama/llama3.1:8b"
 
 # 方案五：检查网络延迟
 ping api.openai.com
@@ -720,8 +720,8 @@ openclaw config set context.strategy "sliding-window"
 # 方案二：使用上下文窗口更大的模型
 # GPT-5.2: 1M tokens
 # Claude Sonnet 4.6: 200K tokens
-# Gemini 1.5 Pro: 1M tokens
-openclaw config set defaultModel "anthropic:claude-sonnet-4-20250514"
+# Gemini 3.1 Pro: 1M tokens
+openclaw config set defaultModel "anthropic/claude-sonnet-4-20250514"
 
 # 方案三：手动清理会话
 openclaw sessions cleanup
@@ -748,14 +748,14 @@ ollama list
 ollama pull llama3.1:8b
 
 # 第三步：配置 OpenClaw 连接 Ollama
-openclaw config set providers.ollama.baseUrl "http://127.0.0.1:11434"
-openclaw config set defaultModel "ollama:llama3.1:8b"
+openclaw config set models.providers.ollama.baseUrl "http://127.0.0.1:11434"
+openclaw config set defaultModel "ollama/llama3.1:8b"
 
 # 第四步：如果 Ollama 和 OpenClaw 不在同一台机器
 # 需要让 Ollama 监听所有网卡
 OLLAMA_HOST=0.0.0.0 ollama serve
 # 然后配置远程地址
-openclaw config set providers.ollama.baseUrl "http://192.168.1.100:11434"
+openclaw config set models.providers.ollama.baseUrl "http://192.168.1.100:11434"
 ```
 
 ### Q31: 本地模型回复质量差
@@ -781,8 +781,8 @@ openclaw config set modelParams.topP 0.9
 
 # 方案四：混合策略 — 简单任务用本地模型，复杂任务用云端
 openclaw config set routing.rules '[
-  {"condition": "message.length < 100", "model": "ollama:llama3.1:8b"},
-  {"condition": "default", "model": "openai:gpt-5.2"}
+  {"condition": "message.length < 100", "model": "ollama/llama3.1:8b"},
+  {"condition": "default", "model": "openai/gpt-5.2"}
 ]'
 ```
 
@@ -792,20 +792,20 @@ openclaw config set routing.rules '[
 
 ```bash
 # 通义千问（阿里云）
-openclaw config set providers.dashscope.apiKey "sk-xxxxx"
-openclaw config set defaultModel "dashscope:qwen-max"
+openclaw config set models.providers.dashscope.apiKey "sk-xxxxx"
+openclaw config set defaultModel "dashscope/qwen-max"
 
 # Moonshot / Kimi
-openclaw config set providers.moonshot.apiKey "sk-xxxxx"
-openclaw config set defaultModel "moonshot:moonshot-v1-8k"
+openclaw config set models.providers.moonshot.apiKey "sk-xxxxx"
+openclaw config set defaultModel "moonshot/moonshot-v1-8k"
 
 # 智谱 GLM
-openclaw config set providers.zhipu.apiKey "xxxxx.xxxxx"
-openclaw config set defaultModel "zhipu:glm-4"
+openclaw config set models.providers.zhipu.apiKey "xxxxx.xxxxx"
+openclaw config set defaultModel "zhipu/glm-4"
 
 # DeepSeek
-openclaw config set providers.deepseek.apiKey "sk-xxxxx"
-openclaw config set defaultModel "deepseek:deepseek-chat"
+openclaw config set models.providers.deepseek.apiKey "sk-xxxxx"
+openclaw config set defaultModel "deepseek/deepseek-chat"
 ```
 
 国产模型的优势：不需要代理、中文能力强、价格便宜。推荐中国用户优先考虑。
@@ -818,9 +818,9 @@ openclaw config set defaultModel "deepseek:deepseek-chat"
 # 配置 Fallback 链
 openclaw config set fallback.enabled true
 openclaw config set fallback.models '[
-  "openai:gpt-5.2",
-  "anthropic:claude-sonnet-4-20250514",
-  "openai:gpt-5.2-mini"
+  "openai/gpt-5.2",
+  "anthropic/claude-sonnet-4-20250514",
+  "openai/gpt-5.2-mini"
 ]'
 
 # 配置超时时间（超过这个时间就切换到下一个模型）
@@ -841,7 +841,7 @@ openclaw config set budget.monthlyLimit 100.00
 
 # 方案二：使用更便宜的模型
 # gpt-5.2-mini 价格是 gpt-5.2 的 1/10
-openclaw config set defaultModel "openai:gpt-5.2-mini"
+openclaw config set defaultModel "openai/gpt-5.2-mini"
 
 # 方案三：限制上下文长度（减少 Token 消耗）
 openclaw config set context.maxTokens 4000
@@ -851,7 +851,7 @@ openclaw status
 
 # 方案五：本地模型零成本
 ollama pull llama3.1:8b
-openclaw config set defaultModel "ollama:llama3.1:8b"
+openclaw config set defaultModel "ollama/llama3.1:8b"
 ```
 
 ### Q35: 怎么让不同的对话用不同的模型？
@@ -860,12 +860,12 @@ openclaw config set defaultModel "ollama:llama3.1:8b"
 
 ```bash
 # 为特定 Agent 配置模型
-openclaw agents set-identity coding-assistant --model "anthropic:claude-sonnet-4-20250514"
-openclaw agents set-identity casual-chat --model "openai:gpt-5.2-mini"
+openclaw agents set-identity coding-assistant --model "anthropic/claude-sonnet-4-20250514"
+openclaw agents set-identity casual-chat --model "openai/gpt-5.2-mini"
 
 # 为特定 Channel 配置模型
-openclaw config set channels.telegram.defaultModel "openai:gpt-5.2"
-openclaw config set channels.whatsapp.defaultModel "openai:gpt-5.2-mini"
+openclaw config set channels.telegram.defaultModel "openai/gpt-5.2"
+openclaw config set channels.whatsapp.defaultModel "openai/gpt-5.2-mini"
 ```
 
 ---
@@ -1010,7 +1010,7 @@ openclaw plugins
 
 ```bash
 # 第一步：查看会话日志，找到中断点
-openclaw logs --tail 30
+openclaw logs --limit 30
 
 # 第二步：增加模型输出 Token 限制
 openclaw config set modelParams.maxTokens 4096
@@ -1193,11 +1193,11 @@ pm2 startup  # 开机自启
 openclaw logs --follow
 
 # 查看最近 100 行日志
-openclaw logs --tail 100
+openclaw logs --limit 100
 
-# 按关键词过滤
-openclaw logs --filter "error" --tail 50
-openclaw logs --filter "whatsapp" --tail 50
+# 按关键词过滤（通过管道 grep）
+openclaw logs --limit 50 | grep "error"
+openclaw logs --limit 50 | grep "whatsapp"
 
 # Docker 环境
 docker compose logs -f openclaw
@@ -1386,15 +1386,23 @@ openclaw config set agents.defaults.memory.maxTokens 2000
 
 ### Q58: 怎么在多个 Agent 之间共享记忆？
 
-**说明：** 默认情况下，所有 Agent 共享同一个记忆目录。如果你想隔离：
+**说明：** 默认情况下，所有 Agent 共享同一个 workspace 和记忆目录。如果你想隔离，在配置文件中为不同 Agent 指定独立的 workspace：
 
-```bash
-# 为特定 Agent 设置独立的记忆目录
-openclaw agents set-identity my-agent --memoryDir "~/.openclaw/workspace/memory-my-agent"
-
-# 或者让多个 Agent 共享（默认行为）
-# 所有 Agent 都读写 ~/.openclaw/workspace/MEMORY.md
+```jsonc
+// ~/.openclaw/openclaw.json
+{
+  "agents": {
+    "list": [
+      {
+        "id": "my-agent",
+        "workspace": "~/.openclaw/workspace-my-agent"
+      }
+    ]
+  }
+}
 ```
+
+每个 Agent 的 workspace 下有独立的 `MEMORY.md` 和 `memory/` 目录，实现完全隔离。如果需要共享部分记忆，可以用符号链接指向同一个 `MEMORY.md` 文件。
 
 ---
 
@@ -1456,7 +1464,7 @@ export OPENCLAW_GATEWAY_TOKEN="your-strong-random-token-here"
 # 陌生人发消息需要你手动批准
 openclaw pairing list          # 查看待批准的联系人
 openclaw pairing approve user1 # 批准
-openclaw pairing reject user2  # 拒绝
+# 不批准的联系人会保持在待审列表中
 
 # 方案二：白名单模式
 openclaw config set security.whitelist.enabled true
@@ -1522,16 +1530,16 @@ export HTTPS_PROXY="http://127.0.0.1:7890"
 openclaw gateway start
 
 # 方案二：使用 OpenRouter（一个 Key 用所有模型）
-openclaw config set providers.openrouter.apiKey "sk-or-xxxxx"
-openclaw config set defaultModel "openrouter:openai/gpt-5.2"
+openclaw config set models.providers.openrouter.apiKey "sk-or-xxxxx"
+openclaw config set defaultModel "openrouter/openai/gpt-5.2"
 
 # 方案三：使用国产模型（不需要代理）
-openclaw config set providers.deepseek.apiKey "sk-xxxxx"
-openclaw config set defaultModel "deepseek:deepseek-chat"
+openclaw config set models.providers.deepseek.apiKey "sk-xxxxx"
+openclaw config set defaultModel "deepseek/deepseek-chat"
 
 # 方案四：本地模型（完全不需要网络）
 ollama pull qwen2.5:7b
-openclaw config set defaultModel "ollama:qwen2.5:7b"
+openclaw config set defaultModel "ollama/qwen2.5:7b"
 ```
 
 ### Q66: WhatsApp 在中国能用吗？
@@ -1607,7 +1615,7 @@ docker pull openclaw/openclaw:latest
 实际发生了什么
 
 ## 日志
-（openclaw logs --tail 50）
+（openclaw logs --limit 50）
 ```
 
 ### Q69: 怎么贡献代码？
@@ -1777,7 +1785,7 @@ Gateway 是基础设施层，Agent 是业务逻辑层。一个 Gateway 可以服
 - OpenClaw 版本（`openclaw --version`）
 - Node.js 版本（`node --version`）
 - 操作系统信息
-- 相关日志（`openclaw logs --tail 50`）
+- 相关日志（`openclaw logs --limit 50`）
 
 ---
 

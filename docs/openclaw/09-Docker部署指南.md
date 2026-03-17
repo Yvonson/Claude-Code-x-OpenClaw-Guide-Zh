@@ -113,7 +113,7 @@ docker compose version         # 确认 Compose v2（不带横杠）
 
 ```bash
 docker pull openclaw/openclaw:latest    # 最新稳定版
-docker pull openclaw/openclaw:v1.2.0    # 指定版本
+docker pull openclaw/openclaw:v2026.3.13  # 指定版本
 docker images | grep openclaw           # 查看本地镜像
 ```
 
@@ -139,7 +139,7 @@ docker build --build-arg APT_PACKAGES="ffmpeg imagemagick" \
 | 标签 | 说明 | 适用场景 |
 |------|------|---------|
 | `latest` | 最新稳定版 | 生产环境 |
-| `v1.x.x` | 指定版本号 | 需要版本锁定 |
+| `vYYYY.M.D` | 指定版本号（如 `v2026.3.13`） | 需要版本锁定 |
 | `nightly` | 每日构建 | 尝鲜新功能 |
 | `local` | 本地构建 | 自定义需求 |
 
@@ -323,7 +323,7 @@ OPENAI_API_KEY=sk-proj-xxxxx
 ANTHROPIC_API_KEY=sk-ant-xxxxx
 
 # Google Gemini
-GOOGLE_API_KEY=AIzaSyxxxxx
+GEMINI_API_KEY=AIzaSyxxxxx
 
 # Azure OpenAI
 AZURE_OPENAI_API_KEY=xxxxx

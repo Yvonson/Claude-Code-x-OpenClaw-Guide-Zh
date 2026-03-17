@@ -218,7 +218,7 @@ Agent 的核心配置在 `~/.openclaw/openclaw.json`（JSON5 格式）的 `agent
 {
   "agents": {
     "defaults": {
-      "model": "anthropic:claude-opus-4-6",
+      "model": "anthropic/claude-opus-4-6",
       "maxTokens": 8192,
       "temperature": 0.7,
       "sandbox": {
@@ -228,14 +228,14 @@ Agent 的核心配置在 `~/.openclaw/openclaw.json`（JSON5 格式）的 `agent
     },
     "list": [
       {
-        "agentId": "main",
+        "id": "main",
         "workspace": "~/.openclaw/workspace",
-        "model": "anthropic:claude-opus-4-6",
+        "model": "anthropic/claude-opus-4-6",
       },
       {
-        "agentId": "coding",
+        "id": "coding",
         "workspace": "~/.openclaw/workspace-coding",
-        "model": "anthropic:claude-opus-4-6",
+        "model": "anthropic/claude-opus-4-6",
         "temperature": 0.3,
         "skills": {
           "enabled": ["coding-agent", "github", "gh-issues", "tmux"],
@@ -249,9 +249,9 @@ Agent 的核心配置在 `~/.openclaw/openclaw.json`（JSON5 格式）的 `agent
         ],
       },
       {
-        "agentId": "social",
+        "id": "social",
         "workspace": "~/.openclaw/workspace-social",
-        "model": "openai:gpt-5.2",
+        "model": "openai/gpt-5.2",
         "temperature": 0.9,
         "skills": {
           "enabled": ["summarize", "weather", "goplaces"],
@@ -264,9 +264,9 @@ Agent 的核心配置在 `~/.openclaw/openclaw.json`（JSON5 格式）的 `agent
         ],
       },
       {
-        "agentId": "work",
+        "id": "work",
         "workspace": "~/.openclaw/workspace-work",
-        "model": "anthropic:claude-sonnet-4-6",
+        "model": "anthropic/claude-sonnet-4-6",
         "skills": {
           "enabled": ["gog", "slack", "notion", "trello", "summarize"],
         },
@@ -287,7 +287,7 @@ Agent 的核心配置在 `~/.openclaw/openclaw.json`（JSON5 格式）的 `agent
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `agentId` | `string` | 是 | Agent 唯一标识符，只能用字母、数字、连字符 |
+| `id` | `string` | 是 | Agent 唯一标识符，只能用字母、数字、连字符 |
 | `workspace` | `string` | 是 | 工作空间目录路径 |
 | `model` | `string` | 否 | AI 模型（覆盖全局默认值） |
 | `temperature` | `number` | 否 | 温度参数（0-1，越高越有创意） |
@@ -407,18 +407,18 @@ Agent 的核心配置在 `~/.openclaw/openclaw.json`（JSON5 格式）的 `agent
   "agents": {
     "list": [
       {
-        "agentId": "coding",
-        "model": "anthropic:claude-opus-4-6",
+        "id": "coding",
+        "model": "anthropic/claude-opus-4-6",
         // 编程需要最强的推理能力，用最好的模型
       },
       {
-        "agentId": "social",
-        "model": "openai:gpt-5.2-mini",
+        "id": "social",
+        "model": "openai/gpt-5.2-mini",
         // 闲聊不需要太强的模型，用便宜的就行
       },
       {
-        "agentId": "work",
-        "model": "anthropic:claude-sonnet-4-6",
+        "id": "work",
+        "model": "anthropic/claude-sonnet-4-6",
         // 办公任务中等复杂度，用性价比最高的
       },
     ],
@@ -494,11 +494,11 @@ openclaw sessions cleanup
   "agents": {
     "list": [
       {
-        "agentId": "research",
+        "id": "research",
         "workspace": "~/.openclaw/workspace-research",
       },
       {
-        "agentId": "writer",
+        "id": "writer",
         "workspace": "~/.openclaw/workspace-writer",
       },
     ],
@@ -537,13 +537,13 @@ work Agent → 你：已创建 PROJ-101, PROJ-102, PROJ-103
     {
       "name": "research-phase",
       "cron": "0 9 * * 1-5",
-      "agentId": "research",
+      "id": "research",
       "prompt": "搜索今天的行业新闻，整理成摘要，保存到 ~/.openclaw/shared/daily-news.md",
     },
     {
       "name": "writing-phase",
       "cron": "30 9 * * 1-5",
-      "agentId": "writer",
+      "id": "writer",
       "prompt": "读取 ~/.openclaw/shared/daily-news.md，基于今天的新闻写一篇简报，发送到 Slack #news 频道",
     },
   ],
@@ -561,7 +561,7 @@ research Agent 9:00 执行，writer Agent 9:30 执行，通过共享文件实现
   "webhooks": [
     {
       "path": "/webhook/review-complete",
-      "agentId": "writer",
+      "id": "writer",
       "prompt": "代码审查已完成，请读取 ~/.openclaw/shared/review-result.json 并生成审查报告",
     },
   ],
@@ -669,7 +669,7 @@ Gateway 收到消息后，按以下顺序匹配 Agent：
 
 ```json5
 {
-  "agentId": "coding",
+  "id": "coding",
   "bindings": [
     {
       "channel": "discord",
@@ -737,21 +737,21 @@ openclaw agents list
   "agents": {
     "list": [
       {
-        "agentId": "coding",
+        "id": "coding",
         "skills": { "enabled": ["coding-agent", "github", "gh-issues", "tmux"] },
-        "model": "anthropic:claude-opus-4-6",
+        "model": "anthropic/claude-opus-4-6",
         "temperature": 0.3,
       },
       {
-        "agentId": "office",
+        "id": "office",
         "skills": { "enabled": ["gog", "slack", "notion", "trello", "summarize"] },
-        "model": "anthropic:claude-sonnet-4-6",
+        "model": "anthropic/claude-sonnet-4-6",
         "temperature": 0.5,
       },
       {
-        "agentId": "social",
+        "id": "social",
         "skills": { "enabled": ["weather", "goplaces", "summarize"] },
-        "model": "openai:gpt-5.2-mini",
+        "model": "openai/gpt-5.2-mini",
         "temperature": 0.9,
       },
     ],
@@ -803,12 +803,12 @@ openclaw agents list
     },
     "list": [
       {
-        "agentId": "trusted",
+        "id": "trusted",
         "skills": { "enabled": ["coding-agent", "github", "gog", "slack"] },
         // 完整权限，只处理私聊
       },
       {
-        "agentId": "limited",
+        "id": "limited",
         "skills": { "enabled": ["summarize", "weather", "goplaces"] },
         "bindings": [
           { "channel": "telegram", "chatId": "-100111222333" },
@@ -816,7 +816,7 @@ openclaw agents list
         // 有限权限，处理群聊
       },
       {
-        "agentId": "readonly",
+        "id": "readonly",
         "skills": { "enabled": ["summarize"] },
         "bindings": [
           { "channel": "discord", "guildId": "444555666" },
@@ -921,13 +921,13 @@ openclaw agents add tech-support
   "agents": {
     "list": [
       {
-        "agentId": "main",
+        "id": "main",
         "workspace": "~/.openclaw/workspace",
       },
       {
-        "agentId": "community",
+        "id": "community",
         "workspace": "~/.openclaw/workspace-community",
-        "model": "openai:gpt-5.2-mini",
+        "model": "openai/gpt-5.2-mini",
         "temperature": 0.8,
         "skills": {
           "enabled": ["summarize"],
@@ -941,9 +941,9 @@ openclaw agents add tech-support
         ],
       },
       {
-        "agentId": "tech-support",
+        "id": "tech-support",
         "workspace": "~/.openclaw/workspace-tech-support",
-        "model": "anthropic:claude-sonnet-4-6",
+        "model": "anthropic/claude-sonnet-4-6",
         "temperature": 0.3,
         "skills": {
           "enabled": ["coding-agent", "github", "summarize"],
@@ -1040,13 +1040,13 @@ openclaw agents add writer
     {
       "name": "translate-new-content",
       "cron": "0 10 * * *",
-      "agentId": "translator",
+      "id": "translator",
       "prompt": "检查 ~/.openclaw/shared/drafts/ 目录，翻译所有新的中文稿件，保存到 ~/.openclaw/shared/translations/",
     },
     {
       "name": "polish-translations",
       "cron": "0 11 * * *",
-      "agentId": "writer",
+      "id": "writer",
       "prompt": "检查 ~/.openclaw/shared/translations/ 目录，润色所有新的翻译稿，保存到 ~/.openclaw/shared/published/",
     },
   ],
@@ -1185,19 +1185,19 @@ openclaw agents add reviewer
     {
       "name": "weekly-research",
       "cron": "0 9 * * 1",
-      "agentId": "researcher",
+      "id": "researcher",
       "prompt": "进行本周的 AI 行业研究，收集最新动态、融资信息、产品发布，保存到 shared/research/",
     },
     {
       "name": "weekly-report",
       "cron": "0 14 * * 1",
-      "agentId": "report-writer",
+      "id": "report-writer",
       "prompt": "基于 shared/research/ 中的资料，撰写本周 AI 行业研究报告，保存到 shared/reports/",
     },
     {
       "name": "weekly-review",
       "cron": "0 16 * * 1",
-      "agentId": "reviewer",
+      "id": "reviewer",
       "prompt": "审核 shared/reports/ 中最新的报告草稿，生成审核报告保存到 shared/reviews/",
     },
   ],
@@ -1230,7 +1230,7 @@ openclaw agents add reviewer
   "agents": {
     "list": [
       {
-        "agentId": "coding",
+        "id": "coding",
         "skills": {
           "enabled": ["coding-agent", "github", "gh-issues", "tmux"],
           "coding-agent": {
@@ -1241,7 +1241,7 @@ openclaw agents add reviewer
         },
       },
       {
-        "agentId": "office",
+        "id": "office",
         "skills": {
           "enabled": ["gog", "slack", "notion", "trello", "summarize"],
           "gog": {
@@ -1251,7 +1251,7 @@ openclaw agents add reviewer
         },
       },
       {
-        "agentId": "social",
+        "id": "social",
         "skills": {
           "enabled": ["weather", "goplaces", "summarize"],
           "disabled": ["coding-agent", "github", "tmux"],
@@ -1304,10 +1304,10 @@ main Agent 的 Google 凭证不会自动共享给 coding Agent。如果 coding A
 
 ```bash
 # 为 coding Agent 认证 Google
-openclaw auth google --agent coding
+openclaw models auth login --provider google --agent coding
 
 # 为 coding Agent 认证 GitHub
-openclaw auth github --agent coding
+openclaw models auth login --provider github --agent coding
 ```
 
 如果你确实需要共享凭证，可以手动复制：
@@ -1352,8 +1352,8 @@ openclaw sessions cleanup
   "agents": {
     "list": [
       {
-        "agentId": "social",
-        "model": "openai:gpt-5.2-mini",
+        "id": "social",
+        "model": "openai/gpt-5.2-mini",
         // 闲聊用便宜模型，每条消息成本降低 10 倍
       },
     ],
@@ -1385,10 +1385,10 @@ openclaw sessions cleanup
 ```json5
 {
   "models": {
-    "primary": "anthropic:claude-sonnet-4-6",
+    "primary": "anthropic/claude-sonnet-4-6",
     "fallback": [
-      "openai:gpt-5.2-mini",
-      "ollama:llama3.1",
+      "openai/gpt-5.2-mini",
+      "ollama/llama3.1",
     ],
   },
 }
@@ -1522,9 +1522,9 @@ journalctl --since "1 hour ago" --priority err --no-pager | tail -20
   "agents": {
     "list": [
       {
-        "agentId": "devops",
+        "id": "devops",
         "workspace": "~/.openclaw/workspace-devops",
-        "model": "anthropic:claude-sonnet-4-6",
+        "model": "anthropic/claude-sonnet-4-6",
         "temperature": 0.2,
         "skills": {
           "enabled": ["server-monitor", "summarize"],
@@ -1543,13 +1543,13 @@ journalctl --since "1 hour ago" --priority err --no-pager | tail -20
     {
       "name": "health-check",
       "cron": "*/30 * * * *",
-      "agentId": "devops",
+      "id": "devops",
       "prompt": "执行服务器健康检查，如果发现异常，通过 Slack 通知 #ops 频道",
     },
     {
       "name": "daily-report",
       "cron": "0 18 * * *",
-      "agentId": "devops",
+      "id": "devops",
       "prompt": "生成今日运维日报，发送到 Slack #ops 频道",
     },
   ],
@@ -1633,7 +1633,7 @@ openclaw gateway --verbose --agent-debug
 [AGENT] Loading MEMORY.md (tokens: 150)
 [AGENT] Loading skills: weather, goplaces, summarize
 [AGENT] Total system prompt tokens: 1,850
-[AGENT] Calling model: openai:gpt-5.2-mini
+[AGENT] Calling model: openai/gpt-5.2-mini
 [AGENT] Model response received (tokens: 120, time: 1.2s)
 [AGENT] Sending response to telegram:chat=-100123456789
 ```

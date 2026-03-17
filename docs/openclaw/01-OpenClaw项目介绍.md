@@ -333,7 +333,7 @@ Channel 的安全默认值很重要。OpenClaw 连接的是真实的消息平台
 | 层级 | 说明 | 来源 |
 |------|------|------|
 | Bundled Skills | 内置技能，随 OpenClaw 一起安装 | 核心仓库 |
-| Managed Skills | 通过 ClawHub 安装的社区技能 | clawhub.ai |
+| Managed Skills | 通过 ClawHub 安装的社区技能 | clawhub.com |
 | Workspace Skills | 你自己写的本地技能 | 工作空间目录 |
 
 50+ 内置技能一览：
@@ -425,7 +425,7 @@ OpenClaw 的核心保持精简，可选功能通过插件扩展。
 插件的分发方式：
 - **npm 包** — 通过 npm 安装，标准的 Node.js 包管理
 - **本地扩展** — 开发时直接加载本地目录
-- **社区插件** — 通过 ClawHub（clawhub.ai）发现和安装
+- **社区插件** — 通过 ClawHub（clawhub.com）发现和安装
 
 插件 API 提供了 SDK：
 
@@ -590,7 +590,7 @@ OpenClaw 支持 29+ AI 模型提供商，这是它的核心竞争力之一。你
 
 | 提供商 | 代表模型 | 特点 |
 |--------|----------|------|
-| OpenAI | GPT-5.2 | 最强通用能力，OpenClaw 赞助商 |
+| OpenAI | GPT-5.4 | 最强通用能力，OpenClaw 赞助商 |
 | Anthropic | Claude Opus 4.6, Sonnet 4.6 | 官方推荐，编程和安全最强 |
 | Google | Gemini 3.1 | 多模态能力强 |
 | Mistral | Mistral Large | 欧洲开源模型 |
@@ -685,7 +685,7 @@ openclaw tui
 | 开放 Issues | 7,500+ |
 | 许可证 | MIT |
 | 发布频率 | 几乎每天 |
-| 赞助商 | OpenAI, Blacksmith |
+| 赞助商 | OpenAI, Vercel, Blacksmith, Convex |
 
 ### 社区渠道
 
@@ -700,7 +700,7 @@ openclaw tui
 
 ### ClawHub（技能市场）
 
-ClawHub（clawhub.ai）是 OpenClaw 的技能和插件市场。社区开发者可以发布自己的技能，其他用户可以一键安装。
+ClawHub（clawhub.com）是 OpenClaw 的技能和插件市场。社区开发者可以发布自己的技能，其他用户可以一键安装。
 
 官方鼓励新技能优先发布到 ClawHub，而不是提交到核心仓库。核心仓库的合并门槛很高。
 
