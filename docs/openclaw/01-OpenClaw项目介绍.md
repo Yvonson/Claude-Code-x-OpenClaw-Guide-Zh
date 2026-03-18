@@ -218,7 +218,7 @@ Gateway 的职责：
 Gateway 核心职责：
 ├── 连接管理
 │   ├── 管理所有消息平台的长连接
-│   ├── WhatsApp 用 Baileys，Telegram 用 grammY，Discord 用 discord.js
+│   ├── WhatsApp 用 Baileys，Telegram 用 grammY，Discord 用 @buape/carbon
 │   ├── 自动重连、心跳保活
 │   └── 统一消息格式转换
 │
@@ -285,7 +285,7 @@ Channel 是 OpenClaw 对消息平台的统一抽象。不管你用的是 WhatsAp
 |------|--------|----------|
 | WhatsApp | Baileys (Web 协议) | 扫码配对 |
 | Telegram | grammY | Bot Token |
-| Discord | discord.js | Bot Token |
+| Discord | @buape/carbon | Bot Token |
 | Slack | Bolt | OAuth App |
 | Signal | signal-cli | 手机号注册 |
 | BlueBubbles | BlueBubbles API | iMessage（推荐） |
@@ -468,7 +468,7 @@ OpenClaw Gateway ←→ mcporter ←→ MCP Servers
 
 | 类别 | 库 | 用途 |
 |------|-----|------|
-| 运行时 | Node.js >= 22.12.0 | 服务端 JavaScript 运行时 |
+| 运行时 | Node.js >= 22.16.0 | 服务端 JavaScript 运行时 |
 | 语言 | TypeScript 5.9+ | 类型安全 |
 | 构建 | tsdown | TypeScript 打包工具 |
 | 测试 | Vitest 4.x | 单元测试 + E2E 测试 |
@@ -488,7 +488,7 @@ OpenClaw Gateway ←→ mcporter ←→ MCP Servers
 |------|-----|
 | WhatsApp | @whiskeysockets/baileys |
 | Telegram | grammy |
-| Discord | discord.js (通过 @buape/carbon) |
+| Discord | @buape/carbon |
 | Slack | @slack/bolt + @slack/web-api |
 | 飞书 | @larksuiteoapi/node-sdk |
 | LINE | @line/bot-sdk |

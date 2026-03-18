@@ -130,7 +130,7 @@ git clone https://github.com/openclaw/openclaw.git && cd openclaw
 docker build -t openclaw:local -f Dockerfile .
 
 # 带额外 apt 包构建
-docker build --build-arg APT_PACKAGES="ffmpeg imagemagick" \
+docker build --build-arg OPENCLAW_DOCKER_APT_PACKAGES="ffmpeg imagemagick" \
   -t openclaw:custom -f Dockerfile .
 ```
 
@@ -181,7 +181,7 @@ services:
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:18789/health"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:18789/health').then(r => { if (!r.ok) process.exit(1) })"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -223,7 +223,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:18789/health"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:18789/health').then(r => { if (!r.ok) process.exit(1) })"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -309,7 +309,7 @@ OPENCLAW_GATEWAY_PASSWORD=your-secure-password-here
 # 运行环境
 NODE_ENV=production
 
-# 日志级别：debug, info, warn, error
+# 日志级别：silent, fatal, error, warn, info, debug, trace
 LOG_LEVEL=info
 
 # ========== 数据库配置 ==========
@@ -583,8 +583,8 @@ docker compose logs --since "2024-01-01" openclaw-gateway  # 按时间过滤
 services:
   openclaw-gateway:
     healthcheck:
-      # 检查 Gateway 是否响应
-      test: ["CMD", "curl", "-f", "http://localhost:18789/health"]
+      # 检查 Gateway 是否响应（注意：OpenClaw 镜像中没有 curl，使用 Node.js fetch）
+      test: ["CMD", "node", "-e", "fetch('http://localhost:18789/health').then(r => { if (!r.ok) process.exit(1) })"]
       interval: 30s       # 每 30 秒检查一次
       timeout: 10s        # 超时时间
       retries: 3          # 连续失败 3 次标记为 unhealthy
@@ -734,7 +734,7 @@ OpenClaw 的沙箱通过 `agents.defaults.sandbox.mode` 控制。配置文件位
     "defaults": {
       "sandbox": {
         // "non-main" — 非主会话在 Docker 沙箱中运行（推荐）
-        // "always"   — 所有会话都在沙箱中运行
+        // "all"      — 所有会话都在沙箱中运行
         // "off"      — 关闭沙箱
         "mode": "non-main",
         "image": "openclaw:sandbox"
