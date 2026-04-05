@@ -1,13 +1,17 @@
-# Commands系统完整指南：从Slash命令到自定义命令的全面精通
+# Commands系统完整指南：从 Slash 命令到 Skills 工作流的全面精通
 
 > **课程信息**
 >
 > - **作者**：老金
+> - **GitHub**：https://github.com/KimYx0207
+> - **公众号**：老金带你玩AI
+> - **X（Twitter）**：老金带你玩AI
+> - **个人博客**：https://aiking.dev
 > - **预计学时**：4-6小时
 > - **难度等级**：⭐⭐ 入门级
-> - **更新日期**：2026年3月
-> - **适用版本**：Claude Code v2.1+（验证于2026-03-18）
-> - **信息来源**：[官方文档](https://docs.anthropic.com/en/docs/claude-code/slash-commands) | [Claude Command Suite](https://github.com/qdhenry/Claude-Command-Suite) | [最佳实践](https://www.anthropic.com/engineering/claude-code-best-practices)
+> - **更新日期**：2026年4月
+> - **适用版本**：Claude Code v2.1.92（验证于2026-04-05）
+> - **信息来源**：[内置命令参考](https://code.claude.com/docs/en/commands) | [Skills 官方文档](https://code.claude.com/docs/en/slash-commands) | [Claude Command Suite](https://github.com/qdhenry/Claude-Command-Suite) | [最佳实践](https://www.anthropic.com/engineering/claude-code-best-practices)
 > - **前置要求**：已完成Claude Code安装和基础使用
 
 ---
@@ -18,12 +22,31 @@
 
 1. **理解Commands本质**：掌握Slash命令就是Markdown提示词的核心概念
 2. **5分钟创建第一个命令**：从零开始创建并运行自定义命令
-3. **掌握frontmatter配置**：使用description、allowed-tools、model等高级配置
-4. **精通$ARGUMENTS参数**：接收和解析用户输入参数
+3. **分清 legacy commands 与 Skills**：知道什么时候继续用 `.claude/commands/`，什么时候应该迁移到 Skills
+4. **掌握内置命令的新表面**：了解 `/plan`、`/plugin`、`/release-notes`、`/rewind`、`/insights`、`/schedule`、`/statusline`
 5. **组合命令构建工作流**：将多个命令串联成自动化流程
 6. **排查命令故障**：独立解决90%的常见配置和执行问题
+7. **掌握frontmatter配置**：使用description、allowed-tools、model等高级配置
+8. **精通$ARGUMENTS参数**：接收和解析用户输入参数
 
 > **前置知识**：本教程假设你已掌握02教程中的30+内置命令用法，重点讲解**自定义命令开发**。
+
+---
+
+## 2026-04 差量更新（先读）
+
+这章最容易踩的坑，是把 **自定义 slash 命令** 和 **Skills 工作流** 混成一件事。当前官方实践已经发生变化：
+
+- **新的自定义 slash 工作流，优先用 Skills**。官方文档已把自定义命令能力并入 Skills 体系来管理和分享。
+- **`.claude/commands/` 和 `~/.claude/commands/` 仍然可用**，但更适合兼容旧项目、快速做局部 prompt 包装，或者理解 slash mechanics。
+- **内置命令面板在 2.1.92 已明显扩展**，不再只盯着旧版 `/clear`、`/doctor`、`/loop` 这一批。
+- **要分清 built-in commands 和 bundled skills**：`/loop` 会出现在 slash 菜单里，但官方把它归到 bundled skills，不是固定逻辑的 built-in command。
+- **命令状态也在变化**：`/review` 已弃用，`/vim` 已移入 `/config`，所以旧教程里的命令示例不能直接照抄。
+
+因此，这一章请这样读：
+
+- 你在维护旧仓库或需要最轻量的本地 slash 包装：继续看 `.claude/commands/` 示例。
+- 你在新建团队工作流、可复用能力包、可分享的 slash 入口：优先同时参考 [07-Skills定制完整指南](./07-Skills定制完整指南.md)。
 
 ---
 
@@ -217,8 +240,9 @@ Claude Code的命令分为三大类：
 | 类型                 | 来源               | 存放位置                | 特点               |
 | -------------------- | ------------------ | ----------------------- | ------------------ |
 | **内置命令**   | Claude Code官方    | 程序内部                | 不可修改，核心功能 |
-| **自定义命令** | 你自己创建         | `.claude/commands/`   | 完全可控，个性化   |
-| **用户级命令** | 你自己创建（全局） | `~/.claude/commands/` | 所有项目共享       |
+| **兼容自定义命令** | 你自己创建         | `.claude/commands/`   | 适合旧项目和轻量 prompt 包装 |
+| **用户级兼容命令** | 你自己创建（全局） | `~/.claude/commands/` | 所有项目共享，偏个人习惯 |
+| **Skills 工作流** | 你自己创建         | `.claude/skills/` / `~/.claude/skills/` | 当前官方推荐的自定义能力形态 |
 
 **命令来源决策树**：
 
@@ -228,11 +252,14 @@ Claude Code的命令分为三大类：
     ├── 会话管理、系统诊断？
     │       └── 用内置命令（/clear、/doctor等）
     │
-    ├── 项目特定的工作流？
-    │       └── 创建项目级自定义命令
+    ├── 项目特定且要长期维护的工作流？
+    │       └── 优先创建项目级 Skills
+    │
+    ├── 只是给当前项目包一层轻量 slash 入口？
+    │       └── 用 `.claude/commands/` 兼容方式也可以
     │
     └── 所有项目通用的工具？
-            └── 创建用户级自定义命令
+            └── 创建用户级 Skills 或用户级兼容命令
 ```
 
 ### 1.3 为什么要学Commands
@@ -465,7 +492,7 @@ You: /hello
 |                      | `/memory`        | 编辑记忆文件    | 添加项目规则   |      |
 |                      | `/permissions`   | 管理权限设置    | 安全控制       |      |
 |                      | `/add-dir`       | 添加工作目录    | 跨目录操作     |  ⭐  |
-| **开发辅助**   | `/review`        | 代码审查        | 提交前检查     |      |
+| **开发辅助**   | `/security-review` | 安全审查      | 检查当前 diff 的安全问题 |      |
 |                      | `/todos`         | 查看待办事项    | 任务追踪       |      |
 |                      | `/rewind`        | 回退检查点      | 撤销修改       |  ⭐  |
 | **诊断工具**   | `/doctor`        | 系统健康检查    | 排查问题       |      |
@@ -475,18 +502,32 @@ You: /hello
 |                      | `/hooks`         | 管理Hooks       | 自动化触发     |  ⭐  |
 | **其他**       | `/help`          | 显示帮助        | 快速查命令     |  ⭐  |
 |                      | `/release-notes` | 更新日志        | 查看新功能     |      |
-|                      | `/loop`          | 定时循环执行    | 监控部署状态   |  ⭐  |
+|                      | `/loop`          | Bundled skill：定时循环执行 | 监控部署状态   |  ⭐  |
 |                      | `/sandbox`       | 沙箱隔离模式    | 安全执行       |      |
 |                      | `/color`         | 会话颜色设置    | 个性化         |      |
 |                      | `/copy`          | 复制AI回复      | 分享内容       |      |
 
 > 💡 **提示**：输入 `/` 然后按 `Tab` 键可以查看所有可用命令。
 
-### v2.1.69+ 新增命令详解 🆕
+### v2.1.69+ 到 v2.1.92 的常用命令增量 🆕
 
-以下命令是 Claude Code v2.1.69-v2.1.78 版本新增的功能：
+以下命令是 Claude Code 在 2.1.69 之后持续扩展、到 2.1.92 仍然值得优先掌握的一批能力：
 
-#### /loop - 定时循环执行
+- `/loop`：bundled skill 形式的定时循环任务
+- `/effort`：推理深度控制
+- `/sandbox`：沙箱隔离
+- `/color`：会话颜色
+- `/copy`：复制回复
+- `/branch`：会话分支
+- `/plan`：先规划后执行
+- `/plugin`：插件市场与安装入口
+- `/release-notes`：查看最近更新
+- `/rewind`：回退到更早会话状态
+- `/insights`：查看会话和使用洞察
+- `/schedule`：计划性任务入口
+- `/statusline`：状态行定制
+
+#### /loop - 定时循环执行（bundled skill）
 
 **一句话理解**：就像设了一个"定时闹钟"——每隔一段时间自动执行你指定的任务。
 
@@ -501,8 +542,8 @@ You: /hello
 **时间格式**：数字 + 单位（`s`秒 / `m`分钟 / `h`小时）
 
 **注意事项**：
-- 只在REPL空闲时触发（不会打断你当前的工作）
-- 循环任务**3天后自动过期**，防止遗忘的任务持续运行
+- 只在 REPL 空闲时触发（不会打断你当前的工作）
+- 官方当前文档里，循环任务是 **7 天后自动过期**
 - 使用 `Ctrl + C` 可以停止当前循环
 
 > 💡 **实用场景**：监控CI/CD部署进度、定期检查构建状态、轮询外部服务健康状况。
@@ -652,11 +693,11 @@ model: claude-sonnet-4-6
 
 假设存在：
 
-- `.claude/commands/review.md`（项目级）
-- `~/.claude/commands/review.md`（用户级）
-- 内置 `/review` 命令
+- `.claude/commands/deploy.md`（项目级）
+- `~/.claude/commands/deploy.md`（用户级）
+- 另一个同名的共享 skill `/deploy`
 
-执行 `/review` 时，使用项目级的 `review.md`。
+执行 `/deploy` 时，优先使用项目级的 `deploy.md`。
 
 **但是**：创建 `.claude/commands/clear.md` **不会**覆盖内置的 `/clear` 命令。
 
@@ -853,7 +894,7 @@ $ARGUMENTS 格式：<主题> [风格] [字数]
 首先检查 $ARGUMENTS：
 
 **如果为空**：
-提示用户：请提供文件路径，格式：/review <文件路径>
+提示用户：请提供文件路径，格式：/scan-code <文件路径>
 终止执行
 
 **如果不是有效路径**：
@@ -1374,7 +1415,7 @@ allowed-tools:
 
 ```
 .claude/commands/write.md → /write
-.claude/commands/dev/review.md → /dev:review
+.claude/commands/dev/check.md → /dev:check
 ```
 
 ---
@@ -1869,7 +1910,7 @@ allowed-tools:
 |                    | `/memory`        | 编辑记忆      |
 |                    | `/permissions`   | 管理权限      |
 |                    | `/add-dir`       | 添加目录      |
-| **开发**     | `/review`        | 代码审查      |
+| **开发**     | `/security-review` | 安全审查    |
 |                    | `/todos`         | 查看待办      |
 |                    | `/rewind`        | 回退功能      |
 | **诊断**     | `/doctor`        | 系统诊断      |
@@ -1879,7 +1920,7 @@ allowed-tools:
 |                    | `/hooks`         | 管理Hooks     |
 | **其他**     | `/help`          | 显示帮助      |
 |                    | `/release-notes` | 更新日志      |
-|                    | `/loop`          | 定时循环执行  |
+|                    | `/loop`          | Bundled skill：定时循环执行 |
 |                    | `/sandbox`       | 沙箱隔离模式  |
 |                    | `/color`         | 会话颜色设置  |
 |                    | `/copy`          | 复制AI回复    |
@@ -2038,8 +2079,8 @@ allowed-tools:
 
 ---
 
-**文档版本**：v1.2（新增6个内置命令）
-**最后更新**：2026年3月18日
+**文档版本**：v1.3（v2.1.92 差量同步版）
+**最后更新**：2026年4月5日
 **作者**：老金
 
 ---
@@ -2050,7 +2091,7 @@ allowed-tools:
 
 | 新增项 | 说明 |
 |--------|------|
-| `/loop` 命令 | 定时循环执行，支持 s/m/h 时间格式，3天自动过期 |
+| `/loop` 命令 | bundled skill 形式的定时循环执行，支持 s/m/h/d，7天自动过期 |
 | `/effort` 命令 | 推理深度控制，low/medium/high/auto 四级 |
 | `/sandbox` 命令 | OS级沙箱隔离，限制文件系统和网络访问 |
 | `/color` 命令 | 会话颜色个性化设置，多窗口区分 |

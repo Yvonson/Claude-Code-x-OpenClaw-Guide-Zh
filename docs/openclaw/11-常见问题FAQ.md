@@ -1,6 +1,14 @@
 # 11. 常见问题 (FAQ)
 
-> 🟢 **难度：入门** | 📋 前置知识：无
+> **课程信息**
+>
+> - **作者**：老金
+> - **GitHub**：https://github.com/KimYx0207
+> - **公众号**：老金带你玩AI
+> - **X（Twitter）**：老金带你玩AI
+> - **个人博客**：https://aiking.dev
+> - **难度等级**：🟢 入门
+> - **前置知识**：无
 >
 > **遇到问题？** 这里收集了社区最常见的问题和解决方案。用 `Ctrl+F`（或 `Cmd+F`）搜索关键词，快速定位你的问题
 >
@@ -9,6 +17,13 @@
 这篇 FAQ 收集了 OpenClaw 社区中最常见的问题和解决方案。按类别组织，方便你快速定位问题。
 
 如果这里没有你遇到的问题，可以到 [GitHub Issues](https://github.com/openclaw/openclaw/issues) 提问，或加入 Discord 社区寻求帮助。
+
+> **2026-04 版本基线**
+>
+> - **Node.js**：24.x 推荐，22.14+ 兼容
+> - **安装**：`macOS / Linux / WSL2` 下官方优先推荐 `install.sh + openclaw onboard`
+> - **Windows**：原生可用，但 WSL2 更稳定
+> - **诊断**：`openclaw doctor` 仍是正式支持的排障入口
 
 ---
 
@@ -55,7 +70,7 @@ pnpm config get global-bin-dir
 
 **现象：** 安装时报错 `engine "node" is incompatible` 或运行时出现语法错误。
 
-**原因：** OpenClaw 要求 Node.js >= 22.16.0。低版本缺少必要的 API 支持。
+**原因：** OpenClaw 当前官方建议使用 Node.js 24.x；22.14+ 仍然兼容。低于兼容线时，常见报错就是 `engine incompatible`、运行时语法错误或部分 API 不可用。
 
 **解决方案：**
 
@@ -68,19 +83,19 @@ node --version
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
 
 # 重新打开终端，然后：
-nvm install 22
-nvm use 22
-nvm alias default 22  # 设为默认版本
+nvm install 24
+nvm use 24
+nvm alias default 24  # 设为默认版本
 
 # 验证
-node --version  # 应该显示 v22.x.x
+node --version  # 应该显示 v24.x.x
 ```
 
 Windows 用户推荐用 [nvm-windows](https://github.com/coreybutler/nvm-windows)：
 
 ```powershell
-nvm install 22
-nvm use 22
+nvm install 24
+nvm use 24
 ```
 
 ### Q3: npm install 报权限错误（EACCES）

@@ -3,13 +3,26 @@
 > **课程信息**
 >
 > - **作者**：老金
+> - **GitHub**：https://github.com/KimYx0207
+> - **公众号**：老金带你玩AI
+> - **X（Twitter）**：老金带你玩AI
+> - **个人博客**：https://aiking.dev
 > - **预计学时**：6-8小时
 > - **难度等级**：⭐⭐⭐ 中级进阶
-> - **更新日期**：2026年2月
-> - **适用版本**：Claude Code v2.1+（验证于2026-02-25）
-> - **信息来源**：[官方文档](https://docs.anthropic.com/en/docs/claude-code/sdk)、[GitHub Python SDK](https://github.com/anthropics/claude-agent-sdk-python)、[GitHub TypeScript SDK](https://github.com/anthropics/claude-agent-sdk-typescript)
+> - **更新日期**：2026年4月
+> - **适用版本**：Claude Code v2.1+（截至 2026-04 验证）
+> - **信息来源**：[官方概览](https://platform.claude.com/docs/zh-CN/agent-sdk/overview)、[GitHub Python SDK](https://github.com/anthropics/claude-agent-sdk-python)、[GitHub TypeScript SDK](https://github.com/anthropics/claude-agent-sdk-typescript)
 
 > **版本说明**：Claude Agent SDK（原名Claude Code SDK）是2025年Anthropic官方发布的开发工具包。本教程基于最新官方文档编写，如有更新请以官方为准。
+
+---
+
+## 2026-04 差量更新（先读）
+
+这章主体内容已经切到了 Agent SDK，但还有两个容易混淆的点：
+
+- **官方文档主入口已经转到 `platform.claude.com/docs/.../agent-sdk/...`**，不要再把旧的 Claude Code SDK 文档路径当主入口。
+- **当前包名与品牌都应统一写作 Claude Agent SDK**；“Claude Code SDK”只适合作为迁移说明里的旧称呼。
 
 ---
 
@@ -1883,9 +1896,9 @@ async def rate_limited_query(prompts, delay=1.0):
 
 ---
 
-**课程版本**：V1.1
-**最后更新**：2026年2月25日
-**作者**：Claude Code教程团队
+**课程版本**：V1.2
+**最后更新**：2026年4月5日
+**作者**：老金
 
 ---
 
@@ -1898,8 +1911,8 @@ async def rate_limited_query(prompts, delay=1.0):
 | V1.0 | 2025-12-19 | 初版发布 |
 
 **参考资料**：
-- [官方Python SDK文档](https://docs.anthropic.com/en/docs/claude-code/sdk/sdk-python)
-- [官方TypeScript SDK文档](https://docs.anthropic.com/en/docs/claude-code/sdk/sdk-typescript)
+- [官方Agent SDK总览](https://platform.claude.com/docs/zh-CN/agent-sdk/overview)
+- [官方Agent SDK Skills文档](https://platform.claude.com/docs/en/agent-sdk/skills)
 - [GitHub Python SDK](https://github.com/anthropics/claude-agent-sdk-python)
 - [GitHub TypeScript SDK](https://github.com/anthropics/claude-agent-sdk-typescript)
 - [DataCamp教程](https://www.datacamp.com/tutorial/how-to-use-claude-agent-sdk)

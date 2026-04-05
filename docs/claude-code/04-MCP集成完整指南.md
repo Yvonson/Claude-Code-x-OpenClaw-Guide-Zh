@@ -3,11 +3,24 @@
 > **课程信息**
 >
 > - **作者**：老金
+> - **GitHub**：https://github.com/KimYx0207
+> - **公众号**：老金带你玩AI
+> - **X（Twitter）**：老金带你玩AI
+> - **个人博客**：https://aiking.dev
 > - **预计学时**：4-6小时
 > - **难度等级**：⭐⭐ 入门级（有Claude Code基础即可）
-> - **更新日期**：2026年3月
-> - **适用版本**：MCP规范 2025-11-25 / Claude Code v2.1.69+（验证于2026-03-18）
+> - **更新日期**：2026年4月
+> - **适用版本**：MCP规范 2025-11-25 / Claude Code v2.1.92（验证于2026-04-05）
 > - **前置要求**：已完成Claude Code安装和基础使用
+
+---
+
+## 2026-04 差量更新（先读）
+
+这章原本已经比较新，但仍有两个需要校正的点：
+
+- **MCP 工具懒加载不是“新鲜功能提示”了**，在当前版本里应把它当成默认能力来理解。
+- **MCP Elicitation、远程 MCP、MCP Apps** 现在应一起看成同一代 MCP 体验增强，而不是零散补丁。
 
 ---
 
@@ -351,7 +364,7 @@ claude
 **启动时会看到**：
 
 ```
-Claude Code v2.1.52
+Claude Code v2.1.92
 Working directory: /你的项目路径
 
 MCP servers connected:
@@ -827,11 +840,11 @@ Claude Code：
 
 这是 2026 年初新增的能力——MCP 服务器不再只是返回文本数据，还可以返回可交互的 UI 组件。这意味着你可以在 Claude Code 的对话中直接操作第三方工具的界面，无需切换到外部应用。
 
-#### MCP 工具懒加载（v2.1.52+）
+#### MCP 工具懒加载（当前标准行为）
 
 > **功能**：延迟加载 MCP 工具定义，减少上下文占用高达 95%
 
-当你配置了大量 MCP 服务器时，旧版本会把所有工具描述一次性加载到上下文窗口，浪费大量 token。v2.1.52+ 引入了 **ToolSearch 懒加载机制**——只有在需要时才加载对应工具。
+当你配置了大量 MCP 服务器时，旧版本会把所有工具描述一次性加载到上下文窗口，浪费大量 token。这个 **ToolSearch 懒加载机制** 早在 v2.1.52 引入，但到当前版本已经应当被视为默认行为：只有在需要时才加载对应工具。
 
 **使用方式**（自动生效，无需配置）：
 
@@ -2306,15 +2319,15 @@ npm publish --access public
 ---
 
 > 📌 **信息来源**：
-> - [MCP官方文档](https://modelcontextprotocol.io/) | 验证日期：2026-02-25
-> - [GitHub MCP Server仓库](https://github.com/modelcontextprotocol/servers) | 验证日期：2026-02-25
-> - [Claude Code文档](https://code.claude.com/docs/en/mcp) | 验证日期：2026-02-25
+> - [MCP官方文档](https://modelcontextprotocol.io/) | 验证日期：2026-04-05
+> - [GitHub MCP Server仓库](https://github.com/modelcontextprotocol/servers) | 验证日期：2026-04-05
+> - [Claude Code文档](https://code.claude.com/docs/en/mcp) | 验证日期：2026-04-05
 
 **作者**：老金
-**更新日期**：2026年3月18日
-**版本**：V1.2（新增 MCP Elicitation）
+**更新日期**：2026年4月5日
+**版本**：V1.3（v2.1.92 差量同步）
 **字数统计**：约3,500行 / 28,000字
-**适用版本**：MCP规范 2025-11-25 / Claude Code v2.1.69+
+**适用版本**：MCP规范 2025-11-25 / Claude Code v2.1.92
 
 ---
 

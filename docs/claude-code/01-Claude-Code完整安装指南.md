@@ -2,11 +2,16 @@
 
 > **课程信息**
 >
+> - **作者**：老金
+> - **GitHub**：https://github.com/KimYx0207
+> - **公众号**：老金带你玩AI
+> - **X（Twitter）**：老金带你玩AI
+> - **个人博客**：https://aiking.dev
 > - **预计学时**：2-3小时（原生安装更简单！）
 > - **难度等级**：⭐ 零基础入门
-> - **更新日期**：2026年2月
-> - **适用版本**：Claude Code v2.1+
-> - **重要更新**：已切换到原生安装，无需Node.js！
+> - **更新日期**：2026年4月
+> - **适用版本**：Claude Code v2.1+（截至 2026-04 验证）
+> - **重要更新**：当前同时支持原生安装与标准 npm 安装；原生更省心，npm 路径仍然受支持且需要 Node.js 18+
 
 ---
 
@@ -15,9 +20,9 @@
 完成本课学习后，你将能够：
 
 1. **理解Claude Code的核心价值**：掌握Claude Code与传统AI编程工具的本质区别
-2. **了解原生安装优势**：为什么官方废弃了npm，改用原生安装器
+2. **了解两条安装路径**：知道什么时候优先用原生安装，什么时候仍然可以走 npm 标准安装
 3. **配置Anthropic服务**：获取并正确配置API密钥
-4. **完成Claude Code安装**：掌握一行命令的原生安装方式（无需Node.js！）
+4. **完成Claude Code安装**：掌握原生安装与 npm 标准安装两条主路径
 5. **集成到主流IDE**：VS Code、Cursor、JetBrains等编辑器配置
 6. **验证环境可用性**：通过Hello World测试确认所有组件正常工作
 7. **掌握故障排查技能**：独立解决90%的常见安装问题
@@ -92,7 +97,7 @@
 
 ## 术语表（小白必读）
 
-> ⚠️ **2026年重要更新**：Claude Code已切换到原生安装，**不再需要Node.js和npm**！下表中带⚠️的术语仅为历史参考。
+> ⚠️ **2026年重要更新**：Claude Code 现在提供原生安装，但 **npm 标准安装仍受支持**。Node.js 和 npm 不再是唯一入口，但也没有“彻底消失”。
 
 在开始之前，先了解这些关键术语：
 
@@ -100,8 +105,8 @@
 | ----------------------- | --------------------------------- | ------------------------------------------------------------------ |
 | **CLI**           | Command Line Interface            | 命令行界面，就是那个黑色/白色的文字输入窗口，通过打字来操作电脑    |
 | **原生安装器** ⭐   | Native Installer                  | Claude Code官方提供的独立安装程序，不需要其他依赖                   |
-| **Node.js** ⚠️      | -                                 | ~~JavaScript运行环境~~（旧版本需要，新版原生安装不需要了）          |
-| **npm** ⚠️          | Node Package Manager              | ~~Node.js的包管理器~~（已废弃，官方不再推荐此安装方式）            |
+| **Node.js** | - | JavaScript 运行环境；如果你走 `npm install -g @anthropic-ai/claude-code` 这条标准安装路径，仍需要 18+ |
+| **npm** | Node Package Manager | Node.js 的包管理器；Claude Code 的标准安装路径之一仍然会用到它 |
 | **LTS**           | Long Term Support                 | 长期支持版本，稳定、bug少、官方持续维护，适合正式使用              |
 | **API**           | Application Programming Interface | 应用程序接口，软件之间"对话"的方式                                 |
 | **API Key**       | -                                 | API密钥，类似"通行证"，证明你有权使用某个服务                      |
@@ -214,7 +219,7 @@ Claude Code：
 
 ## 课前准备检查清单
 
-> ⚠️ **2026年重大更新**：原生安装**无需Node.js**！检查清单大大简化！
+> ⚠️ **2026年重大更新**：原生安装路径确实**不需要 Node.js**，但 npm 标准安装仍然存在，所以本章会同时教你两条路径。
 
 在开始安装前,请确认以下内容已完成:
 
@@ -296,24 +301,33 @@ ping api.anthropic.com
 
 **背景说明：**
 
-2025年10月31日，Anthropic官方在社交媒体宣布：
+截至 2026-04-05，Claude Code 官方文档的真实口径是：
 
-> "Claude Code的原生安装器现已正式发布。它更简单、更稳定，**不需要Node.js**。我们建议所有Claude Code用户今后都使用这种默认安装方式。"
+- 仍然保留 **标准安装**：`npm install -g @anthropic-ai/claude-code`
+- 同时提供 **原生二进制安装**（beta / 改进安装路径）
+- 安装后建议运行 `claude doctor` 检查当前安装类型
+
+因此，这里更准确的理解不是“npm 被删除了”，而是：
+
+> Claude Code 从“只有 npm 一条路”，变成了“原生安装 + npm 标准安装并存”。
 
 **原生安装 vs npm安装对比：**
 
-| 对比项         | 原生安装 ⭐ | npm安装（已废弃） |
+| 对比项         | 原生安装 ⭐ | npm标准安装 |
 | -------------- | ----------- | ----------------- |
-| 需要Node.js    | ❌ 不需要    | ✅ 必须安装      |
+| 需要Node.js    | ❌ 不需要    | ✅ 需要 18+      |
 | 安装时间       | ⏱️ 5分钟     | ⏱️ 40分钟        |
-| 自动更新       | ✅ 后台自动  | ❌ 需手动运行    |
+| 自动更新       | ✅ 更接近官方默认体验  | ⚠️ 通常需你自己更新 |
 | PATH配置       | ✅ 自动完成  | ⚠️ 经常出错     |
 | 跨平台支持     | ✅ 完美      | ⚠️ 平台差异大   |
 | 稳定性         | ✅ 生产级    | ⚠️ 依赖环境     |
 
 **简单理解：**
 
-以前安装Claude Code像组装家具（需要很多工具和零件），现在像买成品（拿来即用）！
+现在更像是：
+
+- **原生安装**：买成品，拿来即用
+- **npm 安装**：标准件组装，兼容性更广，但需要你自己有 Node 环境
 
 ### 3.2 原生安装的工作原理
 
@@ -806,9 +820,9 @@ winget install Anthropic.ClaudeCode
 
 ---
 
-### 5.5 方式4：NPM安装（⚠️ 已废弃但仍可用）
+### 5.5 方式4：NPM安装（标准兼容路径）
 
-> ⚠️ **重要说明**：NPM 安装方式已被官方标记为 **Deprecated（废弃）**，官方推荐使用上面的原生安装。但如果你原生安装遇到问题（网络问题、权限问题等），NPM 仍然是一个**可用的备选方案**。
+> ⚠️ **重要说明**：当前官方文档仍保留 `npm install -g @anthropic-ai/claude-code` 这条标准安装路径，只是对新环境更鼓励优先尝试原生安装。你可以把 npm 安装理解成“兼容性更广的标准入口”，而不是“已经不能用的旧方式”。
 
 **前提条件**：需要先安装 [Node.js](https://nodejs.org/) 18 或更高版本。
 
@@ -856,10 +870,10 @@ npm install -g @anthropic-ai/claude-code
 | 需要 Node.js | ❌ 不需要 | ✅ 需要 18+ |
 | 自动更新 | ✅ 内置 | ❌ 需手动 `npm update -g` |
 | 安装大小 | ~80MB | ~80MB + Node.js |
-| 官方支持 | ✅ 推荐 | ⚠️ 已废弃，但仍可用 |
+| 官方支持 | ✅ 当前更推荐 | ✅ 仍受支持 |
 | 适合场景 | 所有用户 | 原生安装失败时的备选 |
 
-> 💡 **老金建议**：能用原生安装就用原生安装！NPM 方式只在原生安装搞不定的时候当备胎用。装好之后可以随时通过 `claude install` 迁移到原生版本。
+> 💡 **老金建议**：如果你是全新环境，优先试原生安装；如果你本来就有稳定的 Node 18+ 环境，或者原生安装在你机器上受阻，npm 仍然是完全合理的选择。装好之后也可以随时通过 `claude install` 迁移到原生版本。
 
 ---
 
@@ -1221,7 +1235,7 @@ echo "分析这段代码" | claude -p
 │  • Use /exit to quit                                    │
 ╰─────────────────────────────────────────────────────────╯
 
-Claude Code v2.1.52
+Claude Code v2.1.92
 Working directory: /Users/yourname/projects/my-app
 
 You: █
@@ -1296,7 +1310,7 @@ claude
 │  • Use /exit to quit                                    │
 ╰─────────────────────────────────────────────────────────╯
 
-Claude Code v2.1.52
+Claude Code v2.1.92
 Working directory: /你的当前目录
 
 You: █
@@ -2821,13 +2835,13 @@ npm uninstall -g @anthropic-ai/claude-code
 
 #### Q21：原生安装和npm安装有什么区别？
 
-**A21：简单来说，原生安装更简单更稳定！**
+**A21：简单来说，原生安装更省心；npm 安装仍然是官方支持的标准路径。**
 
-| 对比项         | 原生安装 ⭐ | npm安装（已废弃） |
+| 对比项         | 原生安装 ⭐ | npm标准安装 |
 | -------------- | ----------- | ----------------- |
-| 需要Node.js    | ❌ 不需要    | ✅ 必须安装      |
+| 需要Node.js    | ❌ 不需要    | ✅ 需要 18+      |
 | 安装时间       | ⏱️ 3-5分钟  | ⏱️ 30-40分钟    |
-| 自动更新       | ✅ 后台自动  | ❌ 需手动运行    |
+| 自动更新       | ✅ 更接近官方默认体验  | ⚠️ 通常需你手动更新 |
 | PATH配置       | ✅ 自动完成  | ⚠️ 经常出错     |
 | 稳定性         | ✅ 生产级    | ⚠️ 依赖环境     |
 
@@ -2934,6 +2948,345 @@ curl -fsSL https://claude.ai/install.sh | bash
 
 ---
 
+## 第8.5部分：模型配置（安装后的进阶配置）
+
+> 💡 **本节重点**：装好 Claude Code 后，最重要的进阶配置之一就是选择合适的模型。这一节把模型配置讲透，让你从"会用"升级到"用对"。
+>
+> ⏱️ **预计时间**：30分钟
+>
+> **前置条件**：Claude Code 安装成功（完成第五部分）
+
+### 8.5.0 先说结论
+
+Claude Code 现在的模型配置，不只是"选 Sonnet 还是 Opus"。
+
+它已经变成一整套策略层：
+
+- **会话级选择**：`/model`、`--model`
+- **默认策略**：`settings.json` 里的 `model`
+- **能力限制**：`availableModels`
+- **别名映射**：`ANTHROPIC_DEFAULT_*_MODEL`
+- **第三方部署重写**：`modelOverrides`
+- **推理强度控制**：`/effort`、`effortLevel`
+- **长上下文控制**：`sonnet[1m]`、`opus[1m]`
+
+如果你只记一句话：
+
+> `model` 决定"默认选谁"，`availableModels` 决定"能不能选"，`opusplan` 决定"规划和执行是否分模型"。
+
+---
+
+### 8.5.1 当前可用的模型别名
+
+官方文档当前明确给出的别名如下：
+
+| 别名 | 含义 | 适合场景 |
+|------|------|----------|
+| `default` | 回到系统默认模型，不是具体模型名 | 不想手动管版本时 |
+| `best` | 当前最强可用模型，现阶段等价于 `opus` | 直接追求最强效果 |
+| `sonnet` | 最新 Sonnet，用于日常编码 | 默认主力 |
+| `opus` | 最新 Opus，用于复杂推理 | 架构、疑难问题 |
+| `haiku` | 更快更轻量 | 简单任务、快速处理 |
+| `sonnet[1m]` | Sonnet + 1M 上下文 | 大项目、长会话 |
+| `opus[1m]` | Opus + 1M 上下文 | 超长上下文 + 深度推理 |
+| `opusplan` | 规划时用 Opus，执行时切回 Sonnet | 复杂任务又要控成本 |
+
+#### `opusplan` 是什么
+
+这是当前最值得单独掌握的别名之一。
+
+它的行为是：
+
+- **进入 plan mode 时**：用 `opus`
+- **进入执行阶段时**：自动切到 `sonnet`
+
+也就是说，它不是单纯"更贵的模型"，而是一种**规划强、执行稳、成本更合理**的混合策略。
+
+适合：
+
+- 复杂重构
+- 架构设计
+- 需要先规划再执行的任务
+- 团队里想把 Opus 用在刀刃上
+
+---
+
+### 8.5.2 模型配置优先级
+
+当前官方口径的优先级，从高到低是：
+
+1. **会话中即时切换**：`/model <alias|name>`
+2. **启动参数**：`claude --model <alias|name>`
+3. **环境变量**：`ANTHROPIC_MODEL=<alias|name>`
+4. **设置文件**：`settings.json` 中的 `model`
+
+#### 常见用法
+
+```bash
+# 启动时直接用 Opus
+claude --model opus
+
+# 会话里切回 Sonnet
+/model sonnet
+```
+
+```json
+{
+  "model": "opusplan"
+}
+```
+
+---
+
+### 8.5.3 effort：不是"另一个模型"，是思考深度
+
+`/effort` 控制的是**推理强度**，不是换模型。
+
+可用值：
+
+- `low`
+- `medium`
+- `high`
+- `max`
+- `auto`
+
+| 级别 | 含义 | 适合场景 |
+|------|------|----------|
+| `low` | 更快、更省 | 简单问答、格式转换 |
+| `medium` | 默认平衡 | 日常编码主力 |
+| `high` | 更深推理 | 复杂调试、架构分析 |
+| `max` | 最深推理，仅 Opus 4.6 | 极复杂问题，成本更高 |
+| `auto` | 回到模型默认 | 不想手动管时 |
+
+**官方建议**：
+
+- **大多数编码任务用 `medium`**
+- `high` 和 `max` 只在确实需要时开
+- 如果只是偶发一次深推理，不一定非要改全局设置，可以在 prompt 中写 `ultrathink`
+
+**配置方式**：
+
+- `/effort low|medium|high|max|auto`
+- `/model` 面板里调节
+- `claude --effort high`
+- `CLAUDE_CODE_EFFORT_LEVEL`
+- `settings.json` 中的 `effortLevel`
+- skill / subagent frontmatter 里的 `effort`
+
+---
+
+### 8.5.4 1M 上下文怎么用
+
+现在 `Opus 4.6` 和 `Sonnet 4.6` 都支持 1M 上下文，但是否可见、是否默认可用，取决于计划和部署方式。
+
+#### 最简单的用法
+
+```bash
+/model opus[1m]
+/model sonnet[1m]
+```
+
+或者：
+
+```bash
+/model claude-opus-4-6[1m]
+```
+
+#### 什么情况下该开 1M
+
+适合：
+
+- monorepo
+- 很长的多轮会话
+- 一次性理解大型代码库
+- 需要大规模跨文件关联分析
+
+不适合：
+
+- 小项目
+- 只改 1-2 个文件
+- 你更在乎速度和成本
+
+#### 关闭 1M
+
+如果团队不希望出现 1M 选项，可以设置：
+
+```bash
+CLAUDE_CODE_DISABLE_1M_CONTEXT=1
+```
+
+---
+
+### 8.5.5 团队治理：`availableModels`、默认模型、别名映射
+
+#### `availableModels`
+
+如果你是团队管理员，想限制"用户能选什么"，用的是 `availableModels`。
+
+```json
+{
+  "availableModels": ["sonnet", "haiku"]
+}
+```
+
+它的作用是：
+
+- 限制 `/model`
+- 限制 `--model`
+- 限制 `ANTHROPIC_MODEL`
+- 限制 Config 工具中的模型切换
+
+#### 注意：`model` 不是强制锁定
+
+`model` 只是**会话启动时默认选哪个**，并不代表用户不能换。
+
+如果你要真正治理模型体验，通常要组合这三类配置：
+
+- `model`
+- `availableModels`
+- `ANTHROPIC_DEFAULT_SONNET_MODEL / OPUS / HAIKU`
+
+---
+
+### 8.5.6 第三方部署与 `modelOverrides`
+
+如果你跑的是：
+
+- Bedrock
+- Vertex AI
+- Foundry
+
+就不要只写别名，还要考虑**模型版本绑定**。
+
+#### 为什么需要 `modelOverrides`
+
+因为第三方平台上，Claude Code 看到的是 Anthropic 的模型 ID，但真正发给平台的，可能要换成：
+
+- ARN
+- deployment name
+- provider-specific model ID
+
+#### 典型配置
+
+```json
+{
+  "modelOverrides": {
+    "claude-opus-4-6": "arn:aws:bedrock:us-east-2:123456789012:application-inference-profile/opus-prod",
+    "claude-sonnet-4-6": "arn:aws:bedrock:us-east-2:123456789012:application-inference-profile/sonnet-prod"
+  }
+}
+```
+
+用在：
+
+- 企业按版本精确路由
+- 不同区域 / 不同成本中心分流
+- 防止别名自动飘到新版本
+
+---
+
+### 8.5.7 自定义模型入口
+
+如果你有内部网关或特殊部署，可用：
+
+- `ANTHROPIC_CUSTOM_MODEL_OPTION`
+- `ANTHROPIC_CUSTOM_MODEL_OPTION_NAME`
+- `ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION`
+
+这样可以在 `/model` 里额外加一个选项，而不是替换原有别名。
+
+适合：
+
+- 自研 LLM gateway
+- A/B 测试特殊路由
+- 内部灰度模型
+
+---
+
+### 8.5.8 推荐配置场景
+
+#### 个人开发者
+
+```json
+{
+  "model": "sonnet",
+  "effortLevel": "medium"
+}
+```
+
+建议：
+
+- 日常用 `sonnet`
+- 架构问题临时切 `opus` 或 `opusplan`
+- 遇到超大仓库时再用 `[1m]`
+
+#### 高强度架构 / 重构
+
+```json
+{
+  "model": "opusplan",
+  "effortLevel": "medium"
+}
+```
+
+建议：
+
+- 默认用 `opusplan`
+- 真正卡住时再把 effort 提到 `high`
+
+#### 团队成本控制
+
+```json
+{
+  "model": "sonnet",
+  "availableModels": ["sonnet", "haiku"]
+}
+```
+
+建议：
+
+- 限掉随手切 `opus`
+- 只给必要团队开更强模型
+
+---
+
+### 8.5.9 常见误区
+
+| 误区 | 真相 |
+|------|------|
+| `model` 就是强制锁模型 | 不是。它只是初始值。 |
+| `opusplan` = 永远更贵 | 不完全对。它是"规划用 Opus，执行回 Sonnet"，很多复杂任务反而更划算。 |
+| 1M 一定更好 | 不一定。上下文更大不等于响应更快，也不等于更省钱。 |
+| effort 越高越好 | 也不对。高 effort 在简单任务上很容易"过度思考"。 |
+
+---
+
+### 8.5.10 实用速查
+
+```bash
+# 当前会话直接切模型
+/model opus
+
+# 开 1M 上下文
+/model sonnet[1m]
+
+# 切高 effort
+/effort high
+
+# 启动就用 opusplan
+claude --model opusplan
+```
+
+---
+
+### 8.5.11 下一步建议
+
+- 想把模型配置纳入团队治理和企业实战：继续看 [企业实战完整指南](./11-企业实战完整指南.md)
+- 想跨设备继续本地会话：继续看 [Remote Control完整指南](./13-Remote-Control完整指南.md)
+- 想理解上下文管理和 Channels：继续看 [Channels与上下文管理完整指南](./14-Channels与上下文管理完整指南.md)
+
+---
+
 ## 总结与检查清单
 
 ### 完成本课后，请确认以下所有项：
@@ -2970,7 +3323,7 @@ curl -fsSL https://claude.ai/install.sh | bash
 
 **如果以上全部勾选，恭喜你已经完成准备工作！🎉**
 
-> ⚠️ **2026年更新说明**：本课程已更新为原生安装方式，不再需要Node.js和npm！如果你是从旧版教程过来的，注意核对清单中已删除Node.js相关项。
+> ⚠️ **2026年更新说明**：本课程现已更新为“原生安装 + npm 标准安装并存”的口径。如果你是从旧版教程过来的，请优先参考本章新的安装路径说明，不要再默认把 npm 视为唯一入口，也不要误以为 Node.js 已被完全移除。
 
 ---
 

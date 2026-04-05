@@ -3,10 +3,14 @@
 > **课程信息**
 >
 > - **作者**：老金
+> - **GitHub**：https://github.com/KimYx0207
+> - **公众号**：老金带你玩AI
+> - **X（Twitter）**：老金带你玩AI
+> - **个人博客**：https://aiking.dev
 > - **预计学时**：4-6小时
 > - **难度等级**：⭐⭐ 入门级（有Claude Code基础即可）
-> - **更新日期**：2026年3月
-> - **适用版本**：Claude Code v2.1+（验证于2026-03-18）
+> - **更新日期**：2026年4月
+> - **适用版本**：Claude Code v2.1.92（验证于2026-04-05）
 > - **前置要求**：已完成Claude Code安装和基础使用
 
 ---
@@ -17,10 +21,22 @@
 
 1. **理解Hooks的核心价值**：掌握Hooks与传统提示词的本质区别
 2. **配置第一个Hook**：5分钟内完成最简单的Hook配置并看到效果
-3. **掌握20种Hook类型**：PreToolUse、PostToolUse、UserPromptSubmit、SubagentStart、SubagentStop、StopFailure、PostCompact、InstructionsLoaded、Elicitation等全部类型
+3. **按事件族理解Hooks**：理解工具、会话、任务、失败、文件系统、压缩和 Elicitation 等事件面
 4. **实现自动化工作流**：Git提交检查、代码格式化、文件保护等实战场景
 5. **排查Hook故障**：独立解决90%的常见配置和执行问题
 6. **安全使用Hooks**：理解安全风险并正确配置权限
+
+---
+
+## 2026-04 差量更新（先读）
+
+这章旧版最大的问题，是把 Hooks 讲成“固定 20 种类型”。现在这个说法已经不稳了。
+
+- **官方 Hook 事件面仍在扩展**，不要再死记一个固定数字。
+- **当前主流处理器有 4 类**：`command`、`http`、`prompt`、`agent`。
+- 除了常见的 `PreToolUse` / `PostToolUse` / `UserPromptSubmit`，还应注意较新的事件，例如 `PostToolUseFailure`、`PermissionDenied`、`TaskCreated`、`TaskCompleted`、`StopFailure`、`CwdChanged`、`FileChanged`。
+
+因此，下面正文请用“事件族 + 处理器类型 + 典型场景”来理解，而不是背一个固定数量。
 
 ---
 
@@ -247,30 +263,24 @@ Claude处理提示词
 返回结果给用户
 ```
 
-**20种Hook类型触发时机**：
+**当前常见 Hook 事件族与触发时机（概念快照，不等于完整清单）**：
 
 | Hook类型 | 触发时机 | 典型用途 | 可否阻止后续操作 |
 |----------|----------|----------|-----------------|
 | **UserPromptSubmit** | 用户输入提交后 | 提示词优化、敏感词过滤 | ✅ 是 |
 | **PreToolUse** | 工具调用前 | 权限校验、参数验证 | ✅ 是 |
-| **PostToolUse** | 工具调用后 | 格式修复、自动测试 | ❌ 否 |
+| **PostToolUse / PostToolUseFailure** | 工具调用成功后 / 失败后 | 格式修复、自动测试、失败告警 | ❌ 否 |
 | **Notification** | 通知发送时 | 日志记录、桌面通知 | ❌ 否 |
 | **SessionStart** | 会话开始时 | 环境初始化 | ❌ 否 |
 | **SessionEnd** | 会话结束时 | 清理临时文件 | ❌ 否 |
-| **Stop** | AI停止响应时 | 保存状态 | ❌ 否 |
-| **SubagentStart** 🆕 | 子代理启动时 | 子代理环境初始化、日志记录 | ❌ 否 |
-| **SubagentStop** 🆕 | 子代理停止时 | 子代理结果收集、资源清理 | ❌ 否 |
-| **PermissionRequest** 🆕 | 权限请求时 | 自动审批策略、权限审计 | ✅ 是 |
-| **PreCompact** 🆕 | 上下文压缩前 | 保存关键上下文、日志记录 | ❌ 否 |
-| **ConfigChange** 🆕 | 配置变更时 | 配置审计、自动同步 | ❌ 否 |
-| **TeammateIdle** 🆕 | 队友空闲时 | 任务分配、状态通知 | ❌ 否 |
-| **WorktreeCreate** | 工作树创建时 | 初始化工作树配置 | ❌ 否 |
-| **WorktreeRemove** | 工作树删除时 | 清理工作树资源 | ❌ 否 |
-| **StopFailure** 🆕 | API异常停止时 | 错误告警、日志记录 | ❌ 否 |
-| **PostCompact** 🆕 | 上下文压缩后 | 记录token变化 | ❌ 否 |
-| **InstructionsLoaded** 🆕 | 指令文件加载时 | 验证指令完整性 | ❌ 否 |
-| **Elicitation** 🆕 | MCP请求输入时 | 记录交互日志 | ❌ 否 |
-| **ElicitationResult** 🆕 | MCP输入完成时 | 验证输入数据 | ❌ 否 |
+| **Stop / StopFailure** | AI 正常停止 / 异常停止时 | 保存状态、错误告警 | ❌ 否 |
+| **TaskCreated / TaskCompleted** | 子任务创建 / 完成时 | 子代理日志、任务收集 | ❌ 否 |
+| **PermissionDenied** | 权限被拒绝时 | 审计、自动补救提示 | ❌ 否 |
+| **PreCompact / PostCompact** | 上下文压缩前 / 后 | 保存关键上下文、记录 token 变化 | ❌ 否 |
+| **CwdChanged / FileChanged** | 工作目录切换 / 文件变化时 | 同步环境、触发检查 | ❌ 否 |
+| **Elicitation** | MCP 请求额外交互输入时 | 记录交互日志、输入校验 | ❌ 否 |
+
+> 💡 **记忆方式**：先记三大高频入口 `UserPromptSubmit`、`PreToolUse`、`PostToolUse`，再按“失败 / 任务 / 文件 / 压缩 / 交互”五个补充事件族扩展。
 
 ### 1.4 安全警告（重要！）
 
@@ -2955,8 +2965,8 @@ exit 0
 
 ---
 
-**文档版本**：v1.1（Critical Thinking审查修正版）
-**最后更新**：2026年2月25日
+**文档版本**：v1.2（2026-04 差量同步版）
+**最后更新**：2026年4月5日
 **作者**：老金
 
 ### v1.1 修正内容（2025-12-23）
