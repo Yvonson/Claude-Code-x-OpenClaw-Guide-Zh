@@ -38,6 +38,21 @@
 
 因此，下面正文请用“事件族 + 处理器类型 + 典型场景”来理解，而不是背一个固定数量。
 
+### 与 Hooks 相关的 v2.1.90 / v2.1.92 变更（GitHub Release 摘录）
+
+下列句子均来自官方 *What's changed*，**英文原文**便于逐字核对；教程不展开实现细节。
+
+**v2.1.90**（[release](https://github.com/anthropics/claude-code/releases/tag/v2.1.90)）：
+
+- *Fixed `Edit`/`Write` failing with "File content has changed" when a PostToolUse format-on-save hook rewrites the file between consecutive edits*
+- *Fixed `PreToolUse` hooks that emit JSON to stdout and exit with code 2 not correctly blocking the tool call*
+
+**v2.1.92**（[release](https://github.com/anthropics/claude-code/releases/tag/v2.1.92)）：
+
+- *Fixed prompt-type Stop hooks incorrectly failing when the small fast model returns `ok:false`, and restored `preventContinuation:true` semantics for non-Stop prompt-type hooks*
+
+**阅读提示**：若 Hook 行为与上述条目相关但仍异常，以当前安装的 `claude --version` 及之后新 release 为准。
+
 ---
 
 ## 学习路径导航（先看这里！）
@@ -2965,9 +2980,13 @@ exit 0
 
 ---
 
-**文档版本**：v1.2（2026-04 差量同步版）
+**文档版本**：v1.3（2026-04：v2.1.90 / v2.1.92 release 摘录）
 **最后更新**：2026年4月5日
 **作者**：老金
+
+### v1.2（2026-04-05）
+
+- 差量更新：增加 **v2.1.90**（PostToolUse 与 PreToolUse 相关修复）、**v2.1.92**（prompt-type Stop hooks）官方 release *What's changed* 英文原文摘录（附链接）
 
 ### v1.1 修正内容（2025-12-23）
 

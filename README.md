@@ -6,7 +6,7 @@
 ![GitHub forks](https://img.shields.io/github/forks/KimYx0207/Claude-Code-x-OpenClaw-Guide-Zh?style=social)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Claude Code](https://img.shields.io/badge/Claude_Code-2.1.92-green.svg)
-![OpenClaw](https://img.shields.io/badge/OpenClaw-v2026.4.2-blue.svg)
+![OpenClaw](https://img.shields.io/badge/OpenClaw-v2026.3.28-blue.svg)
 
 **AI 双顶流 · 中文教程扛把子**
 
@@ -81,8 +81,8 @@
 - **🚀 快速上手**：Claude Code 3 小时上手 / OpenClaw 5 分钟跑起来
 - **👶 小白友好**：72个术语解释、40个生活类比、170+FAQ
 - **💻 实战导向**：70+个可运行代码示例，边学边练
-- **📊 质量保证**：所有教程经 WebSearch 验证，信息准确可靠
-- **🔄 持续更新**：适配最新版本（Claude Code 2.1.92 / OpenClaw v2026.4.2）
+- **📊 质量保证**：关键版本号与 CLI 行为优先对照 **官方 Release / 文档** 修订；细节仍可能随上游快速变化，请以你本机版本为准
+- **🔄 持续更新**：适配最新版本（Claude Code 2.1.92 / OpenClaw 稳定版 v2026.3.28；预发布见 [Releases](https://github.com/openclaw/openclaw/releases)）
 
 ---
 
@@ -102,7 +102,7 @@
 | 08 | [Plugins生态完整指南](docs/claude-code/08-Plugins生态完整指南.md) | 4-6h | ⭐⭐ | ⭐ | `/plugin`、市场、作用域与本地开发 |
 | 09 | [Agent-SDK完整指南](docs/claude-code/09-Agent-SDK完整指南.md) | 6-8h | ⭐⭐⭐ | ⭐⭐ | 编程开发AI Agent |
 | 10 | [综合实战完整指南](docs/claude-code/10-综合实战完整指南.md) | 2-3h | ⭐⭐⭐ | ⭐⭐ | 团队协作、CI/CD集成 |
-| 11 | [企业实战完整指南](docs/claude-code/11-企业实战完整指南.md) | 待定 | ⭐⭐⭐ | ⭐ | 企业级最佳实践 |
+| 11 | [企业实战完整指南](docs/claude-code/11-企业实战完整指南.md) | 4-6h | ⭐⭐⭐ | ⭐ | 企业级最佳实践 |
 | 12 | [Remote Control完整指南](docs/claude-code/13-Remote-Control完整指南.md) | 1-2h | ⭐⭐ | ⭐⭐ | 跨设备继续本地会话、`/remote-control`、`claude remote-control` |
 | 13 | [Channels与计划任务完整指南](docs/claude-code/14-Channels与计划任务完整指南.md) | 2-3h | ⭐⭐⭐ | ⭐ | `--channels`、`/schedule`、`/loop`、`CronCreate` |
 
@@ -199,7 +199,7 @@ Week 9  ：OpenClaw 多Agent + Docker部署 + 安全
 | **覆盖AI模型** | 29 个提供商（OpenClaw） |
 | **覆盖消息平台** | 15+ 个（OpenClaw） |
 | **Claude Code版本** | 2.1.92（2026-04-05 验证） |
-| **OpenClaw版本** | v2026.4.2（2026-04-05 验证） |
+| **OpenClaw版本** | 稳定版 **v2026.3.28**（2026-04-05 对照 [Releases](https://github.com/openclaw/openclaw/releases)）；列表含预发布时请自行取舍 |
 
 ---
 
@@ -261,7 +261,7 @@ Week 9  ：OpenClaw 多Agent + Docker部署 + 安全
 
 ### v3.1 (2026-03-18) | Claude Code v2.1.69-v2.1.78 新功能补充
 
-### v3.2 (2026-04-05) | Claude Code v2.1.92 + OpenClaw v2026.4.2 差量同步
+### v3.2 (2026-04-05) | Claude Code v2.1.92 + OpenClaw 差量同步
 
 **本次重点修正**
 - Claude Code：同步安装、基础使用、MCP、Agent SDK、Commands、Hooks、Subagents、Plugins、企业实战等章节的版本口径
@@ -278,6 +278,12 @@ Week 9  ：OpenClaw 多Agent + Docker部署 + 安全
 - OpenClaw：统一 Windows / WSL2 表述为“原生可用，WSL2 更稳定”
 - OpenClaw：清理 README 和项目介绍中容易过时的 Stars / 历史增长数字表述
 
+### v3.3 (2026-04-05) | OpenClaw 稳定版基线与全文口径
+
+- OpenClaw：README 徽章与统计表改为 **稳定版 v2026.3.28**（与 [GitHub Releases](https://github.com/openclaw/openclaw/releases) 2026-04-05 页面对照）；说明 **预发布**（如 v2026.4.1-beta.1）可能与稳定版并存
+- OpenClaw：OC-00 / OC-02 及 OC-01/03/04/05/06/07/08/09/10/11 文首补充 **教程版本基线** 交叉引用，减少各篇版本表述漂移
+- OpenClaw：目录与贡献路线用语中「源码」改为「仓库 / 本地构建」等中性表述（安装篇章节标题同步）
+
 ### v3.0 (2026-02-25) — 双顶流合璧
 
 **重大更新**
@@ -285,7 +291,7 @@ Week 9  ：OpenClaw 多Agent + Docker部署 + 安全
 - 仓库更名为 `Claude-Code-x-OpenClaw-Guide-Zh`
 - 新增 OpenClaw 11 篇完整中文教程（基于 v2026.2.23）+ 1 篇阅读指南
 - 目录结构重组：`docs/claude-code/` + `docs/openclaw/`
-- OpenClaw 全部文档经源码验证修正技术错误（配置格式、端口、CLI命令、平台支持等）
+- OpenClaw 全部文档经官方文档与发行版 CLI 对照校验，修正技术错误（配置格式、端口、CLI 命令、平台支持等）
 - OpenClaw 全部文档加入小白友好元素（难度标记、术语解释、阅读路线、可跳过标记）
 
 **OpenClaw 教程内容**
@@ -347,7 +353,7 @@ Week 9  ：OpenClaw 多Agent + Docker部署 + 安全
 
 ## ⚠️ 免责声明
 
-- Claude Code 教程基于 2.1.92 版本编写，OpenClaw 教程基于 v2026.4.2 版本编写（持续更新中）
+- Claude Code 教程基于 **2.1.92** 编写（[Release](https://github.com/anthropics/claude-code/releases/tag/v2.1.92)）；OpenClaw 教程以 **稳定版 v2026.3.28** 为修订参考，**预发布与 `latest` 以 [Releases](https://github.com/openclaw/openclaw/releases) 与本机 `openclaw --version` 为准**（持续更新中）
 - 部分功能可能随版本更新而变化，请以官方文档为准
 - 使用本教程产生的任何问题，作者不承担责任
 

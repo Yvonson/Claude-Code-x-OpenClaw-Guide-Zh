@@ -10,7 +10,7 @@
 > - **预计学时**：2-3小时（原生安装更简单！）
 > - **难度等级**：⭐ 零基础入门
 > - **更新日期**：2026年4月
-> - **适用版本**：Claude Code v2.1+（截至 2026-04 验证）
+> - **适用版本**：Claude Code v2.1.92（验证于 2026-04-05）
 > - **重要更新**：当前同时支持原生安装与标准 npm 安装；原生更省心，npm 路径仍然受支持且需要 Node.js 18+
 
 ---
@@ -1216,6 +1216,8 @@ echo "分析这段代码" | claude -p
 | 环境变量 | 最安全，跨项目共享 | 需要提前配置    | ⭐⭐⭐⭐⭐ |
 | App登录  | 使用订阅配额       | 需要Pro/Max订阅 | ⭐⭐⭐⭐   |
 | 手动输入 | 方便               | 不安全，易泄露  | ⭐⭐       |
+
+**第三方平台与 AWS Bedrock（v2.1.92，摘自官方 release）**：[v2.1.92](https://github.com/anthropics/claude-code/releases/tag/v2.1.92) 写明，在登录界面选择 **「3rd-party platform」** 时，可使用 **interactive Bedrock setup wizard**，引导完成 *AWS authentication, region configuration, credential verification, and model pinning*。菜单文案与步骤顺序以你安装的 CLI 版本为准；与仅使用 API Key / `modelOverrides` 走 Bedrock 的路径是否等价，请按官方文档区分场景。
 
 **配置步骤5：完成初始化**
 
@@ -3283,7 +3285,7 @@ claude --model opusplan
 
 - 想把模型配置纳入团队治理和企业实战：继续看 [企业实战完整指南](./11-企业实战完整指南.md)
 - 想跨设备继续本地会话：继续看 [Remote Control完整指南](./13-Remote-Control完整指南.md)
-- 想理解上下文管理和 Channels：继续看 [Channels与上下文管理完整指南](./14-Channels与上下文管理完整指南.md)
+- 想理解 Channels 与计划任务：继续看 [Channels与计划任务完整指南](./14-Channels与计划任务完整指南.md)
 
 ---
 
@@ -3440,20 +3442,28 @@ rm ~/.asdf/shims/claude  # 如果你用asdf
 ---
 
 **课程制作**：老金
-**最后更新**：2026年2月（原生安装版本）
-**版本**：V3.0（原生安装重大更新版）
+**最后更新**：2026年4月（已对照 GitHub v2.1.90 / v2.1.92 release 增补登录与 Bedrock 向导说明；安装路径仍以「原生 + npm」双轨为准）
+**版本**：V3.1（v2.1.92 release 对齐补丁）
 **许可**：本课程采用CC BY-NC-SA 4.0许可
 
 ---
 
 ### 版本更新日志
 
+#### V3.1（2026-04-05）
+
+- 认证步骤旁：增补 **v2.1.92** 官方 release 中 **3rd-party platform → interactive Bedrock setup wizard** 的说明（附 release 链接，不编造向导界面）
+- 页脚：与 **v2.1.92** 验证口径对齐，避免仍显示「仅 2026-02」造成读者误以为未更新
+- 文内「下一步」：修正第 14 篇相对链接为 **`./14-Channels与计划任务完整指南.md`**（原「上下文管理」文件名已不存在，会导致死链）
+
 #### V3.0 重大更新（2026-02-02）
+
+> **阅读提示**：下表为当时改版公告摘要。**当前正文口径**以文首「双轨安装」为准：原生安装可不单独装 Node；**`npm install -g @anthropic-ai/claude-code` 仍受支持且需要 Node.js 18+**。
 
 | 更新项 | 变化说明 |
 |--------| ----------|
-| **安装方式** | 从npm安装切换到原生安装 |
-| **Node.js** | **不再需要**Node.js和npm |
+| **安装方式** | 主推原生安装，**与 npm 标准安装并存**（非互斥） |
+| **Node.js** | 原生路径**可不单独安装** Node；npm 路径仍需要 Node.js 18+ |
 | **安装时间** | 从40分钟缩短到5分钟 |
 | **自动更新** | 新增后台自动更新功能 |
 | **系统要求** | 简化系统要求检查清单 |

@@ -10,7 +10,7 @@
 > - **预计学时**：4-6小时
 > - **难度等级**：⭐⭐ 入门级
 > - **更新日期**：2026年4月
-> - **适用版本**：Claude Code v2.1+（截至 2026-04 验证）
+> - **适用版本**：Claude Code v2.1.92（截至 2026-04 验证；v2.1.90+ 插件市场 env 见文内 release 摘录）
 
 ---
 
@@ -36,6 +36,14 @@
 - **Plugin 的边界更清晰了**：它不只是“Commands + Skills + MCP 配置”，还涉及 market、scope、manifest、agents、hooks、LSP、bin、settings 等运行面。
 
 因此，下面请把 `/plugin` 视为主路径，把 `--plugin-dir` 视为本地开发补充路径。
+
+### 环境变量：`CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE`（v2.1.90）
+
+以下为 [GitHub Release v2.1.90](https://github.com/anthropics/claude-code/releases/tag/v2.1.90) **原文摘录**（便于核对，不二次发挥）：
+
+> Added `CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE` env var to keep the existing marketplace cache when `git pull` fails, useful in offline environments
+
+**理解要点**：仅在 marketplace 的 `git pull` 失败时，仍**保留已有 marketplace 缓存**；面向**离线**等场景。是否在环境中设置该变量，请结合你的网络与合规要求自行决定；变量名与语义以官方后续文档为准。
 
 ---
 
@@ -279,7 +287,7 @@ rm -rf .claude/plugins/plugins-plus
 |------|------|
 | **分类浏览** | 按用途分类：文档处理、代码质量、项目管理等 |
 | **搜索** | 按关键词搜索Plugin |
-| **详情页** | 查看Plugin说明、安装量、评分、源码链接 |
+| **详情页** | 查看 Plugin 说明、安装量、评分、仓库链接 |
 | **安装指引** | 每个Plugin页面提供安装命令（git clone） |
 
 ### 3.2 安装Plugin的方式

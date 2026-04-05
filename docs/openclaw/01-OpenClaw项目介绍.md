@@ -15,6 +15,10 @@
 >
 > **小白速通：** 只看前 3 节（"一句话说清楚"、"发展历史"、"与其他 AI 助手框架的对比"），其余章节可以等需要时再回来看
 
+> **教程版本基线**
+>
+> 稳定版参考 **[v2026.3.28](https://github.com/openclaw/openclaw/releases/tag/v2026.3.28)**；Releases 上另有**预发布**线（如 **v2026.4.1-beta.1**）。全文约定见 [00-阅读指南 · 2026-04 版本基线](00-阅读指南.md)。
+
 ## 一句话说清楚
 
 OpenClaw 是一个**开源的 AI 私人助手框架**，跑在你自己的电脑或服务器上，能连接 WhatsApp、Telegram、Discord 等消息平台，让 AI 帮你处理消息、执行任务、管理日程。
@@ -513,7 +517,7 @@ OpenClaw Gateway ←→ mcporter ←→ MCP Servers
 
 ```
 openclaw/
-├── src/                    # 核心源码
+├── src/                    # 核心实现（TypeScript 等）
 ├── extensions/             # 扩展 Channel 和插件
 ├── skills/                 # 内置技能定义
 ├── apps/
@@ -538,7 +542,7 @@ openclaw/
 ### 开发工具链
 
 ```bash
-# 从源码构建
+# 从 Git 仓库本地构建
 git clone https://github.com/openclaw/openclaw.git
 cd openclaw
 pnpm install
@@ -839,8 +843,8 @@ OpenClaw 的设计哲学很明确：**它是一个个人助手，不是企业平
           → 学习 Plugin SDK
           → 开发自定义 Channel 或工具
 
-第 11 步：源码贡献
-          → Fork 仓库，从源码构建
+第 11 步：向上游贡献
+          → Fork 仓库，从仓库本地构建
           → 修复 Bug 或添加功能
           → 提交 PR
 ```

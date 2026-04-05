@@ -22,6 +22,16 @@
 - **MCP 工具懒加载不是“新鲜功能提示”了**，在当前版本里应把它当成默认能力来理解。
 - **MCP Elicitation、远程 MCP、MCP Apps** 现在应一起看成同一代 MCP 体验增强，而不是零散补丁。
 
+### 与 MCP / 传输相关的 v2.1.90 变更（GitHub Release 摘录）
+
+下列条目直接摘自 [anthropics/claude-code v2.1.90 · What's changed](https://github.com/anthropics/claude-code/releases/tag/v2.1.90)（英文原文，便于核对；未收录与本节主题无关的其它条目）：
+
+- *Improved performance: eliminated per-turn JSON.stringify of MCP tool schemas on cache-key lookup*
+- *Improved performance: SSE transport now handles large streamed frames in linear time (was quadratic)*
+- *Fixed `--resume` causing a full prompt-cache miss on the first request for users with deferred tools, MCP servers, or custom agents (regression since v2.1.69)*
+
+**阅读提示**：属于客户端实现层优化与修复；若你遇到「工具很多时变慢」「SSE 大帧」「带 MCP 的会话 resume 后首条 prompt cache」等现象，可先对照该 release 与当前 `claude --version`，再决定是否升级。
+
 ---
 
 ## 本课学习目标
@@ -2325,13 +2335,17 @@ npm publish --access public
 
 **作者**：老金
 **更新日期**：2026年4月5日
-**版本**：V1.3（v2.1.92 差量同步）
+**版本**：V1.4（v2.1.90 release 摘录入差量）
 **字数统计**：约3,500行 / 28,000字
 **适用版本**：MCP规范 2025-11-25 / Claude Code v2.1.92
 
 ---
 
 ### 版本更新日志
+
+#### V1.4（2026-04-05）
+
+- 差量更新：增加 **v2.1.90** 官方 release 中与 **MCP 工具 schema 缓存**、**SSE 大帧**、**resume + MCP** 相关的 *What's changed* 原文摘录（附 release 链接）
 
 #### V1.2 内容更新（2026-03-18）
 

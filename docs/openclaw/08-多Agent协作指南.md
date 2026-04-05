@@ -15,6 +15,10 @@
 >
 > **大多数人不需要这篇！** 如果你只是个人使用，一个默认的 main Agent 就够了。只有当你需要"不同平台用不同 AI 性格"或"团队多人使用"时才需要看这篇
 
+> **教程版本基线**
+>
+> 稳定版参考 **[v2026.3.28](https://github.com/openclaw/openclaw/releases/tag/v2026.3.28)**；另有预发布线见 [Releases](https://github.com/openclaw/openclaw/releases)。约定全文见 [00-阅读指南](00-阅读指南.md)。
+
 ## 什么是 Agent？
 
 在 OpenClaw 的世界里，Agent 就是一个独立的 AI 助手实例。每个 Agent 有自己的"大脑"（系统指令）、"记忆"（记忆文件）、"技能"（技能集）和"身份"（认证凭证）。

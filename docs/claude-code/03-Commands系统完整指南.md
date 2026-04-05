@@ -41,7 +41,8 @@
 - **`.claude/commands/` 和 `~/.claude/commands/` 仍然可用**，但更适合兼容旧项目、快速做局部 prompt 包装，或者理解 slash mechanics。
 - **内置命令面板在 2.1.92 已明显扩展**，不再只盯着旧版 `/clear`、`/doctor`、`/loop` 这一批。
 - **要分清 built-in commands 和 bundled skills**：`/loop` 会出现在 slash 菜单里，但官方把它归到 bundled skills，不是固定逻辑的 built-in command。
-- **命令状态也在变化**：`/review` 已弃用，`/vim` 已移入 `/config`，所以旧教程里的命令示例不能直接照抄。
+- **命令状态也在变化**：`/review` 已弃用；**v2.1.92 已移除 `/tag`、已移除 `/vim`**（release 原文：*`Removed /vim command (toggle vim mode via /config → Editor mode)`*，见 [v2.1.92 release](https://github.com/anthropics/claude-code/releases/tag/v2.1.92)）。
+- **v2.1.90** 起新增 **`/powerup`**（交互式课程 + 动画演示，见 [v2.1.90 release](https://github.com/anthropics/claude-code/releases/tag/v2.1.90)）。
 
 因此，这一章请这样读：
 
@@ -484,7 +485,7 @@ You: /hello
 |                      | `/rename`        | 重命名会话      | 整理会话列表   |      |
 |                      | `/branch`        | 创建会话分支    | 探索不同方案   |      |
 | **上下文控制** | `/context`       | 查看Token使用   | 监控上下文     |  ⭐  |
-|                      | `/cost`          | 查看费用统计    | 成本控制       |      |
+|                      | `/cost`          | 查看费用与用量（v2.1.92+ 订阅用户含 per-model / cache-hit，见 release） | 成本控制       |      |
 |                      | `/model`         | 切换AI模型      | 按需选模型     |  ⭐  |
 |                      | `/effort`        | 推理深度控制    | 调节AI思考深度 |  ⭐  |
 |                      | `/usage`         | 账户使用量      | 查看配额       |      |
@@ -498,10 +499,11 @@ You: /hello
 | **诊断工具**   | `/doctor`        | 系统健康检查    | 排查问题       |      |
 |                      | `/status`        | 完整状态信息    | 环境确认       |      |
 |                      | `/stats`         | 使用统计        | 习惯分析       |      |
+|                      | `/powerup`       | 交互式功能教程（v2.1.90+） | 新手熟悉 CLI |      |
 | **MCP相关**    | `/mcp`           | 管理MCP连接     | 外部工具       |  ⭐  |
 |                      | `/hooks`         | 管理Hooks       | 自动化触发     |  ⭐  |
 | **其他**       | `/help`          | 显示帮助        | 快速查命令     |  ⭐  |
-|                      | `/release-notes` | 更新日志        | 查看新功能     |      |
+|                      | `/release-notes` | 更新日志（v2.1.92+ 为交互式版本选择器） | 查看新功能     |      |
 |                      | `/loop`          | Bundled skill：定时循环执行 | 监控部署状态   |  ⭐  |
 |                      | `/sandbox`       | 沙箱隔离模式    | 安全执行       |      |
 |                      | `/color`         | 会话颜色设置    | 个性化         |      |
@@ -513,6 +515,7 @@ You: /hello
 
 以下命令是 Claude Code 在 2.1.69 之后持续扩展、到 2.1.92 仍然值得优先掌握的一批能力：
 
+- `/powerup`：交互式课程（**v2.1.90**，官方 release 原文：*interactive lessons teaching Claude Code features with animated demos*）
 - `/loop`：bundled skill 形式的定时循环任务
 - `/effort`：推理深度控制
 - `/sandbox`：沙箱隔离
@@ -521,11 +524,22 @@ You: /hello
 - `/branch`：会话分支
 - `/plan`：先规划后执行
 - `/plugin`：插件市场与安装入口
-- `/release-notes`：查看最近更新
+- `/release-notes`：更新日志（**v2.1.92** 起为 *interactive version picker*，见官方 release）
+- `/cost`：费用与用量（**v2.1.92** 起对 *subscription users* 增加 *per-model and cache-hit breakdown*，见官方 release）
 - `/rewind`：回退到更早会话状态
 - `/insights`：查看会话和使用洞察
 - `/schedule`：计划性任务入口
 - `/statusline`：状态行定制
+
+#### /powerup - 交互式功能教程（v2.1.90+）
+
+**官方说明**（[v2.1.90](https://github.com/anthropics/claude-code/releases/tag/v2.1.90)）：*`Added /powerup — interactive lessons teaching Claude Code features with animated demos`*。
+
+**用法**：在 REPL 中执行 `/powerup`，按界面提示学习即可；具体步骤与课时结构以当前版本 CLI 为准，此处不臆造菜单文案。
+
+```bash
+You: /powerup
+```
 
 #### /loop - 定时循环执行（bundled skill）
 
@@ -1902,7 +1916,7 @@ allowed-tools:
 |                    | `/rename`        | 重命名会话    |
 |                    | `/branch`        | 创建会话分支  |
 | **上下文**   | `/context`       | 查看Token使用 |
-|                    | `/cost`          | 查看费用      |
+|                    | `/cost`          | 费用与用量（v2.1.92+ 订阅：per-model / cache-hit，见 release） |
 |                    | `/model`         | 切换模型      |
 |                    | `/effort`        | 推理深度控制  |
 |                    | `/usage`         | 使用量统计    |
@@ -1916,10 +1930,11 @@ allowed-tools:
 | **诊断**     | `/doctor`        | 系统诊断      |
 |                    | `/status`        | 完整状态      |
 |                    | `/stats`         | 使用统计      |
+|                    | `/powerup`       | 交互式教程（v2.1.90+） |
 | **MCP**      | `/mcp`           | 管理MCP       |
 |                    | `/hooks`         | 管理Hooks     |
 | **其他**     | `/help`          | 显示帮助      |
-|                    | `/release-notes` | 更新日志      |
+|                    | `/release-notes` | 更新日志（v2.1.92+ 交互选版本） |
 |                    | `/loop`          | Bundled skill：定时循环执行 |
 |                    | `/sandbox`       | 沙箱隔离模式  |
 |                    | `/color`         | 会话颜色设置  |
@@ -2079,13 +2094,19 @@ allowed-tools:
 
 ---
 
-**文档版本**：v1.3（v2.1.92 差量同步版）
+**文档版本**：v1.4（对齐 GitHub v2.1.90 / v2.1.92 release）
 **最后更新**：2026年4月5日
 **作者**：老金
 
 ---
 
 ### 版本更新日志
+
+#### V1.4（2026-04-05）
+
+- 差量导言：`/powerup`、移除 `/tag`/`/vim`（v2.1.92）及 release 链接
+- 内置速查表：`/powerup`、`/cost`、`/release-notes` 附版本说明（措辞来自官方 release，不编造示例输出）
+- 新增 **`/powerup`** 小节，仅引用 [v2.1.90](https://github.com/anthropics/claude-code/releases/tag/v2.1.90) 英文原文与用法提示
 
 #### V1.2 新增内容（2026-03-18）
 

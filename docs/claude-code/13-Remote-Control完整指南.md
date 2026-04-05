@@ -191,6 +191,12 @@ Remote Control 启动后，官方支持三种常见连接方式：
 3. 最近一条有意义的消息
 4. 自动生成的名字
 
+**v2.1.92（[GitHub Release v2.1.92](https://github.com/anthropics/claude-code/releases/tag/v2.1.92)）对 Remote Control 默认名的补充**（以下为 release **英文原文**，便于与官方逐字核对）：
+
+> Remote Control session names now use your hostname as the default prefix (e.g. `myhost-graceful-unicorn`), overridable with `--remote-control-session-name-prefix`
+
+也就是说：在未手动命名时，默认名会带 **hostname 前缀**；也可用 CLI 参数 **`--remote-control-session-name-prefix`** 覆盖该前缀行为。具体与上述 1～4 条优先级如何叠加，以你当前 CLI 行为为准。
+
 所以如果你想让手机上更容易认出来，最实用的是：
 
 ```text
@@ -258,6 +264,14 @@ Team 和 Enterprise 下，Remote Control 默认可能是关闭的。
 1. 先确认你不是 API key 登录
 2. 再确认管理员已经打开 Claude Code 后台里的 Remote Control 开关
 3. 确认当前项目已接受 workspace trust
+
+### 8.2 托管策略：`forceRemoteSettingsRefresh`（v2.1.92）
+
+若组织使用 **remote managed settings**，请关注 **v2.1.92** 引入的策略项（以下为 [v2.1.92 release](https://github.com/anthropics/claude-code/releases/tag/v2.1.92) **英文原文**）：
+
+> Added `forceRemoteSettingsRefresh` policy setting: when set, the CLI blocks startup until remote managed settings are freshly fetched, and exits if the fetch fails (fail-closed)
+
+**含义**：开启后，CLI **在成功拉取到最新远程托管设置之前不会启动**；若拉取失败则 **直接退出**（fail-closed）。具体在项目/企业配置中的写法，以官方托管设置文档与你方管理员下发的 schema 为准，本教程不臆造 JSON 示例。
 
 ---
 
@@ -331,6 +345,8 @@ claude --remote-control
 
 # 给会话命名
 /remote-control release-monitor
+
+# v2.1.92+：默认会话名带 hostname 前缀；可用 --remote-control-session-name-prefix 覆盖（参数挂载在哪个子命令上以 claude --help 为准）
 ```
 
 ---

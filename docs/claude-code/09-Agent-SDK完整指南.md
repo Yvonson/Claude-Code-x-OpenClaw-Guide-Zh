@@ -10,7 +10,7 @@
 > - **预计学时**：6-8小时
 > - **难度等级**：⭐⭐⭐ 中级进阶
 > - **更新日期**：2026年4月
-> - **适用版本**：Claude Code v2.1+（截至 2026-04 验证）
+> - **适用版本**：Claude Code v2.1.92（验证于 2026-04-05）
 > - **信息来源**：[官方概览](https://platform.claude.com/docs/zh-CN/agent-sdk/overview)、[GitHub Python SDK](https://github.com/anthropics/claude-agent-sdk-python)、[GitHub TypeScript SDK](https://github.com/anthropics/claude-agent-sdk-typescript)
 
 > **版本说明**：Claude Agent SDK（原名Claude Code SDK）是2025年Anthropic官方发布的开发工具包。本教程基于最新官方文档编写，如有更新请以官方为准。

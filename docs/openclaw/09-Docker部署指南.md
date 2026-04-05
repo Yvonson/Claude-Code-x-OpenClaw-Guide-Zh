@@ -15,6 +15,10 @@
 >
 > **谁需要看这篇？** 如果你只是在自己电脑上用，不需要看这篇。这篇是给想把 OpenClaw 部署到远程服务器（比如云服务器）的人准备的
 
+> **教程版本基线**
+>
+> 稳定版参考 **[v2026.3.28](https://github.com/openclaw/openclaw/releases/tag/v2026.3.28)**；另有预发布线见 [Releases](https://github.com/openclaw/openclaw/releases)。约定全文见 [00-阅读指南](00-阅读指南.md)。
+
 ## 为什么用 Docker 部署 OpenClaw？
 
 > **官方文档**：[docs.openclaw.ai/install/docker](https://docs.openclaw.ai/install/docker)
@@ -126,7 +130,7 @@ docker pull openclaw/openclaw:v2026.3.13  # 指定版本
 docker images | grep openclaw           # 查看本地镜像
 ```
 
-### 从源码构建镜像
+### 从仓库 Dockerfile 构建镜像
 
 > ⏭️ **小白可跳过** — 这部分面向运维专家，单机部署不需要
 

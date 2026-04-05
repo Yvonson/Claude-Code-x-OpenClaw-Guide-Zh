@@ -24,6 +24,7 @@
 > - **安装**：`macOS / Linux / WSL2` 下官方优先推荐 `install.sh + openclaw onboard`
 > - **Windows**：原生可用，但 WSL2 更稳定
 > - **诊断**：`openclaw doctor` 仍是正式支持的排障入口
+> - **稳定版 / 预发布**：教程以 **v2026.3.28** 稳定版为修订参考；Releases 上另有预发布（如 **v2026.4.1-beta.1**）。细则见 [00-阅读指南](00-阅读指南.md)。
 
 ---
 
@@ -1764,7 +1765,7 @@ openclaw skills check my-awesome-skill --input "测试"
 
 - 直接在 GitHub 上提 Issue，标注 `docs` 标签
 - 或者直接提 PR 修改文档
-- 文档源码在仓库的 `docs/` 目录下
+- OpenClaw 官方 Markdown 文档位于其 GitHub 仓库的 `docs/` 目录
 
 ---
 
