@@ -9,13 +9,15 @@
 > - **个人博客**：https://aiking.dev
 > - **预计学时**：4-6小时
 > - **难度等级**：⭐⭐ 入门级（有Claude Code基础即可）
-> - **更新日期**：2026年4月
-> - **适用版本**：Claude Code v2.1.133（验证于 2026-05-08）
+> - **更新日期**：2026年6月9日
+> - **适用版本**：Claude Code v2.1.169（验证于 2026-06-09；v2.1.158 以前差量保留为历史基线）
 > - **前置要求**：已完成Claude Code安装和基础使用
 
 ---
 
 ## 本课学习目标
+
+老金，我写 Hooks 这类内容时不会只给脚本，重点是让团队知道什么时候该拦、什么时候不该拦。
 
 完成本课学习后，你将能够：
 
@@ -122,6 +124,7 @@
 ---
 
 ## 第一部分：Hooks简介（5分钟理解）
+
 
 ### 1.1 Hooks是什么
 
@@ -299,7 +302,10 @@ Claude处理提示词
 
 ---
 
+> **v2.1.139→v2.1.158 关键更新**：Hook exec form 支持 `args: string[]`，避免路径占位符被 shell quoting 破坏；`PostToolUse` 支持 `continueOnBlock`；Hook JSON 输出新增 `terminalSequence`；`Stop` / `SubagentStop` 输入可包含 `background_tasks` 与 `session_crons`。v2.1.152 又补充了 `SessionStart.reloadSkills`、`hookSpecificOutput.sessionTitle` 和 `MessageDisplay` hook，适合在会话启动时安装/刷新 Skills、设置标题，或在展示阶段隐藏/转换助手消息文本。
+
 ## 第二部分：5分钟快速开始（立即见效）
+
 
 > **本节目的**：用最快速度配置第一个Hook，让你立即看到效果！
 >
@@ -406,47 +412,14 @@ sys.exit(0)
 **macOS/Linux：**
 ```bash
 cat > .claude/hooks/post-write-hello.py << 'EOF'
-#!/usr/bin/env python3
-"""
-最简单的PostToolUse Hook示例
-每次Write工具执行后记录日志
-"""
-import sys
-import json
-from pathlib import Path
-from datetime import datetime
-
-# 从stdin读取工具执行信息
-try:
-    input_data = json.loads(sys.stdin.read())
-except:
-    sys.exit(0)
-
-# 获取工具名称和文件路径
-tool_name = input_data.get('tool_name', '')
-tool_input = input_data.get('tool_input', {})
-file_path = tool_input.get('file_path', '')
-
-# 只处理Write工具
-if tool_name == 'Write':
-    # PostToolUse Hook执行后处理任务
-    # 注意：PostToolUse Hook无法向用户输出信息
-    # Claude Code只会显示"Hook执行成功"
-    # 如果需要调试，可以写入日志文件
-    log_file = Path.home() / '.claude' / 'hooks' / 'post-write.log'
-    log_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(log_file, 'a', encoding='utf-8') as f:
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        f.write(f"[{timestamp}] ✅ 文件已保存: {file_path}\n")
-
-sys.exit(0)
-
-sys.exit(0)
+# 粘贴上方 Windows 示例中 @' 和 '@ 之间的完整 Python 脚本
 EOF
 
 # 添加执行权限（macOS/Linux必须）
 chmod +x .claude/hooks/post-write-hello.py
 ```
+
+这两个平台使用的是同一份 Python 脚本，差别只在写入文件的命令和 macOS/Linux 需要 `chmod +x`。不要维护两份略有差异的 Hook 代码，否则排查时很容易把平台问题误判成脚本问题。
 
 **验证脚本创建成功：**
 ```bash
@@ -614,6 +587,7 @@ echo '{"tool_name": "Write", "tool_input": {"file_path": "test.txt"}}' | python 
 ---
 
 ## 第三部分：15种Hook类型详解
+
 
 > **本节目的**：掌握所有Hook类型的用法
 >
@@ -2607,12 +2581,7 @@ PreToolUse 有新旧两套API（新旧并存）：
 | `"ask"` | 暂停，询问用户决定 |
 | 无输出 | 默认允许 |
 
-**旧版（已废弃但仍支持）** — 通过 `decision` 字段：
-
-| 旧版值 | 等同于新版 |
-|--------|-----------|
-| `"approve"` | `"allow"` |
-| `"block"` | `"deny"` |
+**旧版（已废弃但仍支持）**：通过 `decision` 字段返回，映射关系见前文“旧版决策值”表。这里不重复展开，实际新脚本优先使用 `hookSpecificOutput.permissionDecision`。
 
 PostToolUse 和 UserPromptSubmit 使用 `"block"` 来阻止/提供反馈，无输出则默认允许。
 
@@ -2839,12 +2808,7 @@ git commit -m "Add Claude Code hooks"
 | `"ask"` | 暂停，询问用户 | ? |  |
 | 无输出 | 默认允许 | V |  |
 
-**PreToolUse 旧版API**（`decision`，已废弃但仍支持）：
-
-| 旧版值 | 等同于新版 |
-|--------|-----------|
-| `"approve"` | `"allow"` |
-| `"block"` | `"deny"` |
+**PreToolUse 旧版 API**：`decision` 字段仍可兼容旧脚本，映射关系沿用前文“旧版决策值”表；新脚本优先写新版字段。
 
 **PostToolUse / UserPromptSubmit**：
 

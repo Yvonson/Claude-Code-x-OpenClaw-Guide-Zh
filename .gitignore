@@ -19,5 +19,15 @@ Thumbs.db
 *.swp
 *.swo
 
-# 飞书同步脚本（含凭证配置，不提交）
+# 本地 Agent 运行状态
+.claude/
+.agents/
+.codex/
+.meta-kim/
+.mcp.json
+AGENTS.md
+CLAUDE.md
+
+# 飞书同步脚本/配置（含文档 token，不提交）
 scripts/
+.feishu-sync/

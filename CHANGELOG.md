@@ -4,6 +4,35 @@
 
 ---
 
+## [v4.3] - 2026-06-10
+
+### 修改
+
+- 完成一次面向读者的课程复核，继续以 Claude Code CLI、Codex App、OpenClaw 助手框架三条主线组织内容。
+- OpenClaw 文档统一收敛模型、上下文窗口、价格和隐私表述：不再把具体模型名、固定窗口、固定价格或“全部本地”等说法写成默认结论，改为引导读者按当前模型目录、onboarding、provider 输出和部署方式确认。
+- Codex 课程保持 App-first：项目指令、权限、Rules、Hooks、Review、Subagents、Automations 和 CLI 辅助章节按 App 工作流重新区分职责，减少与 Claude Code CLI 课程的语义重复。
+- Claude Code 课程保持 CLI 主线，同时修正本地执行、模型上下文、企业受控 provider 和安全边界的表达。
+- 清理多处重复命令块、示例配置和旧版说明，把完整命令留在主章节，辅助章节改为指向主章节，减少阅读负担。
+- README 的公开表达改为更稳的课程说明：保留作者定位、学习路线和版本基线，弱化夸张营销词，让读者更容易判断自己该从哪里开始。
+- 更新许可和来源说明，保留 MIT 协议下的版权、署名和原始仓库提示，方便引用、转载和二次分发时正确保留来源。
+
+---
+
+## [v4.2] - 2026-05-31
+
+### 修改
+
+- 全库稳定基线同步至 Claude Code v2.1.158、OpenClaw 稳定版 v2026.5.27、Codex App 26.527（Windows 包 26.527.3686.0）；OpenClaw v2026.5.28 beta / v2026.5.29-alpha.1 与 Codex CLI v0.136.0-alpha.1 仍按预发布处理，不作为教程默认基线
+- README 重写项目定位、适用人群、学习路线和统计口径，统一表达为 39 篇完整教程 + 1 张速查卡、80 万+ Markdown 内容量、1500+ 实操示例和 250+ 问答条目；Codex 徽章、版本表和免责声明统一改为 App 主线
+- Codex App 主线强化：CX-02 扩展为 App 桌面工作流主轴，补充 App 主控台认知、三条安全线、Local / Worktree / Cloud 选择表、任务模板、Review 逐项检查法、从零到 PR 实战和课程交叉验证口径
+- Codex 专题继续补强：CX-03 增加 App 命令工作流配方与 `/review` 维度表；CX-09 增加 Automation 合格输出和失败收敛策略；CX-10 增加 Review 严重程度分级和提交前反向解释；CX-11 增加 App -> Cloud 交接包和 Cloud 回流风险表；CX-12 补充 CLI v0.134.0 -> v0.135.0 差量
+- Codex 官方链接修正：将失效的 `/codex/review`、`/codex/automations`、`/codex/config` 口径改为当前可访问的 `/codex/app/review`、`/codex/app/automations`、`/codex/app/settings`、`/codex/cli/reference`
+- Claude Code 教程补充 v2.1.134 -> v2.1.158 差量，覆盖 Opus 4.8、`/effort xhigh`、`/goal`、`/workflows`、Agent View、后台 shell 会话、`/reload-skills`、`disallowed-tools`、`MessageDisplay` hook、插件 marketplace、MCP 审批、auto mode、遥测和企业治理等内容
+- OpenClaw 教程补充 v2026.4.24 -> v2026.5.27 差量，覆盖 Node.js 24 / 22.19+ 基线、Gateway ready 性能、Transcript 核心化、Control UI Activity、Talk / Discord voice、Meeting Notes、消息平台 durable delivery、模型目录、媒体处理、Docker runtime workspace templates 和安全边界
+- 固化后续更新规则：版本迭代必须同时检查正文教程差量、README 版本表、文档头尾更新时间、官方链接和可复制命令，避免只改徽章或统计口径
+
+---
+
 ## [v2.1.135] - 2026-05-10
 
 ### 修改
@@ -139,7 +168,7 @@
 
 ### 新增
 
-- OpenClaw 全套文档重写 — 技术错误修复 + 小白友好化改造
+- OpenClaw 全套文档重写：修正技术口径，补足入门路径和排障说明
 - 新增 06-Subagent 子代理教程 + 全站模型名更新
 
 ### 修复
@@ -156,7 +185,7 @@
 
 ### 新增
 
-- **双顶流合璧 — Claude Code x OpenClaw 中文教程** 发布
+- **Claude Code x OpenClaw 中文教程** 发布，项目从单一工具教程扩展为双工具学习路径
 - 初始化 Claude Code 中文教程项目
 - 新增 Git Worktree 内置并行任务隔离功能文档
 - 全面迭代教程适配 Claude Code v2.1.45

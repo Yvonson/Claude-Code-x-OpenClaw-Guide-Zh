@@ -22,6 +22,8 @@
 
 ## 一、安装和配置问题
 
+这份 FAQ 是老金按真实卡点整理的，不是为了凑问题数；能定位问题，比背答案更重要。
+
 > 📌 **本节包含 15 个问题：**
 > [Q1: 命令找不到](#q1-openclaw-命令找不到command-not-found) | [Q2: Node.js 版本不兼容](#q2-nodejs-版本不兼容) | [Q3: npm 权限错误](#q3-npm-install-报权限错误eacces) | [Q4: 中国网络安装慢](#q4-中国网络环境安装慢或失败) | [Q5: node-gyp 编译错误](#q5-安装时报-node-gyp-编译错误) | [Q6: onboard 报错](#q6-openclaw-onboard-引导向导报错) | [Q7: 配置文件位置](#q7-配置文件在哪里怎么手动编辑) | [Q8: 多 API Key 配置](#q8-多个-api-key-怎么配置) | [Q9: 配置优先级](#q9-环境变量和配置文件哪个优先) | [Q10: 升级后配置丢失](#q10-升级-openclaw-后配置丢失了) | [Q11: 版本回滚](#q11-升级后功能异常怎么回滚) | [Q12: Windows Gateway 失败](#q12-windows-上安装后-gateway-启动失败) | [Q13: macOS 安全提示](#q13-macos-上安装提示无法验证开发者) | [Q14: 端口被占用](#q14-安装完成但-openclaw-gateway-start-提示端口被占用) | [Q15: 完全卸载](#q15-怎么完全卸载-openclaw)
 
@@ -63,7 +65,7 @@ pnpm config get global-bin-dir
 
 **现象：** 安装时报错 `engine "node" is incompatible` 或运行时出现语法错误。
 
-**原因：** OpenClaw 当前官方建议使用 Node.js 24.x；22.14+ 仍然兼容。低于兼容线时，常见报错就是 `engine incompatible`、运行时语法错误或部分 API 不可用。
+**原因：** OpenClaw 当前官方建议使用 Node.js 24.x；22.19+ 仍然兼容。低于兼容线时，常见报错就是 `engine incompatible`、运行时语法错误或部分 API 不可用。
 
 **解决方案：**
 
@@ -377,7 +379,7 @@ docker rmi openclaw/openclaw:latest
 > 📌 **本节包含 10 个问题：**
 > [Q16: WhatsApp 频繁断开](#q16-whatsapp-扫码后频繁断开) | [Q17: Telegram Bot 不响应](#q17-telegram-bot-不响应消息) | [Q18: Telegram 群组不回复](#q18-telegram-bot-在群组中不回复) | [Q19: Discord Bot 无法加入](#q19-discord-bot-无法加入服务器) | [Q20: 消息延迟严重](#q20-消息延迟严重发了好久才回复) | [Q21: rate limited](#q21-消息发送失败提示-rate-limited) | [Q22: 飞书收不到消息](#q22-飞书feishulark接入后收不到消息) | [Q23: 控制面板打不开](#q23-控制面板dashboard打不开) | [Q24: 多账号接入](#q24-同一个平台能接入多个账号吗) | [Q25: 图片文件处理](#q25-消息中的图片文件-ai-能处理吗)
 
-### Q16: WhatsApp 扫码后频繁断开
+### Q1: WhatsApp 扫码后频繁断开
 
 **现象：** 扫码配对成功，但过一会儿就断开，需要反复扫码。
 
@@ -405,7 +407,7 @@ openclaw logs --limit 50 | grep whatsapp
 - 一个 WhatsApp 账号只能同时连接一个 Web 客户端，如果你在浏览器里也开了 WhatsApp Web，会冲突
 - 建议用一个专门的手机号来跑 OpenClaw
 
-### Q17: Telegram Bot 不响应消息
+### Q2: Telegram Bot 不响应消息
 
 **现象：** 给 Telegram Bot 发消息，没有任何回复。
 
@@ -434,7 +436,7 @@ openclaw channels logout telegram
 openclaw channels login telegram
 ```
 
-### Q18: Telegram Bot 在群组中不回复
+### Q3: Telegram Bot 在群组中不回复
 
 **现象：** Bot 在私聊中正常回复，但在群组中不响应。
 
@@ -446,7 +448,7 @@ openclaw channels login telegram
 2. 或者在群组中 @提及 Bot 来触发回复
 3. 在群组配置中设置激活模式（通过聊天命令 `/activation mention` 或 `/activation always` 切换）
 
-### Q19: Discord Bot 无法加入服务器
+### Q4: Discord Bot 无法加入服务器
 
 **现象：** 用邀请链接添加 Bot 时报错 `Missing Permissions`。
 
@@ -472,7 +474,7 @@ openclaw channels logout discord
 openclaw channels login discord
 ```
 
-### Q20: 消息延迟严重（发了好久才回复）
+### Q5: 消息延迟严重（发了好久才回复）
 
 **现象：** 发消息后要等 10 秒甚至更久才收到回复。
 
@@ -499,7 +501,7 @@ openclaw config set agents.defaults.model "openai/gpt-5.2-mini"
 # 精简 ~/.openclaw/workspace/SOUL.md 的内容
 ```
 
-### Q21: 消息发送失败，提示 "rate limited"
+### Q6: 消息发送失败，提示 "rate limited"
 
 **现象：** 发消息时报错 `429 Too Many Requests` 或 `rate limited`。
 
@@ -515,7 +517,7 @@ openclaw config set agents.defaults.model "openai/gpt-5.2-mini"
 # 3. 如果是 API 限流（429），参考 Q27 配置模型故障转移
 ```
 
-### Q22: 飞书（Feishu/Lark）接入后收不到消息
+### Q7: 飞书（Feishu/Lark）接入后收不到消息
 
 **现象：** 飞书 Bot 配置完成，但收不到用户消息。
 
@@ -540,7 +542,7 @@ openclaw logs --limit 50 | grep feishu
 # - 读取用户信息
 ```
 
-### Q23: 控制面板（Dashboard）打不开
+### Q8: 控制面板（Dashboard）打不开
 
 **现象：** 浏览器访问 `http://localhost:18789` 显示无法连接。
 
@@ -572,7 +574,7 @@ sudo firewall-cmd --reload
 openclaw gateway --port 18789
 ```
 
-### Q24: 同一个平台能接入多个账号吗？
+### Q9: 同一个平台能接入多个账号吗？
 
 **说明：** 可以。OpenClaw 支持同一平台的多个 Channel 实例。
 
@@ -587,13 +589,13 @@ openclaw channels list
 
 每个 Channel 独立运行，有自己的配对状态和消息队列。
 
-### Q25: 消息中的图片/文件 AI 能处理吗？
+### Q10: 消息中的图片/文件 AI 能处理吗？
 
-**说明：** 取决于你使用的模型。支持多模态的模型（如 GPT-5.2、Claude Sonnet 4.6）可以处理图片。
+**说明：** 取决于你使用的模型和当前 provider 目录。支持多模态的模型可以处理图片；具体型号不要背教程，以 `openclaw` 当前 models / onboarding 显示为准。
 
 ```bash
 # 多模态能力取决于你使用的模型，不需要额外配置
-# 支持多模态的模型（如 GPT-5.2、Claude Sonnet 4.6）会自动处理图片
+# 支持多模态的模型会自动处理图片；具体型号以当前模型目录为准
 # 文件大小限制取决于消息平台本身的限制
 ```
 
@@ -606,7 +608,7 @@ openclaw channels list
 > 📌 **本节包含 10 个问题：**
 > [Q26: API 401 报错](#q26-api-调用报错-401-unauthorized) | [Q27: API 429 限流](#q27-报错-429-too-many-requestsapi-限流) | [Q28: 模型回复慢](#q28-模型回复很慢) | [Q29: Token 超限](#q29-token-超限报错context-length-exceeded) | [Q30: Ollama 连不上](#q30-ollama-本地模型连不上) | [Q31: 本地模型质量差](#q31-本地模型回复质量差) | [Q32: 国产模型配置](#q32-怎么使用国产模型通义千问kimi智谱等) | [Q33: 模型故障转移](#q33-怎么配置模型故障转移fallback) | [Q34: 控制 API 费用](#q34-api-费用太高怎么控制成本) | [Q35: 不同对话用不同模型](#q35-怎么让不同的对话用不同的模型)
 
-### Q26: API 调用报错 401 Unauthorized
+### Q1: API 调用报错 401 Unauthorized
 
 **现象：** 发消息后 AI 不回复，日志中出现 `401 Unauthorized` 或 `Invalid API Key`。
 
@@ -634,7 +636,7 @@ export OPENAI_API_KEY="sk-proj-new-key-here"
 # 然后重启 Gateway
 ```
 
-### Q27: 报错 429 Too Many Requests（API 限流）
+### Q2: 报错 429 Too Many Requests（API 限流）
 
 **现象：** 高频使用时出现 `429` 错误，AI 间歇性不回复。
 
@@ -664,7 +666,7 @@ openclaw config set agents.defaults.model "openrouter/openai/gpt-5.2"
 # 去各提供商控制台升级
 ```
 
-### Q28: 模型回复很慢
+### Q3: 模型回复很慢
 
 **现象：** 发送消息后，AI 要等 10-30 秒甚至更久才开始回复。在终端日志中可以看到请求已发出，但响应迟迟不返回。
 
@@ -695,7 +697,7 @@ ping api.openai.com
 # 如果延迟高，考虑使用代理或换区域更近的提供商
 ```
 
-### Q29: Token 超限报错（context length exceeded）
+### Q4: Token 超限报错（context length exceeded）
 
 **现象：** 对话到一定长度后报错 `maximum context length exceeded` 或 `token limit`。
 
@@ -723,17 +725,15 @@ openclaw sessions list
 # reserveTokensFloor 越大，压缩越激进
 
 # 方案二：使用上下文窗口更大的模型
-# Claude Sonnet 4.6: 200K tokens
-# Gemini 3.1 Pro: 1M tokens
-# GPT-5.2: 128K tokens
-openclaw config set agents.defaults.model "anthropic/claude-sonnet-4-6"
+# 不同 provider 的上下文窗口会随版本变化，先查当前 models 目录再设置
+openclaw config set agents.defaults.model "anthropic/<current-long-context-model>"
 
 # 方案三：手动清理会话
 openclaw sessions cleanup
 # 或让 AI 总结后开新会话（在聊天界面发送 /new）
 ```
 
-### Q30: Ollama 本地模型连不上
+### Q5: Ollama 本地模型连不上
 
 **现象：** 配置了 Ollama 但 OpenClaw 报错 `ECONNREFUSED` 或 `connection refused`。
 
@@ -763,7 +763,7 @@ OLLAMA_HOST=0.0.0.0 ollama serve
 openclaw config set models.providers.ollama.baseUrl "http://192.168.1.100:11434"
 ```
 
-### Q31: 本地模型回复质量差
+### Q6: 本地模型回复质量差
 
 **现象：** 用 Ollama 跑本地模型，回复经常答非所问或质量很低。
 
@@ -803,7 +803,7 @@ ollama pull qwen2.5:14b     # 中文能力更好
 # }
 ```
 
-### Q32: 怎么使用国产模型（通义千问、Kimi、智谱等）？
+### Q7: 怎么使用国产模型（通义千问、Kimi、智谱等）？
 
 **解决方案：**
 
@@ -829,7 +829,7 @@ ollama pull qwen2.5:14b     # 中文能力更好
 
 # DeepSeek — 通过 OpenAI 兼容接口
 # baseUrl: "https://api.deepseek.com/v1"
-# v2026.4.24+ 新增 DeepSeek V4 Flash（默认）和 V4 Pro 模型
+# 具体 DeepSeek 模型名以当前 OpenClaw models / provider 目录为准
 
 # 最简单的方式：通过 OpenRouter 一站式接入所有国产模型
 export OPENROUTER_API_KEY="sk-or-xxxxx"
@@ -838,7 +838,7 @@ openclaw config set agents.defaults.model "openrouter/deepseek/deepseek-chat"
 
 国产模型的优势：不需要代理、中文能力强、价格便宜。推荐中国用户优先考虑。
 
-### Q33: 怎么配置模型故障转移（Fallback）？
+### Q8: 怎么配置模型故障转移（Fallback）？
 
 **说明：** 当主模型不可用时，自动切换到备用模型，保证服务不中断。
 
@@ -864,7 +864,7 @@ openclaw models fallbacks list
 openclaw models status
 ```
 
-### Q34: API 费用太高怎么控制成本？
+### Q9: API 费用太高怎么控制成本？
 
 **解决方案：**
 
@@ -891,7 +891,7 @@ ollama pull llama3.1:8b
 openclaw config set agents.defaults.model "ollama/llama3.1:8b"
 ```
 
-### Q35: 怎么让不同的对话用不同的模型？
+### Q10: 怎么让不同的对话用不同的模型？
 
 **说明：** 可以为不同的 Agent 配置不同的模型，通过在配置文件中为每个 Agent 指定独立的模型。
 
@@ -923,10 +923,11 @@ openclaw models aliases add quick-chat "openai/gpt-5.2-mini"
 
 ## 四、技能和工具问题
 
+
 > 📌 **本节包含 10 个问题：**
 > [Q36: 技能不生效](#q36-技能skill不生效ai-不执行) | [Q37: 自定义技能报错](#q37-自定义技能报错) | [Q38: 工具执行失败](#q38-工具tool执行失败) | [Q39: 禁用工具](#q39-怎么禁用某个工具) | [Q40: 添加新工具](#q40-怎么给-ai-添加新工具) | [Q41: 技能中途中断](#q41-技能执行到一半中断了) | [Q42: 查看工具调用](#q42-怎么查看-ai-调用了哪些工具) | [Q43: 内置技能列表](#q43-内置技能列表在哪里看) | [Q44: 技能冲突](#q44-技能之间会冲突吗) | [Q45: 分享技能](#q45-怎么分享自定义技能给别人)
 
-### Q36: 技能（Skill）不生效，AI 不执行
+### Q1: 技能（Skill）不生效，AI 不执行
 
 **现象：** 你发消息让 AI 执行某个技能（比如「帮我搜索 xxx」），但 AI 只是用文字回复了一段话，并没有真正调用工具去执行操作。日志中也看不到工具调用记录。
 
@@ -950,7 +951,7 @@ openclaw skills check <skill-name> --input "测试消息"
 openclaw skills list
 ```
 
-### Q37: 自定义技能报错
+### Q2: 自定义技能报错
 
 **现象：** 在 `~/.openclaw/workspace/skills/` 目录下创建了自定义技能的 `.md` 文件，但执行 `openclaw skills list` 时该技能未出现，或者出现 `skill parse error`、`invalid skill format` 等报错信息。
 
@@ -994,7 +995,7 @@ tools:
 3. 生成结果并写入文件
 ```
 
-### Q38: 工具（Tool）执行失败
+### Q3: 工具（Tool）执行失败
 
 **现象：** AI 回复中显示「正在调用 xxx 工具」，但随后报错 `tool execution failed`、`permission denied` 或 `tool not found`，操作没有完成。
 
@@ -1020,7 +1021,7 @@ openclaw skills info <skill-name>
 # shell_exec 需要在配置中启用（默认禁用，出于安全考虑）
 ```
 
-### Q39: 怎么禁用某个工具？
+### Q4: 怎么禁用某个工具？
 
 **说明：** 出于安全考虑，你可能想禁用某些危险工具。
 
@@ -1044,7 +1045,7 @@ openclaw skills info <skill-name>
 openclaw doctor
 ```
 
-### Q40: 怎么给 AI 添加新工具？
+### Q5: 怎么给 AI 添加新工具？
 
 **说明：** OpenClaw 支持通过 MCP（Model Context Protocol）协议接入外部工具。
 
@@ -1060,7 +1061,7 @@ openclaw plugins
 # 参考文档：https://docs.openclaw.ai/tools/custom
 ```
 
-### Q41: 技能执行到一半中断了
+### Q6: 技能执行到一半中断了
 
 **现象：** AI 在执行一个多步骤技能时（比如「搜索 → 读取文件 → 生成报告」），执行到中间某一步后突然停下来，不再继续后续步骤，也没有给出完成提示。
 
@@ -1074,7 +1075,7 @@ openclaw plugins
 openclaw gateway --port 18789 --verbose
 
 # 第二步：Token 限制导致截断的解决方案
-# 不同模型有不同的最大输出限制（如 GPT-5.2 最大 32K tokens）
+# 不同模型有不同的最大输出限制，先查当前 models 输出和 provider 文档
 # 换用输出限制更大的模型，或精简系统提示词
 
 # 第三步：让 AI 继续
@@ -1085,7 +1086,7 @@ openclaw skills check <failed-tool-name>
 # 修复工具问题后重试
 ```
 
-### Q42: 怎么查看 AI 调用了哪些工具？
+### Q7: 怎么查看 AI 调用了哪些工具？
 
 **解决方案：**
 
@@ -1101,7 +1102,7 @@ openclaw logs --follow
 openclaw status
 ```
 
-### Q43: 内置技能列表在哪里看？
+### Q8: 内置技能列表在哪里看？
 
 **解决方案：**
 
@@ -1113,7 +1114,7 @@ openclaw skills list
 openclaw skills info <skill-name>
 ```
 
-### Q44: 技能之间会冲突吗？
+### Q9: 技能之间会冲突吗？
 
 **说明：** 如果多个技能的触发条件重叠，可能会出现冲突。OpenClaw 会按优先级选择。
 
@@ -1125,7 +1126,7 @@ openclaw skills list
 openclaw skills info <skill-name>
 ```
 
-### Q45: 怎么分享自定义技能给别人？
+### Q10: 怎么分享自定义技能给别人？
 
 **解决方案：**
 
@@ -1147,7 +1148,7 @@ openclaw skills list
 > 📌 **本节包含 10 个问题：**
 > [Q46: Docker 容器立即退出](#q46-docker-容器启动后立即退出) | [Q47: 容器内存过高](#q47-docker-容器内存占用过高) | [Q48: 数据卷备份](#q48-docker-数据卷怎么备份) | [Q49: 自动重启](#q49-gateway-进程崩溃后怎么自动重启) | [Q50: 查看日志](#q50-日志在哪里看怎么排查问题) | [Q51: 监控运行状态](#q51-怎么监控-openclaw-的运行状态) | [Q52: 磁盘空间清理](#q52-磁盘空间不足怎么清理) | [Q53: 多服务器部署](#q53-怎么在多台服务器上部署) | [Q54: 设置 HTTPS](#q54-怎么设置-https) | [Q55: 自动更新](#q55-怎么配置自动更新)
 
-### Q46: Docker 容器启动后立即退出
+### Q1: Docker 容器启动后立即退出
 
 **现象：** 执行 `docker compose up -d` 后，运行 `docker ps` 看不到 OpenClaw 容器，用 `docker ps -a` 查看发现容器状态为 `Exited (1)` 或其他非零退出码。
 
@@ -1175,7 +1176,7 @@ cat .env
 docker compose up  # 不加 -d
 ```
 
-### Q47: Docker 容器内存占用过高
+### Q2: Docker 容器内存占用过高
 
 **现象：** 运行 `docker stats` 发现 OpenClaw 容器的内存使用量持续增长，从几百 MB 涨到好几 GB，甚至导致宿主机变卡或 OOM（Out of Memory）被系统杀掉。
 
@@ -1206,7 +1207,7 @@ docker exec openclaw openclaw sessions cleanup
 # 0 4 * * * docker compose restart openclaw
 ```
 
-### Q48: Docker 数据卷怎么备份？
+### Q3: Docker 数据卷怎么备份？
 
 **解决方案：**
 
@@ -1225,7 +1226,7 @@ docker run --rm \
 # 0 3 * * * /path/to/backup-script.sh
 ```
 
-### Q49: Gateway 进程崩溃后怎么自动重启？
+### Q4: Gateway 进程崩溃后怎么自动重启？
 
 **解决方案：**
 
@@ -1248,7 +1249,7 @@ pm2 save
 pm2 startup  # 开机自启
 ```
 
-### Q50: 日志在哪里看？怎么排查问题？
+### Q5: 日志在哪里看？怎么排查问题？
 
 **解决方案：**
 
@@ -1274,7 +1275,7 @@ openclaw config set logging.level "debug"
 openclaw config set logging.level "info"
 ```
 
-### Q51: 怎么监控 OpenClaw 的运行状态？
+### Q6: 怎么监控 OpenClaw 的运行状态？
 
 **解决方案：**
 
@@ -1297,7 +1298,7 @@ openclaw status
 # 检查间隔: 5 分钟
 ```
 
-### Q52: 磁盘空间不足怎么清理？
+### Q7: 磁盘空间不足怎么清理？
 
 **解决方案：**
 
@@ -1320,7 +1321,7 @@ docker volume prune -f          # 清理无用数据卷（谨慎）
 du -sh ~/.openclaw/
 ```
 
-### Q53: 怎么在多台服务器上部署？
+### Q8: 怎么在多台服务器上部署？
 
 **说明：** OpenClaw 目前是单实例架构，不支持原生集群部署。但你可以通过以下方式实现多节点：
 
@@ -1340,7 +1341,7 @@ du -sh ~/.openclaw/
 # 把 ~/.openclaw/ 挂载到共享存储
 ```
 
-### Q54: 怎么设置 HTTPS？
+### Q9: 怎么设置 HTTPS？
 
 **解决方案：**
 
@@ -1371,7 +1372,7 @@ openclaw config set gateway.tls.keyPath "/path/to/key.pem"
 openclaw gateway --port 18789
 ```
 
-### Q55: 怎么配置自动更新？
+### Q10: 怎么配置自动更新？
 
 **解决方案：**
 
@@ -1399,7 +1400,7 @@ npm view openclaw version
 > 📌 **本节包含 3 个问题：**
 > [Q56: AI 不记得之前说的话](#q56-ai-不记得之前说的话) | [Q57: 记忆文件太大](#q57-记忆文件太大导致-token-超限) | [Q58: 多 Agent 共享记忆](#q58-怎么在多个-agent-之间共享记忆)
 
-### Q56: AI 不记得之前说的话
+### Q1: AI 不记得之前说的话
 
 **现象：** 你之前告诉 AI「我叫小明」或「我喜欢用 Python」，但下次对话时 AI 完全不记得这些信息，像是第一次跟你聊天一样。
 
@@ -1429,7 +1430,7 @@ nano ~/.openclaw/workspace/MEMORY.md
 # 通过 openclaw plugins 查看是否已启用
 ```
 
-### Q57: 记忆文件太大导致 Token 超限
+### Q2: 记忆文件太大导致 Token 超限
 
 **现象：** 使用一段时间后，每次新对话刚开始就报错 `token limit exceeded`，或者发现 API 费用突然增加。检查发现 `~/.openclaw/workspace/MEMORY.md` 文件已经有几百甚至上千行。
 
@@ -1454,7 +1455,7 @@ mv ~/.openclaw/workspace/memory/2025-*.md ~/.openclaw/workspace/memory/archive/
 wc -l ~/.openclaw/workspace/MEMORY.md
 ```
 
-### Q58: 怎么在多个 Agent 之间共享记忆？
+### Q3: 怎么在多个 Agent 之间共享记忆？
 
 **说明：** 默认情况下，所有 Agent 共享同一个 workspace 和记忆目录。如果你想隔离，在配置文件中为不同 Agent 指定独立的 workspace：
 
@@ -1481,9 +1482,9 @@ wc -l ~/.openclaw/workspace/MEMORY.md
 > 📌 **本节包含 6 个问题：**
 > [Q59: API Key 泄露风险](#q59-api-key-会不会泄露) | [Q60: 聊天记录存储](#q60-聊天记录存在哪里会被发送到第三方吗) | [Q61: Gateway Token](#q61-gateway-token-是什么必须设置吗) | [Q62: 限制对话权限](#q62-怎么限制谁能跟-ai-对话) | [Q63: 防止危险操作](#q63-怎么防止-ai-执行危险操作) | [Q64: 安全漏洞](#q64-openclaw-有已知的安全漏洞吗)
 
-### Q59: API Key 会不会泄露？
+### Q1: API Key 会不会泄露？
 
-**说明：** OpenClaw 把 API Key 存储在本地配置文件中（`~/.openclaw/openclaw.json`），不会上传到任何服务器。
+**说明：** OpenClaw 把 API Key 存储在本地配置文件中（`~/.openclaw/openclaw.json`）或环境变量里，不会集中保存到某个 OpenClaw 云端；但调用云端模型时，Key 会作为认证凭证发给你配置的 provider。
 
 **安全建议：**
 
@@ -1501,16 +1502,16 @@ export OPENAI_API_KEY="sk-proj-xxxxx"
 # 不要把 Key 写入任何会被 git 追踪的文件
 ```
 
-### Q60: 聊天记录存在哪里？会被发送到第三方吗？
+### Q2: 聊天记录存在哪里？会被发送到第三方吗？
 
 **说明：** 聊天记录存储在本地 `~/.openclaw/` 目录中。消息内容只会发送到你配置的 AI 模型提供商（如 OpenAI、Anthropic）。
 
 OpenClaw 本身不收集任何用户数据。但要注意：
 - 你发给 AI 的消息会被模型提供商处理（参考各提供商的隐私政策）
 - 如果你用 OpenRouter 等聚合服务，消息会经过中间层
-- 本地模型（Ollama）的数据完全不出本机
+- 本地模型（Ollama）的推理内容可以不出本机；外部插件、远程 channel 和更新检查要另行审查
 
-### Q61: Gateway Token 是什么？必须设置吗？
+### Q3: Gateway Token 是什么？必须设置吗？
 
 **说明：** Gateway Token 是访问 OpenClaw Gateway 的认证凭证。如果不设置，任何知道你 Gateway 地址的人都能连接并发送消息。
 
@@ -1525,7 +1526,7 @@ openclaw config set gateway.auth.token "your-strong-random-token-here"
 export OPENCLAW_GATEWAY_TOKEN="your-strong-random-token-here"
 ```
 
-### Q62: 怎么限制谁能跟 AI 对话？
+### Q4: 怎么限制谁能跟 AI 对话？
 
 **解决方案：**
 
@@ -1549,7 +1550,7 @@ openclaw pairing approve user1 # 批准
 openclaw pairing list --approved
 ```
 
-### Q63: 怎么防止 AI 执行危险操作？
+### Q5: 怎么防止 AI 执行危险操作？
 
 **解决方案：**
 
@@ -1574,7 +1575,7 @@ cd ~/.openclaw/workspace && git init && git add . && git commit -m "snapshot"
 # 记录了所有工具调用，包括参数和结果
 ```
 
-### Q64: OpenClaw 有已知的安全漏洞吗？
+### Q6: OpenClaw 有已知的安全漏洞吗？
 
 **说明：** OpenClaw 在 2026 年初曾披露过 CVE 安全漏洞，社区已经修复。v2026.4.x 系列持续加强了安全防护，主要包括：
 
@@ -1609,7 +1610,7 @@ openclaw --version
 > 📌 **本节包含 3 个问题：**
 > [Q65: API 访问不了](#q65-api-访问不了怎么办) | [Q66: WhatsApp 能否使用](#q66-whatsapp-在中国能用吗) | [Q67: npm 镜像问题](#q67-npm-镜像配置后还是装不上)
 
-### Q65: API 访问不了怎么办？
+### Q1: API 访问不了怎么办？
 
 **说明：** OpenAI、Anthropic、Google 的 API 在中国大陆无法直接访问。
 
@@ -1632,12 +1633,12 @@ openclaw config set agents.defaults.model "openrouter/openai/gpt-5.2"
 # 然后设置环境变量和模型
 openclaw config set agents.defaults.model "deepseek/deepseek-chat"
 
-# 方案四：本地模型（完全不需要网络）
+# 方案四：本地模型（推理阶段可以离线；首次拉取模型通常需要网络）
 ollama pull qwen2.5:7b
 openclaw config set agents.defaults.model "ollama/qwen2.5:7b"
 ```
 
-### Q66: WhatsApp 在中国能用吗？
+### Q2: WhatsApp 在中国能用吗？
 
 **说明：** WhatsApp 在中国大陆需要代理才能使用。
 
@@ -1652,7 +1653,7 @@ openclaw channels add feishu
 # 按提示配置飞书开放平台的 App ID 和 App Secret
 ```
 
-### Q67: npm 镜像配置后还是装不上
+### Q3: npm 镜像配置后还是装不上
 
 **解决方案：**
 
@@ -1679,7 +1680,7 @@ docker pull openclaw/openclaw:latest
 > 📌 **本节包含 5 个问题：**
 > [Q68: 报告 Bug](#q68-怎么报告-bug) | [Q69: 贡献代码](#q69-怎么贡献代码) | [Q70: 分享自定义技能](#q70-怎么创建和分享自定义技能) | [Q71: 中文社区](#q71-有中文社区吗) | [Q72: 文档反馈](#q72-文档有错误怎么反馈)
 
-### Q68: 怎么报告 Bug？
+### Q1: 怎么报告 Bug？
 
 **解决方案：**
 
@@ -1713,7 +1714,7 @@ docker pull openclaw/openclaw:latest
 （openclaw logs --limit 50）
 ```
 
-### Q69: 怎么贡献代码？
+### Q2: 怎么贡献代码？
 
 **流程：**
 
@@ -1744,7 +1745,7 @@ git push origin feat/my-new-feature
 # 在 GitHub 上创建 Pull Request
 ```
 
-### Q70: 怎么创建和分享自定义技能？
+### Q3: 怎么创建和分享自定义技能？
 
 **解决方案：**
 
@@ -1762,7 +1763,7 @@ openclaw skills check my-awesome-skill --input "测试"
 # https://github.com/openclaw/openclaw-skills
 ```
 
-### Q71: 有中文社区吗？
+### Q4: 有中文社区吗？
 
 **说明：** 有的。
 
@@ -1770,7 +1771,7 @@ openclaw skills check my-awesome-skill --input "测试"
 - Discord 社区（有中文频道）
 - 微信群：关注 OpenClaw 公众号获取入群二维码
 
-### Q72: 文档有错误怎么反馈？
+### Q5: 文档有错误怎么反馈？
 
 **解决方案：**
 
@@ -1785,23 +1786,23 @@ openclaw skills check my-awesome-skill --input "测试"
 > 📌 **本节包含 7 个问题：**
 > [Q73: 和 ChatGPT 的区别](#q73-openclaw-和-chatgpt-有什么区别) | [Q74: 支持哪些语言](#q74-openclaw-支持哪些语言) | [Q75: 多实例运行](#q75-一台机器能跑多个-openclaw-实例吗) | [Q76: 是否收费](#q76-openclaw-会收费吗) | [Q77: 查看所有配置](#q77-怎么查看当前的所有配置) | [Q78: Gateway 和 Agent 关系](#q78-gateway-和-agent-是什么关系) | [Q79: 获取帮助](#q79-遇到问题怎么获取帮助)
 
-### Q73: OpenClaw 和 ChatGPT 有什么区别？
+### Q1: OpenClaw 和 ChatGPT 有什么区别？
 
 **说明：** 它们是完全不同的东西：
 
 | 维度 | ChatGPT | OpenClaw |
 |------|---------|----------|
 | 本质 | AI 聊天产品 | AI Agent 框架 |
-| 模型 | 只能用 OpenAI 的模型 | 支持 29+ 提供商 |
+| 模型 | 只能用 OpenAI 的模型 | 支持多个主流提供商 |
 | 平台 | 网页/App | WhatsApp/Telegram/Discord 等 |
 | 工具 | 有限的插件 | 可扩展的工具和技能系统 |
 | 记忆 | 平台管理 | 你自己控制（本地 Markdown） |
-| 数据 | 存在 OpenAI 服务器 | 存在你自己的机器上 |
+| 数据 | 平台管理，具体看 OpenAI / ChatGPT 数据政策 | 配置、记忆和聊天记录默认在你机器上；云端模型调用仍会发送给所选 provider |
 | 价格 | 订阅制 | 开源免费（API 费用另算） |
 
 简单说：ChatGPT 是一个产品，OpenClaw 是一个让你构建自己 AI 助手的工具。
 
-### Q74: OpenClaw 支持哪些语言？
+### Q2: OpenClaw 支持哪些语言？
 
 **说明：** OpenClaw 本身是英文项目，但 AI 的回复语言取决于你使用的模型和系统提示词。
 
@@ -1813,9 +1814,9 @@ openclaw skills check my-awesome-skill --input "测试"
 # - 代码注释也使用中文
 ```
 
-大多数主流模型（GPT-5.2、Claude、Gemini）都支持中文。本地模型推荐用 Qwen（通义千问）系列，中文能力最好。
+大多数主流云端模型都支持中文；本地模型里 Qwen（通义千问）系列通常是中文优先选择之一。具体效果要用你当前安装的模型实际测试，不要只看名字。
 
-### Q75: 一台机器能跑多个 OpenClaw 实例吗？
+### Q3: 一台机器能跑多个 OpenClaw 实例吗？
 
 **解决方案：**
 
@@ -1833,11 +1834,11 @@ OPENCLAW_HOME=~/.openclaw-2 openclaw gateway --port 18790
 # Docker 方式更简单：跑多个容器，映射不同端口
 ```
 
-### Q76: OpenClaw 会收费吗？
+### Q4: OpenClaw 会收费吗？
 
-**说明：** OpenClaw 是开源项目（MIT 协议），永久免费。你需要付费的只有 AI 模型的 API 调用费用（如果你用云端模型的话）。用本地模型（Ollama）则完全零成本。
+**说明：** OpenClaw 是开源项目（MIT 协议），工具本身免费。你需要付费的通常是云端 AI 模型 API 调用费用；本地模型（Ollama）没有按 token 计费，但仍有机器、电费、显存、下载和维护成本。
 
-### Q77: 怎么查看当前的所有配置？
+### Q5: 怎么查看当前的所有配置？
 
 **解决方案：**
 
@@ -1858,7 +1859,7 @@ cp ~/.openclaw/openclaw.json my-config-backup.json
 cp my-config-backup.json ~/.openclaw/openclaw.json
 ```
 
-### Q78: Gateway 和 Agent 是什么关系？
+### Q6: Gateway 和 Agent 是什么关系？
 
 **说明：**
 
@@ -1869,7 +1870,7 @@ cp my-config-backup.json ~/.openclaw/openclaw.json
 
 Gateway 是基础设施层，Agent 是业务逻辑层。一个 Gateway 可以服务多个 Agent。
 
-### Q79: 遇到问题怎么获取帮助？
+### Q7: 遇到问题怎么获取帮助？
 
 **获取帮助的渠道（按推荐顺序）：**
 
@@ -1887,14 +1888,17 @@ Gateway 是基础设施层，Agent 是业务逻辑层。一个 Gateway 可以服
 
 ---
 
-## 十一、版本升级与迁移（v2026.3.28 → v2026.4.24）
+## 十一、版本升级与迁移（v2026.3.28 → v2026.6.1）
+
 
 > 📌 **本节包含 4 个问题：**
-> [Q80: 升级要点](#q80-从-v202632x-升级到-v202642x-有哪些注意事项) | [Q81: 反向代理配置变更](#q81-升级后反向代理配置需要改吗) | [Q82: 插件白名单变更](#q82-升级后-allowlist-相关操作报权限错误) | [Q83: 性能提升](#q83-升级后启动变快了是正常的吗)
+> [Q80: 升级要点](#q1-从-v202632x-升级到-v202661-有哪些注意事项) | [Q81: 反向代理配置变更](#q81-升级后反向代理配置需要改吗) | [Q82: 插件白名单变更](#q82-升级后-allowlist-相关操作报权限错误) | [Q83: 性能提升](#q83-升级后启动变快了是正常的吗)
 
-### Q80: 从 v2026.3.2x 升级到 v2026.4.2x 有哪些注意事项？
+### Q1: 从 v2026.3.2x 升级到 v2026.6.1 有哪些注意事项？
 
-**说明：** v2026.4.x 系列包含多项安全加固和功能改进。大部分配置向后兼容，但以下几点需要注意：
+> **v2026.6.1 新增关注点**：除了 v2026.4.x 和 v2026.5.x 的安全、通道、Transcript、模型目录、Docker 和 release integrity 改动之外，v2026.6.1 还重点改进 Agents / CLI runtime 恢复、消息通道稳定性、Skill Workshop、插件安装索引、Workboard、provider/model 覆盖、Control UI 和 release / diagnostics 证据链。升级后如果发现模型、通道、插件、技能或多 Agent 行为变化，先运行 `openclaw doctor`，再对照当前 release notes。
+
+**说明：** 从 v2026.4.x 到 v2026.6.1 的升级包含多项安全加固、性能优化、通道能力、插件/技能和多 Agent 更新。大部分配置向后兼容，但以下几点需要注意：
 
 1. **Owner-Enforced Commands（v2026.4.5+）**：`/allowlist add` 和 `/allowlist remove` 现在需要 Owner 身份验证。如果你之前在自动化脚本中使用了这些命令，需要确保调用者具有 Owner 权限
 2. **转发头安全检查（v2026.4.x+）**：如果你使用反向代理，Gateway 现在会检查转发头的一致性（详见 Q81）
@@ -1919,7 +1923,7 @@ openclaw security audit
 # 4. 如果使用反向代理，检查转发头配置（见 Q81）
 ```
 
-### Q81: 升级后反向代理配置需要改吗？
+### Q2: 升级后反向代理配置需要改吗？
 
 **说明：** 如果你通过 Nginx 等反向代理暴露 Gateway，v2026.4.x 的转发头安全检查可能影响你的配置。
 
@@ -1938,7 +1942,7 @@ proxy_set_header X-Forwarded-For $remote_addr;
 2. 如果使用 trusted-proxy 认证模式，`trustedProxies` 中不能填 loopback 地址（`127.0.0.1`、`::1`）
 3. 如果 Gateway 和代理在同一台机器上通过 loopback 通信，改用 token/password 认证模式
 
-### Q82: 升级后 /allowlist 相关操作报权限错误
+### Q3: 升级后 /allowlist 相关操作报权限错误
 
 **现象：** 升级到 v2026.4.5+ 后，执行 `/allowlist add` 或 `/allowlist remove` 时提示权限不足。
 
@@ -1955,7 +1959,7 @@ openclaw approvals get
 openclaw approvals set <tool-name> --allow
 ```
 
-### Q83: 升级后启动变快了，是正常的吗？
+### Q4: 升级后启动变快了，是正常的吗？
 
 **说明：** 是的，这是正常现象。v2026.4.20+ 包含了显著的启动性能优化：
 

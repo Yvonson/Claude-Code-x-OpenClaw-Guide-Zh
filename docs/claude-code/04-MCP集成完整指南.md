@@ -9,13 +9,15 @@
 > - **个人博客**：https://aiking.dev
 > - **预计学时**：4-6小时
 > - **难度等级**：⭐⭐ 入门级（有Claude Code基础即可）
-> - **更新日期**：2026年4月
-> - **适用版本**：MCP规范 2025-11-25 / Claude Code v2.1.133（验证于 2026-05-08）
+> - **更新日期**：2026年6月9日
+> - **适用版本**：MCP规范 2025-11-25 / Claude Code v2.1.169（验证于 2026-06-09；v2.1.158 以前差量保留为历史基线）
 > - **前置要求**：已完成Claude Code安装和基础使用
 
 ---
 
 ## 本课学习目标
+
+老金我讲 MCP 时会优先讲边界和证据来源，因为外部工具越强，越不能靠感觉授权。
 
 完成本课学习后，你将能够：
 
@@ -119,6 +121,7 @@
 ---
 
 ## 第一部分：MCP简介（5分钟快速理解）
+
 
 ### 1.1 MCP是什么
 
@@ -232,6 +235,7 @@ Claude Code（通过Brave Search MCP）：
 ---
 
 ## 第二部分：5分钟快速开始（立即见效）
+
 
 > **本节目的**：用最快速度配置第一个MCP服务器，让你立即看到效果！
 >
@@ -436,6 +440,7 @@ Claude Code：
 ---
 
 ## 第三部分：常用MCP服务器配置（实战为主）
+
 
 > **本节目的**：学会配置10+最常用的MCP服务器
 >
@@ -744,21 +749,7 @@ Local作用域：GITHUB_PERSONAL_ACCESS_TOKEN = "local-override-token"
 }
 ```
 
-**Project作用域**（项目根目录 `.mcp.json`）：
-
-```json
-{
-  "mcpServers": {
-    "github": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
-      }
-    }
-  }
-}
-```
+**Project作用域**（项目根目录 `.mcp.json`）：沿用前面 GitHub MCP 的 `.mcp.json` 写法，把配置放到项目根目录，适合团队共享服务器声明；密钥仍然通过环境变量注入，不要把 token 写进仓库。
 
 **User作用域**（使用CLI）：
 
@@ -2331,14 +2322,14 @@ npm publish --access public
 ---
 
 > 📌 **信息来源**：
-> - [MCP官方文档](https://modelcontextprotocol.io/) | 验证日期：2026-04-05
-> - [GitHub MCP Server仓库](https://github.com/modelcontextprotocol/servers) | 验证日期：2026-04-05
-> - [Claude Code文档](https://code.claude.com/docs/en/mcp) | 验证日期：2026-04-05
+> - [MCP官方文档](https://modelcontextprotocol.io/) | 验证日期：2026-05-30
+> - [GitHub MCP Server仓库](https://github.com/modelcontextprotocol/servers) | 验证日期：2026-05-30
+> - [Claude Code文档](https://code.claude.com/docs/en/mcp) | 验证日期：2026-05-30
 
 **作者**：老金
-**更新日期**：2026年4月5日
-**版本**：V1.4（v2.1.90 release 摘录入差量）
+**更新日期**：2026年6月9日
+**版本**：V1.5（v2.1.158 release 摘录入差量）
 **字数统计**：约3,500行 / 28,000字
-**适用版本**：MCP规范 2025-11-25 / Claude Code v2.1.133
+**适用版本**：MCP规范 2025-11-25 / Claude Code v2.1.169
 
 ---

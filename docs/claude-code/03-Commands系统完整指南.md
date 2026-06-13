@@ -9,14 +9,16 @@
 > - **个人博客**：https://aiking.dev
 > - **预计学时**：4-6小时
 > - **难度等级**：⭐⭐ 入门级
-> - **更新日期**：2026年4月
-> - **适用版本**：Claude Code v2.1.133（验证于 2026-05-08）
+> - **更新日期**：2026年6月9日
+> - **适用版本**：Claude Code v2.1.169（验证于 2026-06-09；v2.1.158 以前差量保留为历史基线）
 > - **信息来源**：[内置命令参考](https://code.claude.com/docs/en/commands) | [Skills 官方文档](https://code.claude.com/docs/en/slash-commands) | [Claude Command Suite](https://github.com/qdhenry/Claude-Command-Suite) | [最佳实践](https://www.anthropic.com/engineering/claude-code-best-practices)
 > - **前置要求**：已完成Claude Code安装和基础使用
 
 ---
 
 ## 本课学习目标
+
+我在公众号“老金带你玩AI”里反复强调一件事：命令不是炫技，命令要能把真实工作收口。
 
 完成本课学习后，你将能够：
 
@@ -190,6 +192,7 @@ EOF
 ---
 
 ## 第一部分：Commands简介
+
 
 ### 1.1 什么是Slash命令
 
@@ -452,6 +455,9 @@ You: /hello
 
 ## 第三部分：内置命令速查（做完练习后再查）
 
+
+> **2026-05-30 版本差异速览（v2.1.158）**：当前稳定版新增 Opus 4.8 与 `/effort xhigh`，`/workflows` 可查看 dynamic workflows 后台编排，`claude agents` 支持用 `! <command>` 或 `claude --bg --exec '<command>'` 启动可附着/可分离的后台 shell 会话。v2.1.157 还补了 `/plugin` 参数补全、`/terminal-setup` 对 IDE 终端 GPU 加速的处理，以及 workflow 关键词触发开关；`/simplify` 现在是清理型 review，不再等同于完整 `/code-review --fix`，代码缺陷审查仍以 `/code-review` 为主路径。
+
 > **本节说明**：这一节是参考表，不建议第一次学习时逐行阅读。你已经在第二部分创建过一个能运行的命令；如果目标是继续实操，可以直接跳到「第四部分：自定义命令开发」。需要查命令时再回来看这张表。
 >
 > **详细教程**：请回顾「02-基础使用完整指南.md」→ 第四部分：Slash命令大全
@@ -476,6 +482,9 @@ You: /hello
 |                      | `/model`         | 切换AI模型      | 按需选模型     |  ⭐  |
 |                      | `/effort`        | 推理深度控制    | 调节AI思考深度 |  ⭐  |
 |                      | `/usage`         | 账户使用量      | 查看配额       |      |
+|                      | `/goal`          | 设置完成条件并持续推进 | 长目标任务 |      |
+|                      | `/workflows`     | 查看 dynamic workflows 运行 | 大规模后台编排 |      |
+|                      | `/scroll-speed`  | 调整鼠标滚动速度 | 长输出阅读 |      |
 |                      | `/focus`         | 聚焦视图        | 减少界面噪声   |      |
 |                      | `/recap`         | 生成会话一句话摘要 | 快速恢复上下文 |      |
 | **项目配置**   | `/init`          | 初始化CLAUDE.md | 新项目配置     |  ⭐  |
@@ -490,7 +499,7 @@ You: /hello
 |                      | `/chrome`        | 配置 Chrome 集成 | 浏览器联动     |      |
 | **开发辅助**   | `/security-review` | 安全审查      | 检查当前 diff 的安全问题 |      |
 |                      | `/review`        | 本地 PR / 改动审查 | 通用代码审查 |      |
-|                      | `/simplify`      | 复用、质量、效率修正 | 改完后打磨 |      |
+|                      | `/code-review`      | 代码审查与正确性问题报告，可指定 effort | 审 PR / 提交前检查 |      |
 |                      | `/batch`         | 大规模并行改造  | 多 worktree/多 agent |      |
 |                      | `/autofix-pr`    | 远程盯 PR 并修 CI/评论 | PR 修复循环 |      |
 |                      | `/ultrareview`   | 云端多 Agent 深度审查 | 高风险 PR |      |
@@ -509,6 +518,7 @@ You: /hello
 |                      | `/plugin`        | 管理插件        | 安装/卸载插件  |      |
 |                      | `/reload-plugins` | 重载插件      | 调试插件改动   |      |
 |                      | `/skills`        | 查看 Skills     | 管理可用工作流 |      |
+|                      | `/reload-skills` | 重新扫描 Skills | 安装/调试 Skill 后立即生效 |      |
 | **其他**       | `/help`          | 显示帮助        | 快速查命令     |  ⭐  |
 |                      | `/release-notes` | 更新日志（v2.1.92+ 为交互式版本选择器） | 查看新功能     |      |
 |                      | `/loop`          | Bundled skill：定时循环执行 | 监控部署状态   |  ⭐  |
@@ -518,7 +528,7 @@ You: /hello
 |                      | `/mobile`        | 显示移动端二维码 | 手机端安装     |      |
 |                      | `/login` / `/logout` | 登录/退出账号 | 账号切换     |      |
 |                      | `/privacy-settings` | 隐私设置      | Pro/Max 用户   |      |
-|                      | `/extra-usage`   | 配置额外用量    | 限额后继续工作 |      |
+|                      | `/usage-credits`   | 配置 usage credits | 需要额外额度时查看 |      |
 |                      | `/passes`        | 分享体验资格    | 符合资格时     |      |
 |                      | `/upgrade`       | 打开升级页面    | 升级套餐       |      |
 |                      | `/web-setup`     | 连接 GitHub 到 Web | Web 工作流  |      |
@@ -528,11 +538,14 @@ You: /hello
 
 > 💡 **提示**：输入 `/` 然后按 `Tab` 键可以查看所有可用命令。
 
-### v2.1.69+ 到 v2.1.133 的常用命令增量 🆕
+### v2.1.69+ 到 v2.1.158 的常用命令增量 🆕
 
-以下命令是 Claude Code 在 2.1.69 之后持续扩展、到 v2.1.133 仍然值得优先掌握的一批能力：
+
+以下命令是 Claude Code 在 2.1.69 之后持续扩展、到 v2.1.158 仍然值得优先掌握的一批能力：
 
 - `/powerup`：交互式课程（**v2.1.90**，官方 release 原文：*interactive lessons teaching Claude Code features with animated demos*）
+- `/goal`：设置完成条件，Claude 会跨 turns 持续推进，直到达成目标、遇到限制或被你停止
+- `/scroll-speed`：调节鼠标滚动速度，适合长 diff、长日志和 transcript 浏览
 - `/loop`：bundled skill 形式的定时循环任务
 - `/effort`：推理深度控制（五级：low/medium/high/**xhigh**/max）
 - `/sandbox`：沙箱隔离
@@ -549,6 +562,19 @@ You: /hello
 - `/statusline`：状态行定制
 - `/skills`：查看和搜索已安装的 Skills（支持关键词过滤）
 - `/proactive`：`/loop` 的别名（**v2.1.105+**）
+- `/usage`：v2.1.149+ 会按 skills、subagents、plugins、MCP server 等类别拆分用量
+- `/diff`：v2.1.149+ 详情视图支持方向键、`j`/`k`、`PgUp`/`PgDn`、`Space`、`Home`/`End` 滚动
+- `/model`：v2.1.153+ 选择会保存为新会话默认模型；需要“只改当前会话”时按当前 picker 的提示操作
+- `/doctor`：v2.1.153+ 会显示上一次更新尝试结果；npm 全局安装无法自动更新时会给出修复提示
+- `/code-review`：v2.1.146/147 起替代 `/simplify`，可写 `/code-review high`；PR 场景可用 `--comment` 生成 inline GitHub comment
+- `/workflows`：v2.1.154+ 查看 dynamic workflows；适合让 Claude 把复杂任务拆给大量后台 agent 时观察进度
+- `claude agents` 中的 `! <command>`：v2.1.154+ 可把 shell 命令作为后台 session 运行，等同于命令行的 `claude --bg --exec '<command>'`
+- `/reload-skills`：v2.1.152+ 重新扫描 Skill 目录，配合 `SessionStart.reloadSkills` 可让 Hook 安装的 Skill 在同一会话内可用
+- `/plugin`：v2.1.157+ 对子命令、已安装插件名和已知 marketplace 插件提供参数补全
+- `/terminal-setup`：v2.1.157+ 会在 VS Code / Cursor / Windsurf 集成终端里禁用 GPU 加速，减少乱码渲染
+- `/config`：v2.1.157+ 可关闭 workflow 关键词触发，避免普通提示里的 “workflow” 误触发 dynamic workflow
+- Vim NORMAL 模式下 `/`：v2.1.152+ 打开反向历史搜索，和 bash/zsh vi-mode 更接近
+- Markdown 输出：v2.1.149+ GFM task list checkbox 会按勾选框渲染，不再只是普通项目符号
 
 #### /powerup - 交互式功能教程（v2.1.90+）
 
@@ -2026,7 +2052,6 @@ allowed-tools:
 ```
 [输出模板]
 ```
-````
 
 ---
 
