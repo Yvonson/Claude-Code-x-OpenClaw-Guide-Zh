@@ -2,7 +2,7 @@
 
 本篇以 Codex App 的 slash commands 为主线。CLI slash commands 只作为核对和排查补充。
 
-主要来源：OpenAI Codex App Commands、Codex CLI Slash Commands、Codex Follow Goals 与 Plugins 官方文档。本篇按 2026-06-09 可查官方文档与 Codex App 26.602 修订；CLI slash commands 只作为辅助核对，命令会随 App 版本、实验开关、插件和权限变化，最终以你当前 App 输入 `/` 后看到的列表为准。
+本篇于 2026-09-14 对照官方 Slash commands、Developer commands、Import 与 Prompting 文档复核，沿用本系列 Codex App 26.908 / CLI 0.154.0 的版本基线。官方桌面资料现归入 ChatGPT 桌面 App 文档；这里仍以 Codex 工作流为主线，CLI 只作辅助。命令会随环境和账号权限变化，以输入 `/` 后的实际列表为准。
 
 ---
 
@@ -15,7 +15,7 @@
 > - **个人博客**：https://aiking.dev
 > - **预计学时**：2-3小时
 > - **难度等级**：⭐⭐ 入门级
-> - **更新日期**：2026年5月31日
+> - **更新日期**：2026年9月14日
 > - **信息来源**：OpenAI Codex App Commands、CLI Slash Commands、Follow Goals 官方文档
 > - **前置要求**：已完成 [CX-01 安装](./CX-01-Codex-App安装与认证完整指南.md) 和 [CX-02 桌面工作流](./CX-02-Codex-App桌面工作流完整指南.md)
 
@@ -25,12 +25,14 @@
 
 完成本课学习后，你将能够：
 
+> **本次复核重点**：补齐当前命令分组，区分 `/status`、模型与权限入口；明确 `/plan` 的切换行为、Goal 的暂停与继续，以及 Skills 也会出现在 slash 列表。`/init` 生成项目指令；从其他工具导入设置要走 Settings → Import，详见 CX-14。
+
 1. **理解Commands的本质**：掌握slash命令是App的快速工作流入口，不是高级玩具
 2. **学会发现命令**：在App中输入`/`查看当前可用命令，不依赖死记硬背
-3. **掌握核心稳定命令**：熟练使用`/status`、`/plan`、`/review`、`/mcp`、`/feedback`
+3. **掌握常用内置命令**：熟练使用`/status`、`/plan`、`/review`、`/mcp`、`/feedback`
 4. **理解计划模式**：知道什么时候该先规划再执行，用`/plan`进入
 5. **区分命令层级**：分清App命令、CLI命令、版本相关命令、Skills各自的位置
-6. **理解命令边界**：知道 App 稳定命令、CLI 命令、实验能力和 Skill 入口各自怎么核对
+6. **理解命令边界**：知道 App 内置命令、CLI 命令、实验能力和 Skill 入口各自怎么核对
 7. **理解命令的变化性**：知道命令会随版本、插件、权限变化，以当前App显示为准
 8. **避免常见命令陷阱**：不把CLI命令当App主线，不把版本相关命令写成确定功能
 
@@ -48,7 +50,7 @@
 
 ```
 ✅ 第2部分：先学会在App里发现命令（3分钟）
-✅ 第3部分：App用户优先掌握的稳定命令（5分钟）
+✅ 第3部分：当前 App 命令分组（5分钟）
 ✅ 第4部分：/plan 先规划（7分钟）
 ```
 
@@ -86,14 +88,14 @@ Commands 这一章要先分清“入口”和“能力”。很多人学 slash c
 | Goal mode | 持续推进到完成、暂停或需要更多输入 | 适合长目标，但必须有停止条件 |
 | Review mode | 让 Codex 审查当前 diff 或分支差异 | 不是人工 Review 的替代品 |
 | MCP status | 查看外部工具 server 是否连接 | 工具可见不等于可以随便用 |
-| Skill invocation | 用 `$skill-name` 或自然语言触发 Skill | Skill 是流程，不是普通 slash command |
+| Skill invocation | 用 `$skill-name`、slash 列表或自然语言触发 Skill | Skill 是可复用流程，列表入口不改变它的类型 |
 | CLI slash command | 终端 TUI 里的 `/` 命令 | 可辅助理解，不等于 App 一定有同名命令 |
 
 一句话：Command 是“入口”，Skill 是“方法”，MCP 是“工具”，Automation 是“时间触发”，Review 是“收口”。学清边界，比背完整命令表更重要。
 
 ## 0. Commands 的心智模型：入口、状态、动作
 
-老金我讲 Commands 时不会把命令背诵当目标，真正要学的是什么时候该规划、什么时候该审查、什么时候该看状态。
+我讲 Commands 时不会把命令背诵当目标，真正要学的是什么时候该规划、什么时候该审查、什么时候该看状态。
 
 Codex App 里的 slash commands 可以分成三层：
 
@@ -136,23 +138,23 @@ Codex App 里的 slash commands 可以分成三层：
 
 - App 版本。
 - 账号或组织权限。
-- 实验开关，例如 `features.goals`。
+- 当前功能的开放状态与实验设置。
 - 已安装插件和 Skills。
 - 当前线程类型、项目状态和连接器。
 - CLI / App / IDE extension 的不同界面。
 
-所以教程应该教你“怎么发现和核对命令”，而不是让你背一张永远不变的表。Claude Code 的 Commands 章节之所以厚，是因为它不只是列命令，而是讲命令系统、作用域、开发方式、故障排查和 FAQ；Codex 这里也要用同样的思路：先理解命令背后的工作流。
+所以教程要教你"怎么发现和核对命令"，免去背表的负担。Claude Code 的 Commands 章节之所以厚，是因为它讲命令系统、作用域、开发方式、故障排查和 FAQ；Codex 这里也要用同样的思路：先理解命令背后的工作流。
 
 ## 1. Commands 在 App 里解决什么问题
 
 
-Commands 不是“高级玩具”，而是 App 的快速入口：
+Commands 不是"高级玩具"，而是 App 的快速入口：
 
 | 你想做什么 | 直接说也可以 | Command 更适合 |
 |---|---|---|
-| 查看当前状态 | “现在是什么模型和权限？” | `/status` |
+| 查看当前状态 | “当前任务的上下文和额度如何？” | `/status`；模型、推理与权限分别查看对应入口 |
 | 进入计划模式 | “先给计划别执行” | `/plan` |
-| 长目标持续推进 | “一直做直到验证通过” | `/goal`；如果当前 App 没显示，按官方方式启用或改用分阶段提示 |
+| 长目标持续推进 | “一直做直到验证通过” | `/goal`；如果当前 App 没显示，核对版本与可用功能，或改用分阶段提示 |
 | 审查改动 | “review 当前 diff” | `/review` |
 | 管理外部工具 | “看看 MCP” | `/mcp` |
 | 反馈问题 | “这个 App 行为不符合预期” | `/feedback` |
@@ -167,31 +169,44 @@ Commands 不是“高级玩具”，而是 App 的快速入口：
 1. 打开 Codex App 的任意项目线程。
 2. 在输入框输入 `/`。
 3. 看弹出的命令列表、命令说明和是否有实验标记。
-4. 如果不确定某个命令能做什么，先输入 `/help` 或用自然语言问“解释当前可用 slash commands，不要执行任何改动”。
+4. 阅读候选项的说明；不确定时用自然语言询问用途，不执行文件修改。找不到某命令时先查当前官方列表，不靠另一个未显示的命令来排查。
 
 判断一个命令能不能写进教程，按这个顺序：
 
 | 来源 | 教程写法 |
 |---|---|
-| 官方 App Commands 明确列出 | 可以作为稳定入口写 |
+| 当前官方 App 文档明确列出 | 按核查日期说明用途，并保留环境和账号限制 |
 | 当前 App 弹窗显示但官方页未列出 | 写成“当前版本可能出现，以你的 App 为准” |
 | 只在 CLI 出现 | 放到 CX-12，不能写成 App 主线 |
 | 只听别人说过 | 不写成确定命令 |
 
-## 3. App 用户优先掌握的稳定命令
+## 3. 当前 App 命令：按任务用途选择
 
+以下按 2026-09-14 读取的官方命令表整理，适用于桌面 App 的 Codex 工作流；具体可用项仍受当前环境与账号权限影响。输入 `/` 后先看说明，再选命令。
 
-| 命令 | App 主线用途 | 使用建议 |
+| 你要做什么 | 命令 | 作用与边界 |
 |---|---|---|
-| `/feedback` | 发送产品反馈 | 反馈 App 或命令问题 |
-| `/status` | 查看模型、工作区、审批、上下文状态 | 任务前后都可用 |
-| `/plan` | 切换计划模式 | 大任务先规划，不急着改 |
-| `/review` | 审查当前改动 | 合并前使用 |
-| `/mcp` | 查看 MCP 工具 | 接外部工具后检查 |
-| `/goal` | 设置持续目标 | 长任务要写清范围和停止条件 |
-| `/help` 或 `/` 列表 | 查看当前可用命令 | 以当前 App 显示为准 |
+| 查看状态 | `/status` | 显示任务 ID、上下文用量和额度限制；模型与权限另看对应选择器 |
+| 选择模型与推理 | `/model`、`/reasoning` | 选择当前任务的模型、推理强度，不保证每个账号都有相同选项 |
+| 调整响应方式 | `/fast`、`/personality` | Fast 服务档位或回复风格，需当前模型支持 |
+| 先规划、再推进 | `/plan`、`/goal` | Plan 切换计划模式；Goal 设置有范围与结束条件的持续目标 |
+| 审查改动 | `/review` | 审查未提交改动，或与选定基础分支比较 |
+| 初始化项目指令 | `/init` | 为当前项目生成 `AGENTS.md` 草稿，会产生文件修改，生成后要审阅 |
+| 查看外部工具 | `/mcp` | 打开 MCP 状态查看连接的服务器，不会因此完成账号授权 |
+| 管理记忆与 IDE 上下文 | `/memories`、`/ide-context` | 配置记忆使用或切换共享 IDE 上下文，需要对应能力可用 |
+| 整理上下文 | `/compact` | 压缩当前任务上下文，重要结论仍应保存到项目文件 |
+| 选择项目 | `/project` | 为新任务选择项目 |
+| 创建无项目任务 | `/task` | 从不绑定项目的任务开始，不等于当前项目的另一个分支 |
+| 分叉或临时旁问 | `/fork`、`/side` | Fork 复制本地任务到新任务或 worktree；Side 是不打断主任务的临时旁问 |
+| 选择本地工作位置 | `/local`、`/worktree` | 使用所选本地项目或新的 Git worktree，先核对路径与基础分支 |
+| 使用云端环境 | `/cloud`、`/cloud-environment` | 选择云端执行与环境，需具备该能力；本机文件不会因此自动变成云端可用 |
+| 管理桌面宠物 | `/pet` | 唤醒或收起桌面宠物 |
+| 重试一次自动审查拒绝 | `/approve` | 自动审批审查启用时允许对最近的拒绝重试一次，不是全局关闭权限保护 |
+| 提交产品反馈 | `/feedback` | 打开反馈框，可选择附带日志；检查内容后再提交 |
 
-官方 App Commands 页面当前明确列出的命令很少，所以本篇不再把 CLI 的完整 slash command 表硬搬成 App 表。
+Skills 仍可用 `$技能名` 显式选择，也会出现在 slash 列表中。兼容的自定义提示显示为 `/prompts:<name>`。这几类条目可能出现在同一个列表，但 Skill、提示模板与产品内置命令的来源和作用不同。若列表没有 `/help`，直接使用 `/` 的筛选和说明，不把它当成必有命令。
+
+下面代码框表示 **App 输入框里的操作与需求**，不是要粘贴进终端的 Shell 命令。选择某个 command 后，再根据界面补充需求；`/status`、`/mcp` 等会直接打开状态信息。
 
 ### 3.1 三个 App 命令工作流配方
 
@@ -206,29 +221,36 @@ Commands 不是“高级玩具”，而是 App 的快速入口：
 交付：列出方案、风险、要改的文件和验证命令。
 ```
 
-你应该看到：Codex 只输出计划，不直接写文件；计划里能说明为什么读这些文件。
+你应该看到计划和待澄清问题，项目文件没有新增修改。`/plan` 是切换开关；已经显示 Plan 标识时，直接补充需求，不要每轮重新输入一次把它关掉。
 
 **配方二：改完立刻审查**
 
+输入 `/review`，按界面选择未提交改动或基础分支，再补充：
+
 ```text
-/review 重点检查：是否改了范围外文件、是否缺少测试、是否引入权限或网络行为变化。
+重点检查：是否改了范围外文件、是否缺少相关测试、是否引入权限或网络行为变化。
+先给审查结果，不直接修改文件。
 ```
 
-你应该看到：Review 结论能对应当前 diff，不是泛泛而谈。
+你应该看到能对应文件或 diff 的发现。没有发现问题不代表已经运行了测试，测试结果要另外看命令记录。
 
-**配方三：命令不确定时先问状态**
+**配方三：把状态、模型和权限分别看清楚**
 
 ```text
 /status
 ```
 
-然后再问：
+先看任务 ID、上下文和额度，再用 `/model`、`/reasoning` 或输入框选择器核对模型与推理强度。权限看当前任务的权限状态和设置；不要求 `/status` 一张卡片展示所有信息。
 
-```text
-解释当前线程的模型、工作区、权限/审批状态和可用工具。不要修改文件。
-```
+### 3.2 跟练：从新项目指令到一次审查
 
-你应该看到：你能判断当前任务适合只读、可写、worktree 还是 Cloud。
+1. 在单独的练习项目中输入 `/init`，先确认它将生成或调整的 `AGENTS.md`。已有项目指令要保留原规则，不直接覆盖。
+2. 在 Review 面板查看生成的说明，核对安装和测试命令是否来自项目文件，而不是模型猜测。
+3. 用 `/plan` 提出一个仅修改 README 的小任务，确认方案后执行。
+4. 用 `/review` 检查未提交改动，再运行计划里与这次修改相关的检查。
+5. 结束时用 `/status` 看上下文与额度变化，并记录修改文件与实际检查结果。
+
+这个练习不需要连接外部账号或发布代码。先跑通本地的“生成指令—规划—修改—审查”，再去 CX-05、CX-09、CX-11 学外部工具、定时任务和云端环境。
 
 ## 4. `/plan`：先规划，不急着写
 
@@ -256,54 +278,21 @@ Commands 不是“高级玩具”，而是 App 的快速入口：
 - 不做什么。
 - 什么时候退出计划模式进入执行。
 
-如果你的 App 里仍显示旧口径 `/plan-mode` 而不是 `/plan`，按当前 App 弹窗为准；但教程中不要把两者写成永远等价。
+当前文档使用 `/plan`。确认输入框显示 Plan 状态后再发送规划需求；需要执行时按界面退出计划模式，不把仅有一句“按计划做”当成模式一定已经切换的证据。
 
 ## 5. `/goal`：长目标入口
 
-当前官方 App Commands 与 Prompting 文档都把 `/goal` 作为长目标入口。它适合“比一次普通提示更长、但有明确结束条件”的任务。
-
-如果当前 App 的 slash 列表里看不到 `/goal`，先按官方说明启用：
-
-```toml
-[features]
-goals = true
-```
-
-也可以在 CLI 中运行：
-
-```bash
-codex features enable goals
-```
-
-适合：
-
-- 长迁移。
-- 长重构。
-- 部署重试直到成功。
-- 原型持续打磨直到测试通过。
-
-不要这样写：
+`/goal` 设置持续目标，适合有明确完成条件、一次普通提示不易做完的任务。目标还模糊时先用 `/plan`，确定范围后再设置 Goal。
 
 ```text
-/goal 优化项目
+/goal 修复 docs/codex 中的内部链接。只改该目录的 Markdown 链接；所有断链都已修复或记录具体原因时结束。不提交、不推送，不连接外部账号。
 ```
 
-应该这样写：
+运行时，输入框上方会显示目标进度。使用进度栏按钮暂停、继续、编辑目标或清除目标；过程中也可以用普通消息调整优先级与范围。CLI 中的 `/goal pause`、`/goal resume` 等子命令，不要直接当成桌面 App 的操作方式。
 
-```text
-/goal Complete the migration from legacy auth helpers to the new auth client. Scope: src/auth and tests/auth only. Stop when npm test -- auth passes or when a blocker requires human decision. Do not commit or push.
-```
+目标应写清对象、允许修改的范围、完成条件与需要停下说明的问题。它不会自动获得新权限，也不是按某个日期定时醒来的调度器。
 
-长目标必须包含：
-
-- 任务范围。
-- 允许读写的文件。
-- 验证命令。
-- 失败时怎么停。
-- 最长运行边界。
-- 是否允许提交、推送或调用外部服务。
-
-周期性或后台重复检查优先放到 CX-09 Automations，不要把未在当前 App 显示的命令写成固定能力。
+若当前环境没有 `/goal`，先核对版本和可用功能，或用普通提示分阶段继续。当前 App 文档没有要求所有读者先修改 `features.goals`；不要把旧版本启用步骤当成通用前提。需要每天或每周回来检查时，使用 CX-09 的定时任务。
 
 ## 6. `/review`：把审查放进 App 工作流
 
@@ -374,7 +363,7 @@ codex features enable goals
 
 ## 9. CLI slash commands：只作为补充
 
-在终端里运行 `codex` 也有 slash commands。CLI 表只能帮助你理解概念，不能反推 App 一定支持同名命令。终端里输入 `/help` 查看当前 CLI 支持项。
+在终端里运行 `codex` 也有 slash commands。CLI 表只能帮助你理解概念，不能反推 App 一定支持同名命令。在 CLI 交互输入框里输入 `/` 查看支持项；Shell 中的 `codex --help` 用来查看子命令与参数。
 
 | 类型 | 例子 | App 用户怎么用 |
 |---|---|---|
@@ -383,7 +372,7 @@ codex features enable goals
 | 工具 | `/mcp`、Apps、Plugins | App 优先看工具/连接器入口 |
 | 会话管理 | `/compact`、`/resume`、`/new` 等 | CLI 辅助或当前 App 可见时使用，不写成 App 必备 |
 
-如果你需要完整 CLI 命令表，去 CX-12 或直接运行 `codex` 后输入 `/help`。本篇只保留 App 主线。
+如果你需要完整 CLI 命令表，去 CX-12 或直接运行 `codex` 后在交互输入框输入 `/`。本篇只保留 App 主线。
 
 ## 10. Commands、Skills、Automations 的边界
 
@@ -393,7 +382,7 @@ codex features enable goals
 | Skill | 可复用流程或领域规范 | 代码审查 SOP、发布检查 |
 | Automation | 定时或后台重复任务 | 每天检查测试、每周依赖摘要 |
 
-不要把所有东西都做成 command。长期流程优先沉淀为 Skill；周期任务用 Automation。
+不要把所有东西都做成 command。长期流程优先做成 Skill；周期任务用 Automation。
 
 ## 10.1 App Commands 与 CLI Commands 的差异模型
 
@@ -402,7 +391,7 @@ App 和 CLI 都有 slash commands，但它们服务的界面不同。
 | 维度 | App commands | CLI commands |
 |---|---|---|
 | 主要对象 | 桌面线程、Review 面板、App 工具入口 | 终端 TUI、命令行权限、模型、会话 |
-| 发现方式 | App 输入框输入 `/` | CLI TUI 输入 `/help` 或 `/` |
+| 发现方式 | App 输入框输入 `/` | CLI TUI 输入 `/`；Shell 中运行 `codex --help` |
 | 适合读者 | 桌面 App 用户 | 终端用户、CI / 远程环境用户 |
 | 教程写法 | 以 App 当前显示和官方 App Commands 为准 | 放到 CX-12，按本机 `--help` 核对 |
 | 风险 | 把 CLI 命令误写成 App 主线 | 把 App 面板能力误以为 CLI 自动具备 |
@@ -411,7 +400,7 @@ App 和 CLI 都有 slash commands，但它们服务的界面不同。
 
 ```text
 在 Codex App 中，先输入 `/` 查看当前可用 commands。
-如果你在 CLI TUI 中工作，输入 `/help` 查看终端可用 commands。
+如果你在 CLI TUI 中工作，在交互输入框输入 `/` 查看当前可用 commands。
 两者不保证完全一致；以当前界面显示为准。
 ```
 
@@ -421,7 +410,7 @@ App 和 CLI 都有 slash commands，但它们服务的界面不同。
 
 | 症状 | 可能原因 | 排查顺序 |
 |---|---|---|
-| 输入 `/goal` 没出现 | goals feature 未启用、版本未支持、账号/环境差异 | 先看 `/` 列表，再查 `features.goals`，最后用分阶段普通提示替代 |
+| 输入 `/goal` 没出现 | 版本、环境或开放状态不同 | 先查当前列表和官方说明；无法使用时按明确阶段继续，不盲目修改旧实验开关 |
 | `/review` 没有发现问题 | 当前没有 Git diff，或 Review 范围不对 | 先看 Review 面板文件列表，再确认是否有 uncommitted changes |
 | `/mcp` 看不到工具 | MCP 未配置、App 未刷新、server 启动失败、项目未信任 | 先看 App Settings，再用 CLI `codex mcp list` 辅助 |
 | `/plan` 后仍想执行 | 任务描述里让它直接改了，或你后续批准执行 | 明确写“先只读计划，不修改文件” |
@@ -460,13 +449,13 @@ App 和 CLI 都有 slash commands，但它们服务的界面不同。
 
 ### 案例二：用 `/goal` 做有边界的长任务
 
-目标：学习长目标不是“无限优化”，而是带停止条件的持续任务。
+目标：学习长目标不是"无限优化"，而是带停止条件的持续任务。
 
 ```text
 /goal Fix the docs link drift in docs/codex only. Scope: markdown links inside docs/codex. Stop when every broken local link is either fixed or listed with a reason. Do not commit or push.
 ```
 
-如果当前 App 看不到 `/goal`，先按官方方式启用，或改用普通提示分阶段执行。你应该看到：目标进度出现在 composer 附近；Codex 在完成、暂停或遇到阻塞时能说明状态。
+如果当前 App 看不到 `/goal`，核对当前环境支持情况，或改用普通提示分阶段执行。你应该看到：目标进度出现在 composer 附近；Codex 在完成、暂停或遇到阻塞时能说明状态。
 
 ### 案例三：用 `/review` 做定向审查
 
@@ -486,7 +475,7 @@ App 和 CLI 都有 slash commands，但它们服务的界面不同。
 
 ### Q2：`/goal` 会不会无限跑？
 
-有风险。所以必须写清楚停止条件、范围和验证方式。
+目标会持续推进到完成、暂停或需要更多输入。写清范围和完成条件，必要时用输入框上方的目标进度栏暂停或清除；不要用它代替定时任务。
 
 ### Q3：我应该背完整命令表吗？
 
@@ -498,7 +487,7 @@ App 和 CLI 都有 slash commands，但它们服务的界面不同。
 
 ### Q5：我能不能把常用提示做成一个 command？
 
-在 Codex 里，重复提示优先做成 Skill。Command 负责进入当前界面的工作模式，Skill 负责沉淀可复用工作流。如果这个流程还要定时跑，再让 Automation 调用 Skill。
+在 Codex 里，重复提示优先做成 Skill。Command 负责进入当前界面的工作模式，Skill 负责固化可复用工作流。如果这个流程还要定时跑，再让 Automation 调用 Skill。
 
 ### Q6：命令能绕过权限吗？
 
@@ -688,7 +677,7 @@ Commands 的本质是“告诉 Codex 现在进入哪种工作模式”。它不�
 ```text
 我安装了一个插件，但当前线程里没有按预期使用。
 请帮我判断：
-1. 插件是否需要新线程才能被发现
+1. 插件是否已安装并启用，当前能力列表是否已刷新
 2. 是否需要外部账号授权
 3. 是否应该用 @ 显式调用
 4. 是否应该用普通 Skill 或 MCP 而不是插件
@@ -696,7 +685,7 @@ Commands 的本质是“告诉 Codex 现在进入哪种工作模式”。它不�
 
 ## 17. Commands 与 Skills 的组合
 
-Command 负责“切换入口”，Skill 负责“执行工作法”。
+Command 负责“切换入口”，Skill 负责“执行工作法”。下面的 `$docs-drift`、`$writing-humanizer-zh` 等是自建 Skill 名称示例，先确认项目中已经安装并能选到它们；没有对应 Skill 时，用普通提示说明同一项工作，不把示例名称当成内置功能。
 
 ### 17.1 组合示例：先 plan，再 skill
 
@@ -738,7 +727,7 @@ Automations 里也可以用 Skill，但不应该依赖需要人工交互的 comm
 $pr-review
 每天上午 10 点检查当前项目关联 PR 的新评论。
 只读读取评论。
-把需要我处理的事项放进 Triage。
+把需要我处理的事项放进 定时任务运行记录（Scheduled）。
 不要回复评论，不要推送代码。
 ```
 
@@ -1080,7 +1069,7 @@ $pr-risk-review
 Automation：
 
 ```text
-每天 17:00 只读检查当前 PR 新评论，输出到 Triage。
+每天 17:00 只读检查当前 PR 新评论，输出到 定时任务运行记录（Scheduled）。
 不要回复评论。
 ```
 
@@ -1236,7 +1225,7 @@ MCP：
 ...
 ```
 
-这个作业让团队把个人经验沉淀成共享语言。
+这个作业让团队把个人经验整理成共享语言。
 
 ## 29. Commands 长案例：同一个需求，入口选错会怎样
 
@@ -1280,17 +1269,17 @@ MCP：
 4. 是否需要拆 PR。
 ```
 
-如果这是一个长目标，比如“未来两周持续改善 checkout 稳定性”，入口才是 `/goal`：
+如果这是一个范围明确、需要连续处理的目标，可以用 `/goal`：
 
 ```text
 /goal
-在接下来两周逐步改善 checkout 稳定性。
+修复 checkout 已确认的三个错误路径，完成对应检查后结束。
 
 目标：
 1. 先建立错误路径清单。
 2. 每次只处理一个高价值错误。
 3. 每个改动都要有测试或手测路径。
-4. 每次结束都总结剩余风险。
+4. 三条路径的相关检查通过，或出现需要我决定的阻塞时停止并说明。
 ```
 
 如果你怀疑需要外部工具或插件：
@@ -1443,7 +1432,7 @@ MCP：
 => Automation + Skill。
 ```
 
-团队可以沉淀一份入口词典：
+团队可以整理一份入口词典：
 
 ```md
 # Codex Entry Phrases
@@ -1573,13 +1562,13 @@ Codex：改了 checkout、payment、toast。
 完成本课后，请确认以下所有项：
 
 - [ ] 知道在App输入框输入`/`可以查看当前可用命令
-- [ ] 掌握核心稳定命令：`/status`、`/plan`、`/review`、`/mcp`、`/feedback`
+- [ ] 掌握常用内置命令：`/status`、`/plan`、`/review`、`/mcp`、`/feedback`
 - [ ] 理解`/plan`适合多文件改动、架构调整等场景
 - [ ] 知道命令会随版本、插件、权限变化，以当前App显示为准
 - [ ] 不把CLI命令表硬搬成App命令表
 - [ ] 知道周期任务优先使用 Automations，长目标使用 `/goal`
 
-**如果以上全部勾选，恭喜你掌握Codex Commands！**
+**全部勾选后即掌握 Codex Commands。**
 
 ---
 
@@ -1589,24 +1578,27 @@ Codex：改了 checkout、payment、toast。
 
 | 命令 | 用途 | 稳定性 |
 |------|------|--------|
-| `/` 或 `/help` | 查看当前可用命令 | 稳定 |
-| `/status` | 查看模型、工作区、审批状态 | 稳定 |
-| `/plan` | 切换计划模式（先规划不执行） | 稳定 |
-| `/review` | 审查当前改动 | 稳定 |
-| `/mcp` | 查看/管理MCP工具 | 稳定 |
-| `/goal` | 设置持续目标 | 稳定 |
-| `/feedback` | 发送产品反馈 | 稳定 |
+| `/` | 展开并筛选当前命令列表 | 按实际列表 |
+| `/status` | 查看任务 ID、上下文用量与额度 | 当前官方支持 |
+| `/plan` | 切换计划模式（先规划不执行） | 当前官方支持 |
+| `/review` | 审查当前改动 | 当前官方支持 |
+| `/mcp` | 打开 MCP 连接状态 | 当前官方支持 |
+| `/goal` | 设置持续目标 | 当前官方支持 |
+| `/feedback` | 发送产品反馈 | 当前官方支持 |
 
 ### B. 推荐学习资源
 
-- **Codex App Commands 官方文档**：https://developers.openai.com/codex/app/commands
+- **App Slash commands**：https://learn.chatgpt.com/docs/reference/slash-commands
+- **快捷键与深链**：https://learn.chatgpt.com/docs/reference/commands
+- **CLI Developer commands**：https://learn.chatgpt.com/docs/developer-commands?surface=cli
+- **Import from another agent**：https://learn.chatgpt.com/docs/import
 - **本系列上一篇**：[CX-02 桌面工作流](./CX-02-Codex-App桌面工作流完整指南.md)
 - **本系列下一篇**：[CX-04 项目指令与权限](./CX-04-Codex项目指令权限配置完整指南.md)
 
 ---
 
 **课程制作**：老金
-**最后更新**：2026年5月30日
+**最后更新**：2026年9月14日
 **许可**：本课程采用 MIT License；转载、复制或二次分发时必须保留版权声明与许可声明
 
 ---

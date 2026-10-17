@@ -9,8 +9,8 @@
 > - **个人博客**：https://aiking.dev
 > - **预计学时**：2-3小时
 > - **难度等级**：⭐⭐⭐ 进阶
-> - **更新日期**：2026年6月9日
-> - **适用版本**：Claude Code v2.1.169（验证于 2026-06-09；v2.1.158 以前差量保留为历史基线）
+> - **更新日期**：2026年10月3日
+> - **适用版本**：Claude Code v2.1.270 为 2026-09-14 的历史参考；截至 2026-10-03 的新增行为按正文标注版本与官方文档
 > - **信息来源**：
 >   - [Claude Code 官方文档 - Channels](https://code.claude.com/docs/en/channels)
 >   - [Claude Code 官方文档 - Scheduled tasks](https://code.claude.com/docs/en/scheduled-tasks)
@@ -64,8 +64,8 @@ Channels 和计划任务，解决的是两类不同问题：
 
 - **research preview**
 - 需要 **Claude Code v2.1.80+**
-- 需要 **claude.ai 登录**
-- Team / Enterprise 默认可能关闭，需要管理员启用
+- 支持 **claude.ai 登录或 Claude Console API key 认证**；不支持 Bedrock、Google Cloud Agent Platform 和 Foundry
+- Team / Enterprise 以及托管 Console 组织需要管理员显式启用
 
 **v2.1.128 变更**：`--channels` 现在也支持 **Console auth（API key）登录**，不再仅限 claude.ai 登录。如果你之前因为 API key 模式无法使用 Channels，可以重新尝试。
 
@@ -93,7 +93,7 @@ Channels 和计划任务，解决的是两类不同问题：
 
 ### 4.1 基础条件
 
-- Claude Code 已安装并登录 claude.ai
+- Claude Code 已安装，并通过 claude.ai 或 Claude Console API key 完成认证
 - 能看到 `/plugin`
 - 若要跑官方 channel plugin，**必须安装 Bun**（所有官方 channel plugin 都依赖 Bun 运行时）
 
@@ -302,22 +302,22 @@ claude --channels plugin:xxx@marketplace
 另外，如果你在开发自定义 channel plugin，需要加：
 
 ```bash
-claude --channels plugin:my-channel --dangerously-load-development-channels
+claude --dangerously-load-development-channels plugin:my-channel@my-marketplace
 ```
 
 该参数绕过 marketplace 验证，仅用于本地开发调试。
 
 ### 7.4 Permission Relay：远端审批权限请求
 
-从 v2.1.81 起（v2.1.100 完全实现），Channels 支持**权限中继**（Permission Relay）：
+Channels 支持**权限中继**（Permission Relay），但需要所用 channel server 实现并声明 `claude/channel/permission` capability，而且该服务器已通过 `--channels`（开发时可用开发参数）加入本次会话，并通过组织的 Channels 策略。
 
-当 Claude 需要执行需要审批的操作时（如写文件、执行命令），权限确认请求会被转发到你的 Channel（如 Telegram / Discord），你可以直接在手机上批准或拒绝。
+当工具调用需要审批时，本地终端仍会打开审批框，支持中继的 Channel 可以同时把请求发到手机。按插件提供的请求 ID 和回复格式批准或拒绝；先到达的有效答复会生效，另一侧的审批框随后关闭。只说“同意”或使用错误的请求 ID 不会完成审批。
 
-这意味着你不需要守在终端前也能让 Claude 继续有权限地工作。
+中继覆盖 Bash、Write、Edit 等工具审批，不覆盖工作区信任或 MCP 服务器同意对话框；后两类仍需在本地终端处理。如果插件没有权限中继能力，会话就会停在终端审批处，不能保证手机消息能解锁它。具体能力与格式见[官方权限中继参考](https://code.claude.com/docs/en/channels-reference#relay-permission-prompts)。
 
 ### 7.5 事件只在会话打开时到达
 
-Channel 消息**只会在 Claude Code 会话运行时被接收**。如果你关掉了终端，消息就丢了。
+Channel 只在 Claude Code 会话运行时把事件送进会话。关闭会话后能否补收消息取决于渠道服务器及外部平台的缓冲策略，不能保证补收，也不能一概说消息必然丢失。
 
 如果你需要 always-on 的 Channel 接收：
 
@@ -377,7 +377,7 @@ Channel 消息**只会在 Claude Code 会话运行时被接收**。如果你关�
 
 ### 8.6 取消正在等待的 `/loop`
 
-在 `/loop` 等待下一次迭代时，按 **Esc** 即可取消（v2.1.111+）。
+动态间隔的 `/loop` 等待下一次迭代时，按 **Esc** 可以清除待执行的唤醒。固定间隔或直接创建的 cron 任务不受 Esc 影响；让 Claude 列出任务并删除对应 ID，例如“取消部署检查任务”。
 
 ### 8.7 `/proactive` 别名
 
@@ -417,6 +417,14 @@ Channel 消息**只会在 Claude Code 会话运行时被接收**。如果你关�
 
 `/schedule` 是当前用户入口，用来创建、更新、列出和运行 **Cloud scheduled tasks**。
 
+云 routine 的运行时间不等于精确计时器。新建计划默认会放在整点后几分钟；例如希望接近早上9点执行，可以选9:07，整点9:00的任务可能晚几分钟启动。保存后在详情中核对时区、下次运行时间和实际运行记录。这是云 routine 的排队行为，不改变前面本地 `CronCreate` 表达式的含义。
+
+Team / Enterprise 中，如果组织关闭 routines，成员不能新建，已有任务也停止运行。管理员开关在 **Admin settings → Capabilities → Remote sessions**；成员看到被组织禁用时，请管理员核对这个入口。详见[官方 routines 指南](https://code.claude.com/docs/en/routines)及[管理员入口变更](https://github.com/anthropics/claude-code/releases/tag/v2.1.280)。
+
+**云任务暂停后怎么恢复**：先在网页中打开对应 routine 的详情，查看提示和运行记录，再按原因处理。从 v2.1.274 起，GitHub 连接缺失或过期时会跳过运行，并保留最多 72 小时的恢复窗口；在窗口内重新连接 GitHub，任务会自行恢复。超过 72 小时仍未恢复连接，任务会关闭，需要重新连接后再打开详情页顶部的开关。
+
+订阅暂停是另一种情况：routine 会处于 on hold，订阅恢复后仍需要你到详情页把任务重新打开。不能把 GitHub 的恢复窗口套到订阅暂停上，也不要把云 routine 的恢复行为套到本地 `/loop`。恢复后打开运行记录读实际执行结果；绿色状态只说明会话没有基础设施错误，不保证提示词中的任务已经完成。详见[官方仓库连接说明](https://code.claude.com/docs/en/routines#repositories-and-branch-permissions)和[用量与订阅限制](https://code.claude.com/docs/en/routines#usage-and-limits)。
+
 但在**本地 session 里**，Claude 也会借助 `CronCreate / CronList / CronDelete` 做 session-scoped 的计划任务和提醒。
 
 ### 9.4 一次性提醒
@@ -441,7 +449,7 @@ in 45 minutes, check whether the integration tests passed
 
 ### 10.1 任务是 session-scoped
 
-只要当前 Claude Code 会话结束，任务就没了。
+任务绑定当前会话，只在它运行且空闲时触发。结束进程会停止调度；恢复原会话时，符合条件的 `CronCreate` 任务可以恢复，因此“停了”不等于“所有任务都删除了”。
 
 ### 10.2 不跨重启持久化（v2.1.110 部分改善）
 
@@ -449,8 +457,9 @@ in 45 minutes, check whether the integration tests passed
 
 但从 **v2.1.110** 起，如果用 `--resume` 或 `--continue` 恢复之前的会话，**未过期的计划任务会一起恢复**。也就是说：
 
-- 正常重启 → 任务丢失
-- `claude --resume` / `claude --continue` → 未过期任务自动恢复
+- 新开会话 → 不会继承旧会话的本地任务
+- `claude --resume` / `claude --continue` → 恢复未过期、未错过执行时间的 `CronCreate` 任务
+- 动态间隔的 `/loop` → 不会随恢复重启，需要再次执行 `/loop`
 
 ### 10.3 Claude 忙的时候不会插队
 
@@ -490,14 +499,15 @@ v2.1.110 的 `--resume` 恢复策略有细节：
 
 为了避免大规模部署时所有 Claude 实例在同一时刻触发：
 
-- **循环任务**：最多延迟周期的 10%（上限 15 分钟）
-- **一次性任务**：整点/半点前后最多提前 90 秒
+- **固定 cron 循环任务**：当前最多延迟 30 分钟；间隔小于一小时时，上限为该间隔的一半
+- **一次性任务**：安排在整点或半点时，最多提前 90 秒
+- **动态间隔 `/loop`**：不适用上述 jitter 规则
 
 这是确定性偏移，不是随机的。
 
-### 10.9 Bedrock / Vertex / Foundry 限制
+### 10.9 Bedrock / Vertex / Foundry 的版本差异
 
-在 Bedrock、Vertex 或 Foundry 环境下，`/loop <prompt>` 固定为 **10 分钟间隔**，不支持动态调整。
+从 v2.1.248 起，Bedrock、Vertex、Foundry 上的 `/loop` 也支持动态间隔和无 prompt 的默认维护模式，不能再按「固定 10 分钟、不支持动态调整」配置。教程基线已包含此变化；旧客户端请先查本机版本。来源：[官方 changelog](https://code.claude.com/docs/en/changelog)（核查日：2026-09-14）。
 
 ### 10.10 禁用调度器
 
@@ -522,7 +532,7 @@ CLAUDE_CODE_DISABLE_CRON=1 claude
 官方建议：
 
 - 要可靠、无需你机器在线：用 **Cloud scheduled tasks**
-- 要跑在你本机且跨重启：用 **Desktop scheduled tasks**
+- 要跑在本机且跨重启保留任务：用 **Desktop scheduled tasks**；执行时仍需电脑醒着、Desktop 打开且对应环境可用，错过的运行按官方补跑规则处理
 - 只是在当前 session 临时盯一件事：用 **`/loop`**
 
 ---
@@ -569,7 +579,7 @@ claude --channels plugin:telegram@claude-plugins-official plugin:discord@claude-
 ```
 
 ```text
-# 按 Esc 取消正在等待的 /loop
+# 动态间隔 /loop 等待时按 Esc；固定间隔任务请让 Claude 删除对应任务
 ```
 
 ```text
@@ -592,8 +602,8 @@ claude --resume
 ## 14. 下一步建议
 
 - 想跨设备继续本地会话：继续看 [Remote Control完整指南](./12-Remote-Control完整指南.md)
-- 想控制模型、1M 上下文和 `opusplan`：继续看 [安装指南中的模型配置章节](./01-Claude-Code完整安装指南.md#85部分模型配置安装后的进阶配置)
+- 想控制模型、1M 上下文和 `opusplan`：继续看 [安装指南中的模型配置章节](./01-Claude-Code完整安装指南.md#第85部分模型配置安装后的进阶配置)
 
 ---
 
-> **最后更新**：2026年6月9日 | **适用版本**：Claude Code v2.1.169
+> **最后更新**：2026年9月14日 | **适用版本**：Claude Code v2.1.270

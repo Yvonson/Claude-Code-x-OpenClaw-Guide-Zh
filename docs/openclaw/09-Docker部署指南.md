@@ -29,17 +29,17 @@
 
 ### Docker 部署的优势
 
-**环境一致性** — 本地能跑的，服务器上一定能跑。不会出现"我这里没问题啊"的经典场景。Docker 把 Node.js 版本、系统依赖、配置文件全部打包在一起，消除了环境差异。
+**环境一致性** — 镜像固定了运行时和依赖，可以减少机器间的环境差异。换服务器仍要确认 CPU 架构、挂载路径、文件权限和网络；配置与数据需要单独持久化。
 
-**一键部署** — 不需要在服务器上手动装 Node.js、配置 npm、处理依赖冲突。一条 `docker compose up` 搞定一切。
+**统一启动** — 使用预构建镜像时，无需在宿主机安装 Node.js。先准备持久化目录、完成 onboarding 和认证，再用 `docker compose up -d` 启动服务。
 
-**隔离性** — OpenClaw 跑在自己的容器里，不会污染宿主机环境。你可以在同一台机器上跑多个版本的 OpenClaw，互不干扰。
+**隔离性** — 容器分开了程序和依赖。多个实例还必须使用独立的状态、工作区、端口和通道账号；共享写入卷或挂载 Docker socket 时，仍可能影响宿主机及其他实例。
 
 **易于迁移** — 想换服务器？把 docker-compose.yml（Docker 的编排工具，用一个配置文件管理多个容器）和数据卷拷过去，几分钟就能恢复。
 
-**Agent 沙箱** — Docker 天然适合做 Agent 工具执行的沙箱。通过 `agents.defaults.sandbox.mode` 配置（默认 `"non-main"`），非主会话的 Agent 自动在独立 Docker 容器中隔离执行，不会搞坏宿主机。
+**Agent 沙箱** — 可以另行启用 Docker 沙箱隔离工具执行。`agents.defaults.sandbox.mode` 默认是 `"off"`，需要显式选择 `"non-main"` 或 `"all"`。隔离程度还取决于挂载、网络和工具权限；容器化 Gateway 本身不会自动启用工具沙箱。
 
-**回滚方便** — 升级出问题？切回上一个镜像（容器的模板，包含了运行所需的一切）版本就行，数据都在 volume（数据卷，让容器重启后数据不丢失）里，不受影响。
+**版本可固定** — 可以保留旧镜像供回滚使用，但旧程序必须兼容现有数据库结构。发生迁移后要用匹配版本和已验证的升级前备份恢复；volume 负责持久化，不保证旧版本能读取新数据。
 
 ### 什么时候不需要 Docker
 
@@ -129,11 +129,13 @@ docker compose version         # 确认 Compose v2（不带横杠）
 
 ```bash
 docker pull openclaw/openclaw:latest    # 最新稳定版
-docker pull openclaw/openclaw:v2026.6.1  # 指定稳定版本
+docker pull openclaw/openclaw:2026.9.4   # 指定版本（镜像标签不带 v，核查日 2026-09-14）
 docker images | grep openclaw           # 查看本地镜像
 ```
 
-> **v2026.6.1 发布校验**：Docker / npm 生产部署时，优先用官方发布包和固定 tag；自建镜像要保留 package integrity check，不要为了减小镜像随手删 lockfile / shrinkwrap。v2026.6.1 release notes 强化了 release / CI / Docker / E2E / diagnostics 证据链、bounded logs、readiness probes 和 rollback snapshots，生产升级时要把这些证据当成升级核对入口。
+> **2026-09-14 当前基线（v2026.9.4）**：生产部署有两处要改口径。一是 v2026.9.4 新增 `OPENCLAW_CONFIG_READONLY=1`，容器和配置托管场景下可以让 OpenClaw 不再改写部署方管理的配置，同时保留只读诊断和正常运行状态。二是 `openclaw update` 的自动回滚只在数据库结构未变、旧包兼容且配置校验通过时才恢复包、配置和服务，**数据库迁移仍然要求有一份已验证的升级前备份**。Docker 直接替换镜像不会走这套 CLI 回滚流程，需按下文备份和恢复步骤处理。官方镜像标签不带 `v`，例如 `2026.9.4`；生产环境要锁定验证过的标签或 digest。当前 `latest` 为 2026.9.4，`extended-stable` 为 2026.6.35（核查日：2026-09-14）。来源：[官方 Docker 说明](https://docs.openclaw.ai/install/docker)、[回滚与恢复](https://docs.openclaw.ai/install/updating/rollback-and-recovery)。
+
+> **v2026.6.8 发布校验**：Docker / npm 生产部署时，优先用官方发布包和固定 tag；自建镜像要保留 package integrity check，不要为了减小镜像随手删 lockfile / shrinkwrap。v2026.6.8 release notes 强化了 release / CI / Docker / E2E / diagnostics 证据链、bounded logs、readiness probes、latest tag parsing 和 rollback snapshots，生产升级时要把这些证据当成升级核对入口。
 
 > **安全补丁提示**：这一轮还包含 `protobufjs` 8.4.0 安全更新。生产镜像不要长期停在旧 tag；升级镜像后用 `openclaw doctor` 和容器健康检查确认 Gateway、插件和 channels 都仍能启动。
 
@@ -158,9 +160,9 @@ docker build --build-arg OPENCLAW_DOCKER_APT_PACKAGES="ffmpeg imagemagick" \
 
 | 标签 | 说明 | 适用场景 |
 |------|------|---------|
-| `latest` | 最新稳定版 | 生产环境 |
-| `vYYYY.M.D` | 指定版本号（如 `v2026.6.1`） | 需要版本锁定 |
-| `nightly` | 每日构建 | 尝鲜新功能 |
+| `latest` | 随稳定版发布移动的标签 | 先验证，再锁定具体版本 |
+| `YYYY.M.D` | 指定版本号（如 `2026.9.4`，不带 `v`） | 需要版本锁定 |
+| `extended-stable` | 滞后月份的 Gateway 维护通道 | 按兼容需求选择，仍需验证 |
 | `local` | 本地构建 | 自定义需求 |
 
 ### Gateway ready 与 restart trace
@@ -177,16 +179,18 @@ v2026.5.22 对 Gateway 启动路径做了多处性能和诊断优化：插件元
 
 ### 快速启动单容器
 
-不想写 docker-compose.yml？一条命令也能跑：
+新环境推荐先走官方 Docker 初始化流程。下面固定本章已有的 `2026.9.4` 示例版本，避免镜像和脚本来自不同版本；升级时另选经过验证的 tag。
 
 ```bash
-docker run -d --name openclaw-gateway -p 18789:18789 \
-  -v ~/.openclaw:/home/node/.openclaw \
-  -e OPENCLAW_GATEWAY_TOKEN=your-token-here \
-  --restart unless-stopped openclaw/openclaw:latest
+git clone --branch v2026.9.4 --depth 1 https://github.com/openclaw/openclaw.git
+cd openclaw
+export OPENCLAW_IMAGE=openclaw/openclaw:2026.9.4
+./scripts/docker/setup.sh
 ```
 
-但对于生产环境，强烈建议用 Docker Compose。
+脚本会准备目录与权限、运行 onboarding、配置 Gateway 并启动官方 Compose。完成后按终端提示打开 Control UI，使用初始化生成的 Gateway token。已有部署先备份配置、卷与外部工作区，再按原部署方式更新，不能直接拿新空卷替换。
+
+下面继续说明手动 Compose。另建一个部署目录，在该目录保存 `docker-compose.yml` 和 `.env`；它使用独立项目和三个命名卷，不要在刚克隆的官方仓库里覆盖或混用 bind mount 部署。新卷沿用固定镜像预创建的 node（UID 1000）目录权限；已有卷或自定义 bind mount 仍要单独核对可写权限。
 
 ---
 
@@ -198,19 +202,19 @@ docker run -d --name openclaw-gateway -p 18789:18789 \
 
 ```yaml
 # docker-compose.yml
-version: "3.8"
-
 services:
   openclaw-gateway:
-    image: openclaw/openclaw:latest
+    image: openclaw/openclaw:2026.9.4
+    command: ["node", "dist/index.js", "gateway", "--bind", "lan", "--port", "18789"]
     container_name: openclaw-gateway
     ports:
-      - "18789:18789"
+      - "127.0.0.1:18789:18789"
     volumes:
       - openclaw-data:/home/node/.openclaw
       - openclaw-workspace:/home/node/.openclaw/workspace
+      - openclaw-auth-secrets:/home/node/.config/openclaw
     environment:
-      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:?Set OPENCLAW_GATEWAY_TOKEN in .env before initialization}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:18789/health').then(r => { if (!r.ok) process.exit(1) })"]
@@ -222,29 +226,31 @@ services:
 volumes:
   openclaw-data:
   openclaw-workspace:
+  openclaw-auth-secrets:
 ```
 
 ### 进阶版：Gateway + 数据库 + Redis
 
-适合团队使用，需要持久化存储和缓存：
+如果你的自定义插件或外部业务另外需要 PostgreSQL、Redis，可以把它们放在同一个 Compose 项目中。下面是多服务编排示例；[官方 Docker 配置](https://github.com/openclaw/openclaw/blob/main/docker-compose.yml)并不要求这两个服务，默认记忆检索引擎使用 [SQLite](https://docs.openclaw.ai/concepts/memory)。仅添加 `DATABASE_URL` / `REDIS_URL` 不能证明 Gateway 已接入外部数据库，必须按实际组件的文档完成连接配置。只使用标准 Gateway 时，选上面的基础版即可。
 
 ```yaml
 # docker-compose.yml
-version: "3.8"
-
 services:
   # ========== OpenClaw Gateway ==========
   openclaw-gateway:
-    image: openclaw/openclaw:latest
+    image: openclaw/openclaw:2026.9.4
+    command: ["node", "dist/index.js", "gateway", "--bind", "lan", "--port", "18789"]
     container_name: openclaw-gateway
     ports:
-      - "18789:18789"
+      - "127.0.0.1:18789:18789"
     volumes:
       - openclaw-data:/home/node/.openclaw
       - openclaw-workspace:/home/node/.openclaw/workspace
+      - openclaw-auth-secrets:/home/node/.config/openclaw
     environment:
-      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
-      - DATABASE_URL=postgresql://openclaw:${DB_PASSWORD}@postgres:5432/openclaw
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:?Set OPENCLAW_GATEWAY_TOKEN in .env before initialization}
+      # 以下连接串仅供明确支持这些变量的自定义组件使用
+      - DATABASE_URL=postgresql://openclaw:${DB_PASSWORD:?Set DB_PASSWORD in .env for the advanced stack}@postgres:5432/openclaw
       - REDIS_URL=redis://redis:6379/0
       - NODE_ENV=production
       - LOG_LEVEL=info
@@ -269,7 +275,7 @@ services:
     container_name: openclaw-postgres
     environment:
       - POSTGRES_USER=openclaw
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?Set DB_PASSWORD in .env for the advanced stack}
       - POSTGRES_DB=openclaw
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -301,6 +307,7 @@ services:
 volumes:
   openclaw-data:
   openclaw-workspace:
+  openclaw-auth-secrets:
   postgres-data:
   redis-data:
 
@@ -311,6 +318,47 @@ networks:
 
 ### 启动和管理
 
+先在独立部署目录保存你选择的 `docker-compose.yml`，再准备同目录的 `.env`。已有 `.env` 时保留并核对，下面的命令不覆盖旧文件。两个版本都需要随机 Gateway token，模型认证由 onboarding 完成：
+
+```bash
+set -eu
+umask 077
+if [ ! -e .env ]; then
+  gateway_token=$(openssl rand -hex 32)
+  printf 'OPENCLAW_GATEWAY_TOKEN=%s\n' "$gateway_token" > .env
+  unset gateway_token
+fi
+```
+
+**选进阶版的读者，还要在首次启动前准备数据库密码。** PostgreSQL 空数据卷初始化要求 `POSTGRES_PASSWORD` 非空，本例通过 `DB_PASSWORD` 传入。基础版没有数据库，跳过这一小步即可。
+
+```bash
+set -eu
+umask 077
+if ! grep -Eq '^[[:space:]]*(export[[:space:]]+)?DB_PASSWORD[[:space:]]*[:=]' .env; then
+  db_password=$(openssl rand -hex 32)
+  printf '\nDB_PASSWORD=%s\n' "$db_password" >> .env
+  unset db_password
+fi
+```
+
+生成的十六进制密码可以直接放进本例的连接串。已有 `DB_PASSWORD` 不会被替换；已有数据库也不会因改 `.env` 自动改密码。若现有值为空，按原部署的凭据补齐，不要为了通过检查给已有数据库随意换密码。[官方 PostgreSQL 镜像说明](https://github.com/docker-library/docs/blob/master/postgres/README.md)解释了空卷初始化与已有数据的区别。
+
+两个版本准备好变量后，再按下面顺序检查、初始化。`config --quiet` 不输出配置内容；缺少或空的 token，或进阶版缺少或空的数据库密码，会在拉取和启动前报错。检查失败时先修 `.env`，不要继续 `up`。三个命名卷分别保存数据、workspace 和认证加密密钥，新部署只初始化一次，后续重建使用原来的卷。
+
+```bash
+docker compose config --quiet
+docker compose pull openclaw-gateway
+docker compose run --rm --no-deps --entrypoint node openclaw-gateway \
+  dist/index.js onboard --mode local --no-install-daemon --gateway-auth token --gateway-token-ref-env OPENCLAW_GATEWAY_TOKEN
+docker compose run --rm --no-deps --entrypoint node openclaw-gateway \
+  dist/index.js config set gateway.mode local
+docker compose run --rm --no-deps --entrypoint node openclaw-gateway \
+  dist/index.js config set gateway.controlUi.allowedOrigins '["http://localhost:18789","http://127.0.0.1:18789"]' --strict-json
+```
+
+浏览器通过 SSH 隧道访问时可以沿用上面的本地 origin。用域名反代时，将实际 HTTPS origin 加入 `gateway.controlUi.allowedOrigins`，不要用通配符替代。保持 token 认证；生产实例上线前检查反代地址与 `gateway.trustedProxies`。
+
 ```bash
 docker compose up -d                          # 启动所有服务（后台）
 docker compose ps                             # 查看运行状态
@@ -319,7 +367,7 @@ docker compose logs -f openclaw-gateway       # 只看 Gateway 日志
 docker compose down                           # 停止所有服务
 docker compose down -v                        # 停止并删除数据卷（谨慎！）
 docker compose restart openclaw-gateway       # 重启单个服务
-docker compose pull && docker compose up -d   # 更新镜像并重启
+docker compose pull && docker compose up -d   # 先备份并切到已验证目标 tag；这里才拉取并重建
 ```
 
 ---
@@ -329,14 +377,14 @@ docker compose pull && docker compose up -d   # 更新镜像并重启
 
 ### .env 文件模板
 
-在 `docker-compose.yml` 同目录下创建 `.env` 文件：
+下面是字段说明模板。首次部署先按上文“启动和管理”准备并检查 `.env`；进阶版的 `DB_PASSWORD` 必须在第一次启动前就存在。不要用这份示例模板覆盖已有凭据：
 
 ```bash
 # ========== 核心配置 ==========
 # Gateway 访问令牌（必填）
 OPENCLAW_GATEWAY_TOKEN=your-secure-token-here
 
-# Gateway 访问密码（可选，与 Token 二选一或同时使用）
+# Gateway 访问密码（使用 gateway.auth.mode: "password" 时配置；不是与 token 同时验证）
 OPENCLAW_GATEWAY_PASSWORD=your-secure-password-here
 
 # 运行环境
@@ -345,7 +393,7 @@ NODE_ENV=production
 # 日志级别：silent, fatal, error, warn, info, debug, trace
 LOG_LEVEL=info
 
-# ========== 数据库配置 ==========
+# ========== 仅进阶版必填：PostgreSQL 初始化密码 ==========
 DB_PASSWORD=your-strong-db-password
 
 # ========== 模型提供商 API Keys ==========
@@ -389,7 +437,7 @@ OPENCLAW_EXTRA_MOUNTS=/path/to/data:/data
 
 ### 环境变量优先级
 
-Docker Compose 中环境变量优先级（从高到低）：命令行 `-e` > `environment:` 直接设置 > `env_file:` > `.env` 文件 > 镜像默认值。
+Compose 的项目 `.env` 主要用于 `${VARIABLE}` 插值，不会自动把其中所有变量注入容器。运行时需在对应 service 使用 `environment:` 或 `env_file:`；本章基础版只显式传入 Gateway token，其他模型或通道凭据由 onboarding 保存，若改用环境变量则要另行传入。容器中同名变量的覆盖顺序以实际 `run -e`、插值来源、`environment`、`env_file` 和镜像 `ENV` 为准。参见 [Docker 官方变量优先级](https://docs.docker.com/compose/how-tos/environment-variables/envvars-precedence/)。
 
 ### 敏感信息处理
 
@@ -409,42 +457,65 @@ Docker 容器是临时的 — 容器删了，里面的数据就没了。Volumes 
 |-----------|------|--------------|
 | `/home/node/.openclaw` | OpenClaw 配置和数据 | 必须 |
 | `/home/node/.openclaw/workspace` | 工作空间文件 | 必须 |
-| `/var/lib/postgresql/data` | PostgreSQL 数据 | 必须 |
-| `/data` | Redis 持久化数据 | 推荐 |
+| `/home/node/.config/openclaw` | 认证加密密钥目录，须与认证数据配套保存 | 必须 |
+| `/var/lib/postgresql/data` | 可选 PostgreSQL 服务的数据 | 启用该服务时必需 |
+| `/data` | 可选 Redis 服务的持久化数据 | 需要保留该服务数据时备份 |
 
 ### Named Volumes vs Bind Mounts
 
+下面是 service 下的 volumes 列表示意，同一个目标目录二选一。完整 Compose 仍按前面的三处持久化挂载填写，不能只保留这个状态目录：
+
 ```yaml
 volumes:
-  # Named Volume（推荐）— Docker 管理，性能好
-  openclaw-data:/home/node/.openclaw
-
-  # Bind Mount — 直接映射宿主机目录，方便查看文件
-  ./local-data:/home/node/.openclaw
+  - openclaw-data:/home/node/.openclaw
+  # 需要 bind mount 时，用下一行替换上面一行，并先准备宿主目录权限
+  # - ./local-data:/home/node/.openclaw
 ```
 
-Named Volume 性能更好（尤其 macOS/Windows），可移植性高，Docker 自动处理权限。Bind Mount 方便直接查看和编辑文件，但依赖宿主机路径。
+Named Volume 由 Docker 管理，可以减少对宿主机固定路径的依赖；Bind Mount 方便直接查看和编辑文件，但依赖宿主机路径。实际性能取决于环境。命名卷也要核对容器内运行用户的写权限，新建卷和恢复备份后不能假设 Docker 会自动修正所有权；按前文三卷初始化步骤准备，再按恢复流程验证。
 
 ### 查看和管理 Volumes
 
+Compose 默认给命名卷加上项目前缀。例如项目叫 `openclaw`，实际名称通常是 `openclaw_openclaw-data`。因此先从现有容器的挂载记录取名字；直接写 `-v openclaw-data:...` 可能新建一个空卷，得到一份看起来成功却没有业务数据的备份。下面是三卷 Gateway 的 Bash 备份示例，保存为 `scripts/backup.sh`，从 Compose 文件所在目录运行：
+
 ```bash
+set -euo pipefail
+
 # 列出所有 volumes
 docker volume ls
 
-# 查看 volume 详情
-docker volume inspect openclaw-data
+GATEWAY_CONTAINER=$(docker compose ps -aq openclaw-gateway)
+[ -n "$GATEWAY_CONTAINER" ] || { echo "没有找到 Gateway 容器" >&2; exit 1; }
+DATA_VOLUME=$(docker inspect "$GATEWAY_CONTAINER" --format '{{range .Mounts}}{{if and (eq .Type "volume") (eq .Destination "/home/node/.openclaw")}}{{.Name}}{{end}}{{end}}')
+WORKSPACE_VOLUME=$(docker inspect "$GATEWAY_CONTAINER" --format '{{range .Mounts}}{{if and (eq .Type "volume") (eq .Destination "/home/node/.openclaw/workspace")}}{{.Name}}{{end}}{{end}}')
+AUTH_SECRET_VOLUME=$(docker inspect "$GATEWAY_CONTAINER" --format '{{range .Mounts}}{{if and (eq .Type "volume") (eq .Destination "/home/node/.config/openclaw")}}{{.Name}}{{end}}{{end}}')
+[ -n "$DATA_VOLUME" ] && [ -n "$WORKSPACE_VOLUME" ] && [ -n "$AUTH_SECRET_VOLUME" ] || { echo "本例要求三个独立命名卷；绑定目录请按实际路径备份" >&2; exit 1; }
+docker volume inspect "$DATA_VOLUME" "$WORKSPACE_VOLUME" "$AUTH_SECRET_VOLUME"
 
-# 备份 volume 到 tar 文件
-docker run --rm -v openclaw-data:/source:ro -v $(pwd):/backup \
-  alpine tar czf /backup/openclaw-data-backup.tar.gz -C /source .
+# 在维护窗口内先停止写入；原始 tar 不能保证运行中 SQLite/WAL 的一致性
+GATEWAY_WAS_RUNNING=$(docker inspect "$GATEWAY_CONTAINER" --format '{{.State.Running}}')
+docker compose stop openclaw-gateway
+BACKUP_DIR="$PWD/openclaw-volume-backup-$(date +%Y%m%d_%H%M%S)"
+mkdir -m 700 "$BACKUP_DIR"
 
-# 从 tar 恢复 volume
-docker run --rm -v openclaw-data:/target -v $(pwd):/backup \
-  alpine tar xzf /backup/openclaw-data-backup.tar.gz -C /target
+# workspace 是独立挂载，必须单独备份
+docker run --rm -v "$DATA_VOLUME":/source:ro -v "$BACKUP_DIR":/backup \
+  alpine tar czf /backup/openclaw-data.tar.gz -C /source .
+docker run --rm -v "$WORKSPACE_VOLUME":/source:ro -v "$BACKUP_DIR":/backup \
+  alpine tar czf /backup/openclaw-workspace.tar.gz -C /source .
+docker run --rm -v "$AUTH_SECRET_VOLUME":/source:ro -v "$BACKUP_DIR":/backup \
+  alpine tar czf /backup/openclaw-auth-secrets.tar.gz -C /source .
+tar -tzf "$BACKUP_DIR/openclaw-auth-secrets.tar.gz" >/dev/null
+tar -tzf "$BACKUP_DIR/openclaw-data.tar.gz" >/dev/null
+tar -tzf "$BACKUP_DIR/openclaw-workspace.tar.gz" >/dev/null
 
-# 删除未使用的 volumes（谨慎）
-docker volume prune
+# 确认备份命令成功后，只恢复此前运行的 Gateway
+if [ "$GATEWAY_WAS_RUNNING" = true ]; then
+  docker compose start openclaw-gateway
+fi
 ```
+
+这段只演示三个 OpenClaw 卷的备份；包含部署文件、镜像记录和外部服务的示例见下文。若中途失败，Gateway 会保持停止，先排查再手动启动。恢复时也要读取目标容器的实际挂载，先保留现有数据，再使用空卷；不要把旧 tar 直接叠加到正在使用的数据库目录。
 
 ---
 
@@ -465,12 +536,13 @@ OpenClaw 使用多个端口提供不同服务：
 ```yaml
 ports:
   # 格式：宿主机端口:容器端口
-  - "18789:18789"              # Gateway 主服务
+  # 注意：下面两种 Gateway 映射是二选一，不能同时保留，否则 18789 会被映射两次
+  - "18789:18789"              # Gateway 主服务（对外暴露）
+  # - "127.0.0.1:18789:18789"  # 生产环境改用这条：只监听本地，更安全
   - "18790:18790"              # Bridge
   - "18791:18791"              # Browser Control
   - "18793:18793"              # Canvas Host
   - "18800-18899:18800-18899"  # Browser CDP 端口池
-  - "127.0.0.1:18789:18789"   # 只监听本地（更安全，替代上面的 18789 映射）
 ```
 
 > **安全提示**：生产环境建议绑定 `127.0.0.1`，通过反向代理暴露服务，不要直接把端口开放到公网。只有 Gateway（18789）需要对外暴露，其他端口仅在需要时映射。
@@ -491,11 +563,9 @@ services:
 
 在同一个 Docker 网络中，容器可以通过服务名互相访问：
 
-```yaml
-# Gateway 连接数据库，用服务名 "postgres" 而不是 IP
+```dotenv
+# 供支持这些连接串的自定义组件使用；服务名在 Compose 网络内解析
 DATABASE_URL=postgresql://openclaw:password@postgres:5432/openclaw
-
-# Gateway 连接 Redis
 REDIS_URL=redis://redis:6379/0
 ```
 
@@ -631,7 +701,7 @@ services:
 
 ### 生产上线工坊：从空 VPS 到可维护服务
 
-下面是一条适合个人、小团队和开源项目维护者的生产部署路径。它的目标不是“把容器跑起来”，而是让你以后能更新、排错、恢复。
+下面是一条适合个人、小团队和开源项目维护者的生产部署路径。它的目标不是"把容器跑起来"，而是让你以后能更新、排错、恢复。
 
 假设服务器是 Ubuntu，域名是 `openclaw.example.com`，部署目录是 `/opt/openclaw`。
 
@@ -654,7 +724,6 @@ touch .env
 
 ```dotenv
 NODE_ENV=production
-OPENCLAW_GATEWAY_HOST=127.0.0.1
 OPENCLAW_GATEWAY_PORT=18789
 OPENCLAW_GATEWAY_TOKEN=replace-with-long-random-token
 
@@ -662,14 +731,15 @@ OPENAI_API_KEY=${OPENAI_API_KEY}
 ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
 ```
 
-`OPENCLAW_GATEWAY_HOST=127.0.0.1` 很重要。生产环境让 Nginx/Caddy 对外服务，Gateway 自己只监听本机，减少直接暴露面。
+下面的端口映射把宿主机入口限制在 `127.0.0.1`，由 Nginx/Caddy 对外服务。容器内的 Gateway 仍需监听容器网络，不能把容器里的 loopback 和宿主机的 loopback 混为一谈。
 
-第三步，准备 `docker-compose.yml`：
+第三步，准备新部署的 `docker-compose.yml`。已有部署要保留原来的卷与工作区挂载，不能直接新增空卷遮住原数据；先备份，再单独规划迁移。
 
 ```yaml
 services:
   openclaw-gateway:
-    image: openclaw/openclaw:latest
+    image: openclaw/openclaw:2026.9.4
+    command: ["node", "dist/index.js", "gateway", "--bind", "lan", "--port", "18789"]
     container_name: openclaw-gateway
     env_file:
       - .env
@@ -677,6 +747,8 @@ services:
       - "127.0.0.1:18789:18789"
     volumes:
       - openclaw-home:/home/node/.openclaw
+      - openclaw-workspace:/home/node/.openclaw/workspace
+      - openclaw-auth-secrets:/home/node/.config/openclaw
       - ./logs:/var/log/openclaw
     restart: unless-stopped
     healthcheck:
@@ -693,9 +765,11 @@ services:
 
 volumes:
   openclaw-home:
+  openclaw-workspace:
+  openclaw-auth-secrets:
 ```
 
-第四步，启动：
+第四步，先初始化，再启动。新部署使用上文“启动和管理”的 onboarding、`gateway.mode` 和 origin 配置步骤；域名反代时把 `https://openclaw.example.com` 换成实际 HTTPS origin 加入允许列表。初始化后再运行：
 
 ```bash
 docker compose pull
@@ -726,7 +800,7 @@ curl -i http://127.0.0.1:18789/health
 │   └── ...
 ├── scripts/
 │   ├── backup.sh
-│   ├── restore.sh
+│   ├── restore-stack.sh
 │   ├── update.sh
 │   └── health.sh
 └── README.ops.md
@@ -764,120 +838,33 @@ curl -i http://127.0.0.1:18789/health
 
 ## 云平台部署
 
-### AWS 部署
+### VM / VPS：沿用同一条初始化路径
 
-#### EC2 + Docker Compose
+AWS EC2、Google Compute Engine、阿里云 ECS 和普通 VPS 都可以先按平台文档创建 Linux 虚拟机，再通过 SSH 安装 Docker。不要把“git clone 后直接 compose up”当成首次配置：它仍需要持久化目录、onboarding、认证和 origin。
 
-```bash
-# 推荐 t3.medium: 2 vCPU, 4GB RAM
-ssh -i your-key.pem ubuntu@ec2-xx-xx-xx-xx.compute-1.amazonaws.com
-curl -fsSL https://get.docker.com | sh && sudo usermod -aG docker ubuntu
-git clone https://github.com/openclaw/openclaw.git && cd openclaw
-cp .env.example .env   # 编辑 .env 填入配置
-docker compose up -d
-```
-
-#### AWS ECS（容器服务）
-
-适合需要自动扩缩容的场景。在 AWS 控制台创建 ECS 任务定义，指定镜像 `openclaw/openclaw:latest`，端口映射 `18789:18789`，分配 2048MB 内存和 1024 CPU 单位。详细配置参考 [AWS ECS 文档](https://docs.aws.amazon.com/ecs/)。
-
-### GCP 部署
-
-#### Cloud Run（Serverless）
+以已经装好 Docker 的测试 VM 为例，在普通部署账号下执行本章固定版本的官方初始化：
 
 ```bash
-# 构建并推送镜像到 GCR
-gcloud builds submit --tag gcr.io/your-project/openclaw
-
-# 部署到 Cloud Run
-gcloud run deploy openclaw \
-  --image gcr.io/your-project/openclaw \
-  --port 18789 \
-  --memory 2Gi \
-  --cpu 2 \
-  --set-env-vars "NODE_ENV=production" \
-  --allow-unauthenticated
+git clone --branch v2026.9.4 --depth 1 https://github.com/openclaw/openclaw.git
+cd openclaw
+export OPENCLAW_IMAGE=openclaw/openclaw:2026.9.4
+./scripts/docker/setup.sh
 ```
 
-#### GCE（虚拟机）
-
-创建 `e2-medium` 实例，SSH 连接后安装 Docker 并部署（流程同 EC2）。
-
-### Azure 部署
-
-#### Azure Container Instances
+接着检查 `docker compose ps` 和 Gateway 日志。在本地机器建立 SSH 隧道：
 
 ```bash
-# 创建资源组
-az group create --name openclaw-rg --location eastus
-
-# 部署容器
-az container create \
-  --resource-group openclaw-rg \
-  --name openclaw \
-  --image openclaw/openclaw:latest \
-  --ports 18789 \
-  --cpu 2 \
-  --memory 4 \
-  --environment-variables NODE_ENV=production
+# 将示例账号与服务器地址替换为你自己的实际值
+ssh -L 18789:127.0.0.1:18789 deploy-user@server.example.com
 ```
 
-### 阿里云部署
+浏览器打开 `http://127.0.0.1:18789/`，按初始化提示输入 Gateway secret。长期域名入口再按前文配置 HTTPS 反代、允许的 origin 和代理信任；Tailscale 部署按 [官方 Tailscale 指南](https://docs.openclaw.ai/gateway/tailscale)使用 Serve，不是只安装 Tailscale 就能访问一个 loopback listener。
 
-#### ECS + Docker
+### ECS、Cloud Run、ACI：先解决状态与生命周期
 
-```bash
-# 1. 创建 ECS 实例（推荐 ecs.c6.large: 2 vCPU, 4GB）
-# 2. SSH 连接后安装 Docker
-ssh root@your-ecs-ip
-curl -fsSL https://get.docker.com | sh
+这些托管容器平台不是把镜像名和端口填上就能代替本章 Compose。先确认持久化的状态、workspace 和认证加密密钥能配套保存，只有一个 Gateway 写同一份数据库，onboarding 能在同一组持久化路径执行，入口有认证及 HTTPS，后台连接与重启行为符合平台限制。Cloud Run 的实例扩缩容和临时文件系统尤其不能直接当作本地单机 Gateway。没有解决这些条件前，使用 VM/VPS 路线；不要照抄一个 `--allow-unauthenticated` 的空状态部署当成完整生产方案。
 
-# 配置阿里云镜像加速器
-sudo tee /etc/docker/daemon.json <<-'EOF'
-{ "registry-mirrors": ["https://your-id.mirror.aliyuncs.com"] }
-EOF
-sudo systemctl daemon-reload && sudo systemctl restart docker
-
-# 部署
-git clone https://github.com/openclaw/openclaw.git
-cd openclaw && docker compose up -d
-```
-
-### VPS 部署（Hetzner / Vultr / DigitalOcean）
-
-性价比最高的方案，适合个人和小团队（约 $5-10/月）：
-
-```bash
-ssh root@your-vps-ip
-curl -fsSL https://get.docker.com | sh
-git clone https://github.com/openclaw/openclaw.git
-cd openclaw && ./docker-setup.sh
-```
-
-#### 远程访问方案
-
-Gateway 默认绑定 `127.0.0.1`，外部无法直接访问。三种方案：
-
-**方案一：SSH 隧道（最简单）**
-
-```bash
-# 在本地机器上
-ssh -L 18789:127.0.0.1:18789 root@your-vps-ip
-# 然后本地浏览器访问 http://127.0.0.1:18789/
-```
-
-**方案二：Tailscale（推荐长期使用）**
-
-```bash
-# VPS 和本地都安装 Tailscale
-curl -fsSL https://tailscale.com/install.sh | sh
-tailscale up
-# 通过 Tailscale IP 访问：http://100.x.x.x:18789/
-```
-
-**方案三：反向代理 + HTTPS（对外服务）**
-
-参考上面的 Nginx 或 Caddy 配置。
+部署或迁移到托管平台时，保留本章的备份、版本锁定和离线恢复约束，再按该平台官方文档设计。费用与实例规格会变化，应在平台确认实际套餐，本文不把旧估价当成报价。
 
 ---
 
@@ -888,7 +875,7 @@ Docker 在 OpenClaw 中扮演双重角色：一是容器化部署 Gateway 本身
 - **Gateway 容器化** — 整个 OpenClaw 跑在 Docker 里
 - **Agent 沙箱** — Gateway 跑在主机上（或容器里），但 Agent 的工具执行在独立的 Docker 容器中
 
-沙箱的核心价值：Agent 执行的代码（shell 命令、脚本等）被限制在隔离容器中，即使代码有破坏性操作也不会影响宿主机。
+沙箱可以把部分工具执行放到独立容器，缩小影响范围。可写挂载、网络权限、Docker socket 和宿主执行入口仍需核对；它不保证任何破坏性操作都影响不到宿主机。
 
 ### 沙箱模式
 
@@ -904,14 +891,14 @@ OpenClaw 的沙箱通过 `agents.defaults.sandbox.mode` 控制。配置文件位
         // "all"      — 所有会话都在沙箱中运行
         // "off"      — 关闭沙箱
         "mode": "non-main",
-        "image": "openclaw:sandbox"
+        "docker": { "image": "openclaw:sandbox" }
       }
     }
   }
 }
 ```
 
-`"non-main"` 是推荐的默认值：主会话直接在宿主环境执行以保证交互性能，而 Agent 派生的子会话自动在 Docker 容器中隔离运行，防止工具执行影响宿主机。
+`"non-main"` 表示非主会话使用沙箱，并不是只隔离某几个 Agent。默认沙箱关闭；启用后还要检查实际会话键、workspace 访问方式和容器挂载。对所有会话都要求隔离时选择 `"all"`。
 
 ### 沙箱镜像类型
 
@@ -940,11 +927,15 @@ docker build -t openclaw:sandbox-browser -f Dockerfile.sandbox-browser .
 **快速开始：**
 
 ```bash
-# 一键初始化（构建镜像 + 创建配置 + 启动 Gateway）
+# 先从 v2026.9.4 仓库根目录执行；宿主机须已安装 rootless Podman 和 OpenClaw CLI
 ./scripts/podman/setup.sh
 
-# 使用 CLI 管理容器化的 Gateway
-openclaw --container <容器名> gateway status
+# 默认 setup 准备镜像与配置，后续启动并进入容器内 onboarding
+./scripts/run-openclaw-podman.sh launch
+./scripts/run-openclaw-podman.sh launch setup
+
+# 容器启动后由宿主 CLI 管理；默认容器名为 openclaw
+openclaw --container openclaw gateway status
 ```
 
 **SELinux 环境：** Podman 启动脚本会自动检测 SELinux 状态，在 enforcing/permissive 模式下自动为挂载目录追加 `:Z` 选项，无需手动配置。
@@ -959,57 +950,19 @@ openclaw --container <容器名> gateway status
 
 ## 自动更新和 CI/CD
 
-### Watchtower 自动更新
+### 自动检查，受控更新
 
-Watchtower 会自动检测镜像更新并重启容器：
+本章 Compose 固定 `openclaw/openclaw:2026.9.4`。对这个 tag 执行 `docker compose pull` 仍拉取 9.4，不会自动切到 9.8；要升级，先选择并验证目标版本，再修改 `image` 为目标 tag 或 digest。Watchtower 监测同一个 tag 的变化，也不会帮你选择新版、制作一致备份或撤销数据库迁移。
 
-```yaml
-# 添加到 docker-compose.yml
-services:
-  watchtower:
-    image: containrrr/watchtower
-    container_name: watchtower
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_POLL_INTERVAL=86400   # 每 24 小时检查一次
-      - WATCHTOWER_INCLUDE_STOPPED=false
-    restart: unless-stopped
-```
+生产实例建议自动检查 release 和健康状态，在维护窗口按下面的更新工坊操作。不要给 Watchtower 配置自动清旧镜像，也不要在 push 后直接 `pull → up → prune` 绕过备份和迁移检查。自动化脚本同样需要显式的目标版本、升级前备份、失败退出与人工恢复入口。
 
 ### GitHub Actions CI/CD
 
-```yaml
-# .github/workflows/deploy.yml
-name: Deploy OpenClaw
-on:
-  push:
-    branches: [main]
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd /opt/openclaw
-            docker compose pull && docker compose up -d
-            docker image prune -f
-```
+CI 可以检查待部署文件和目标版本，在审阅后调用服务器上已经验证的 `scripts/update.sh`。发布流程应先保存当前 Compose 与镜像记录，完成并验证备份，再切换到明确的目标 tag；验证 Gateway 和所用通道后才考虑清理旧镜像。SSH 凭据、备份路径和生产项目名由部署方管理，不能把一个未经准备的 `compose pull && compose up -d` 当成完整发布作业。
 
 ### 手动更新流程
 
-```bash
-docker compose pull                    # 拉取最新镜像
-docker compose up -d                   # 重启服务
-docker image prune -f                  # 清理旧镜像
-```
+按下一节依次记录当前镜像、备份、修改 `image`、拉取和重建，然后观察。固定 tag 和数据库恢复点要一起记录；CLI 的自动回滚不会替你回滚 Docker 镜像的数据。
 
 ### 更新与回滚工坊
 
@@ -1023,13 +976,15 @@ docker compose images
 docker inspect openclaw-gateway --format '{{.Image}}'
 ```
 
-更新前备份：
+更新前备份。下面调用前文的 Gateway 三卷脚本；使用含 PostgreSQL、Redis 的扩展示例时，改用后文的 `scripts/backup-stack.sh`：
 
 ```bash
 bash scripts/backup.sh
 ```
 
-拉取新镜像但先不清理旧镜像：
+先把 Compose 的 `image` 改成你已验证的目标 tag 或 digest，例如从本章参考 9.4 升到选定的稳定版。记录旧值；只 pull 不改固定 tag 不会升级。涉及状态迁移时停止所有写入者，按官方迁移要求处理。
+
+拉取目标镜像，但先不清理旧镜像：
 
 ```bash
 docker compose pull
@@ -1046,7 +1001,7 @@ docker inspect openclaw-gateway --format='{{.State.Health.Status}}'
 docker compose logs --since "10m" openclaw-gateway
 ```
 
-如果新版本异常，先不要 `docker image prune`。改回固定 tag 或旧 digest：
+如果新版本异常，先保留日志和旧镜像，确认旧版仍能读取当前配置与数据库。兼容性已确认时，才改回固定 tag 或旧 digest：
 
 ```yaml
 services:
@@ -1061,7 +1016,7 @@ docker compose up -d
 docker compose logs --tail 100 openclaw-gateway
 ```
 
-如果数据结构已经被新版本迁移，回滚镜像未必够用，需要恢复备份。这就是更新前备份必须存在的原因。
+如果数据结构已经迁移，先停止写入，按下文恢复流程用升级前的已验证备份和匹配镜像恢复；不要只换镜像就让旧版读取迁移后的数据库。
 
 可以把更新流程写成脚本，但脚本里不要自动删除旧镜像：
 
@@ -1160,67 +1115,176 @@ docker stats --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"  # 格式�
 
 ### 全量备份脚本
 
+下面针对本章包含可选 PostgreSQL、Redis 服务的多服务示例，使用 Bash。只部署基础版 Gateway 时，用前面的三卷备份流程即可。保存为 `scripts/backup-stack.sh`，从 `docker-compose.yml` 所在目录运行。运行前安排维护窗口，并停止其他会写入这些卷的程序；脚本会暂时停止 Gateway 和 Redis，结束时恢复它们原先的运行状态。备份归档可能包含凭据，目录权限限制为仅当前用户可读。自定义外置数据库、工作区和挂载不在这份示例里，需另外纳入备份。
+
 ```bash
 #!/bin/bash
-# backup.sh — OpenClaw 全量备份
+# backup-stack.sh — 备份本章 Compose 示例的数据和部署记录
+set -euo pipefail
+umask 077
 BACKUP_DIR="/opt/backups/openclaw"
 DATE=$(date +%Y%m%d_%H%M%S)
-mkdir -p "${BACKUP_DIR}/${DATE}"
+BACKUP_PATH="${BACKUP_DIR}/${DATE}"
+mkdir -p "$BACKUP_DIR"
+# 同一秒重复执行时退出，避免覆盖上一份备份
+mkdir "$BACKUP_PATH"
+
+volume_at() {
+  docker inspect "$1" --format "{{range .Mounts}}{{if and (eq .Type \"volume\") (eq .Destination \"$2\")}}{{.Name}}{{end}}{{end}}"
+}
+
+GATEWAY_CONTAINER=$(docker compose ps -aq openclaw-gateway)
+REDIS_CONTAINER=$(docker compose ps -aq redis)
+[ -n "$GATEWAY_CONTAINER" ] && [ -n "$REDIS_CONTAINER" ] || { echo "缺少示例中的 Gateway 或 Redis 容器" >&2; exit 1; }
+DATA_VOLUME=$(volume_at "$GATEWAY_CONTAINER" /home/node/.openclaw)
+WORKSPACE_VOLUME=$(volume_at "$GATEWAY_CONTAINER" /home/node/.openclaw/workspace)
+AUTH_SECRET_VOLUME=$(volume_at "$GATEWAY_CONTAINER" /home/node/.config/openclaw)
+REDIS_VOLUME=$(volume_at "$REDIS_CONTAINER" /data)
+[ -n "$DATA_VOLUME" ] && [ -n "$WORKSPACE_VOLUME" ] && [ -n "$AUTH_SECRET_VOLUME" ] && [ -n "$REDIS_VOLUME" ] || { echo "挂载不是本例要求的命名卷，请按实际挂载另做备份" >&2; exit 1; }
+docker volume inspect "$DATA_VOLUME" "$WORKSPACE_VOLUME" "$AUTH_SECRET_VOLUME" "$REDIS_VOLUME" >/dev/null
+
+# 记录实际镜像，恢复时要用同一个版本；latest 本身不能锁定恢复点
+GATEWAY_IMAGE_ID=$(docker inspect "$GATEWAY_CONTAINER" --format '{{.Image}}')
+printf '%s\n' "$GATEWAY_IMAGE_ID" > "$BACKUP_PATH/gateway-image-id.txt"
+docker image inspect "$GATEWAY_IMAGE_ID" --format '{{json .RepoDigests}}' > "$BACKUP_PATH/gateway-image-digests.json"
+date -Is > "$BACKUP_PATH/backup-time.txt"
 
 # 备份配置文件
-cp docker-compose.yml .env "${BACKUP_DIR}/${DATE}/"
+cp docker-compose.yml .env "$BACKUP_PATH/"
+
+GATEWAY_WAS_RUNNING=$(docker inspect "$GATEWAY_CONTAINER" --format '{{.State.Running}}')
+REDIS_WAS_RUNNING=$(docker inspect "$REDIS_CONTAINER" --format '{{.State.Running}}')
+resume_services() {
+  if [ "$REDIS_WAS_RUNNING" = true ]; then docker compose start redis; fi
+  if [ "$GATEWAY_WAS_RUNNING" = true ]; then docker compose start openclaw-gateway; fi
+}
+trap resume_services EXIT
+docker compose stop openclaw-gateway redis
 
 # 备份 OpenClaw 数据卷
 docker run --rm \
-  -v openclaw-data:/source:ro \
-  -v "${BACKUP_DIR}/${DATE}":/backup \
+  -v "$DATA_VOLUME":/source:ro \
+  -v "$BACKUP_PATH":/backup \
   alpine tar czf /backup/openclaw-data.tar.gz -C /source .
 
-# 备份 PostgreSQL
+# 备份 OpenClaw workspace 卷
+# 独立挂载不会被上一条只挂载数据卷的 tar 捎带上
+docker run --rm \
+  -v "$WORKSPACE_VOLUME":/source:ro \
+  -v "$BACKUP_PATH":/backup \
+  alpine tar czf /backup/openclaw-workspace.tar.gz -C /source .
+
+# 认证加密密钥必须与数据一起备份
+docker run --rm \
+  -v "$AUTH_SECRET_VOLUME":/source:ro \
+  -v "$BACKUP_PATH":/backup \
+  alpine tar czf /backup/openclaw-auth-secrets.tar.gz -C /source .
+
+# PostgreSQL 用逻辑备份，服务需要在线
 docker compose exec -T postgres \
-  pg_dump -U openclaw openclaw | gzip > "${BACKUP_DIR}/${DATE}/db-backup.sql.gz"
+  pg_dump -U openclaw openclaw | gzip > "$BACKUP_PATH/db-backup.sql.gz"
 
 # 备份 Redis
 docker run --rm \
-  -v redis-data:/source:ro \
-  -v "${BACKUP_DIR}/${DATE}":/backup \
+  -v "$REDIS_VOLUME":/source:ro \
+  -v "$BACKUP_PATH":/backup \
   alpine tar czf /backup/redis-data.tar.gz -C /source .
 
-# 清理 30 天前的备份
-find "${BACKUP_DIR}" -maxdepth 1 -type d -mtime +30 -exec rm -rf {} \;
-echo "Backup completed: ${BACKUP_DIR}/${DATE}"
+# 检查归档可读；是否真的能恢复，还要做下文的恢复演练
+for archive in openclaw-data openclaw-workspace openclaw-auth-secrets redis-data; do
+  tar -tzf "$BACKUP_PATH/$archive.tar.gz" >/dev/null
+done
+gzip -t "$BACKUP_PATH/db-backup.sql.gz"
+echo "Backup archives checked: $BACKUP_PATH"
 ```
+
+脚本故意不在末尾自动删除旧备份。恢复演练通过后，再按你的保留策略清理；本地自建镜像还要另存或传输对应镜像，卷备份里没有程序包。
 
 > **v2026.5.22 备份命名**：新版更倾向使用 local-time backup archive names。生产脚本里建议保留时区信息或在备份目录旁写入 `date -Is` 输出，方便跨服务器恢复时判断备份先后。
 
 ### 恢复流程
 
+下面演示把这份多服务备份恢复到新机器或空的演练环境。先在独立目录放好备份中的 `docker-compose.yml` 和 `.env`，根据 `gateway-image-digests.json` 把 Gateway 的 `image` 锁到备份时的 digest；本地自建镜像需先导入匹配镜像。确认容器名不会和其他部署冲突，再运行脚本。已有部署要先另存当前状态；脚本会拒绝已有容器和非空目标卷。保存为 `scripts/restore-stack.sh`，从演练目录运行。
+
 ```bash
 #!/bin/bash
-# restore.sh — 从备份恢复
-BACKUP_PATH=$1
-[ -z "$BACKUP_PATH" ] && echo "Usage: ./restore.sh /opt/backups/openclaw/20240101_120000" && exit 1
+# restore-stack.sh — 把备份恢复到本章 Compose 示例的空卷
+set -euo pipefail
+BACKUP_PATH=$(cd "${1:?Usage: bash scripts/restore-stack.sh /absolute/path/to/backup}" && pwd)
 
-# 停止服务
-docker compose down
+for archive in openclaw-data openclaw-workspace openclaw-auth-secrets redis-data; do
+  tar -tzf "$BACKUP_PATH/$archive.tar.gz" >/dev/null
+done
+gzip -t "$BACKUP_PATH/db-backup.sql.gz"
 
-# 恢复配置
-cp "${BACKUP_PATH}/docker-compose.yml" "${BACKUP_PATH}/.env" .
+# 本例只恢复到空环境，发现已有容器就退出，避免误操作其他部署
+if [ -n "$(docker compose ps -aq)" ]; then
+  echo "当前 Compose 项目已有容器，请换用独立的空演练项目" >&2
+  exit 1
+fi
+# 创建目标容器以读取实际挂载，但不启动服务
+docker compose create
+
+volume_at() {
+  docker inspect "$1" --format "{{range .Mounts}}{{if and (eq .Type \"volume\") (eq .Destination \"$2\")}}{{.Name}}{{end}}{{end}}"
+}
+GATEWAY_CONTAINER=$(docker compose ps -aq openclaw-gateway)
+REDIS_CONTAINER=$(docker compose ps -aq redis)
+POSTGRES_CONTAINER=$(docker compose ps -aq postgres)
+DATA_VOLUME=$(volume_at "$GATEWAY_CONTAINER" /home/node/.openclaw)
+WORKSPACE_VOLUME=$(volume_at "$GATEWAY_CONTAINER" /home/node/.openclaw/workspace)
+AUTH_SECRET_VOLUME=$(volume_at "$GATEWAY_CONTAINER" /home/node/.config/openclaw)
+REDIS_VOLUME=$(volume_at "$REDIS_CONTAINER" /data)
+POSTGRES_VOLUME=$(volume_at "$POSTGRES_CONTAINER" /var/lib/postgresql/data)
+[ -n "$DATA_VOLUME" ] && [ -n "$WORKSPACE_VOLUME" ] && [ -n "$AUTH_SECRET_VOLUME" ] && [ -n "$REDIS_VOLUME" ] && [ -n "$POSTGRES_VOLUME" ] || { echo "目标挂载不是本例要求的命名卷" >&2; exit 1; }
+docker volume inspect "$DATA_VOLUME" "$WORKSPACE_VOLUME" "$AUTH_SECRET_VOLUME" "$REDIS_VOLUME" "$POSTGRES_VOLUME" >/dev/null
+
+EXPECTED_IMAGE_ID=$(cat "$BACKUP_PATH/gateway-image-id.txt")
+ACTUAL_IMAGE_ID=$(docker inspect "$GATEWAY_CONTAINER" --format '{{.Image}}')
+[ "$ACTUAL_IMAGE_ID" = "$EXPECTED_IMAGE_ID" ] || { echo "Gateway 镜像与备份不匹配；先恢复匹配镜像，再重试" >&2; exit 1; }
+
+# 拒绝覆盖已有数据，避免混合不同代的 SQLite / WAL 或其他数据库文件
+for volume in "$DATA_VOLUME" "$WORKSPACE_VOLUME" "$AUTH_SECRET_VOLUME" "$REDIS_VOLUME" "$POSTGRES_VOLUME"; do
+  docker run --rm -v "$volume":/target:ro alpine \
+    sh -c 'if [ "$1" = "$2" ]; then
+      test ! -L /target/workspace &&
+      test -z "$(find /target -mindepth 1 ! -path /target/workspace -print -quit)" &&
+      { test ! -e /target/workspace || test -d /target/workspace; }
+    else
+      test -z "$(find /target -mindepth 1 -maxdepth 1 -print -quit)"
+    fi' sh "$volume" "$DATA_VOLUME" \
+    || { echo "目标卷已有数据，停止恢复：$volume" >&2; exit 1; }
+done
 
 # 恢复数据卷
-docker volume create openclaw-data
-docker run --rm -v openclaw-data:/target -v "${BACKUP_PATH}":/backup \
+docker run --rm -v "$DATA_VOLUME":/target -v "$BACKUP_PATH":/backup:ro \
   alpine tar xzf /backup/openclaw-data.tar.gz -C /target
 
-# 恢复数据库
-docker compose up -d postgres && sleep 5
-gunzip -c "${BACKUP_PATH}/db-backup.sql.gz" | \
-  docker compose exec -T postgres psql -U openclaw openclaw
+# 恢复 workspace 卷（记忆与技能所在，必须单独恢复）
+docker run --rm -v "$WORKSPACE_VOLUME":/target -v "$BACKUP_PATH":/backup:ro \
+  alpine tar xzf /backup/openclaw-workspace.tar.gz -C /target
+
+# 恢复认证加密密钥，必须与本次数据备份匹配
+docker run --rm -v "$AUTH_SECRET_VOLUME":/target -v "$BACKUP_PATH":/backup:ro \
+  alpine tar xzf /backup/openclaw-auth-secrets.tar.gz -C /target
 
 # 恢复 Redis
-docker volume create redis-data
-docker run --rm -v redis-data:/target -v "${BACKUP_PATH}":/backup \
+docker run --rm -v "$REDIS_VOLUME":/target -v "$BACKUP_PATH":/backup:ro \
   alpine tar xzf /backup/redis-data.tar.gz -C /target
+
+# 恢复 PostgreSQL：等到服务就绪，不固定假设 5 秒足够
+docker compose up -d postgres
+ready=false
+for attempt in $(seq 1 60); do
+  if docker compose exec -T postgres pg_isready -U openclaw >/dev/null 2>&1; then
+    ready=true
+    break
+  fi
+  sleep 1
+done
+[ "$ready" = true ] || { echo "PostgreSQL 未就绪，停止恢复" >&2; exit 1; }
+gunzip -c "$BACKUP_PATH/db-backup.sql.gz" | \
+  docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U openclaw openclaw
 
 # 启动所有服务
 docker compose up -d
@@ -1229,9 +1293,10 @@ echo "Restore completed from: ${BACKUP_PATH}"
 
 ### 定时备份（Cron）
 
-```bash
-# 每天凌晨 3 点自动备份
-echo "0 3 * * * cd /opt/openclaw && bash backup.sh >> /var/log/openclaw-backup.log 2>&1" | crontab -
+用 `crontab -e` 编辑现有任务，追加下面一行，每天凌晨 3 点运行。使用有备份目录和日志文件写权限的账号，先手动验证同一条命令能成功。
+
+```cron
+0 3 * * * cd /opt/openclaw && bash scripts/backup-stack.sh >> /var/log/openclaw-backup.log 2>&1
 ```
 
 ### 恢复演练：备份不是存下来就结束
@@ -1245,12 +1310,16 @@ mkdir -p /opt/openclaw-restore-drill
 cd /opt/openclaw-restore-drill
 ```
 
-复制 compose 和备份：
+复制备份时保存的部署文件和恢复脚本。下面的备份路径是示例，请换成你已经校验过的备份：
 
 ```bash
-cp /opt/openclaw/docker-compose.yml .
-cp /opt/openclaw/.env .
+BACKUP_PATH=/opt/backups/openclaw/20260914_030000
+cp "$BACKUP_PATH/docker-compose.yml" "$BACKUP_PATH/.env" .
+mkdir -p scripts
+cp /opt/openclaw/scripts/restore-stack.sh scripts/
 ```
+
+按备份中的镜像记录固定 Gateway digest；同时删除演练 Compose 中三个服务的 `container_name`，让 Compose 用独立项目名生成容器名，避免与生产容器冲突。
 
 把端口改成演练端口，避免碰到生产实例：
 
@@ -1259,17 +1328,17 @@ ports:
   - "127.0.0.1:28789:18789"
 ```
 
-恢复到新的 volume 名称，避免覆盖生产 volume：
+在 Compose 顶层设置独立项目名，保留原来的五个卷声明及服务挂载；不要给卷指定生产环境的 `name` 或 `external`：
 
 ```yaml
-volumes:
-  openclaw-home-drill:
+name: openclaw-restore-drill
 ```
 
-运行恢复脚本前，确认脚本里的 volume 名称也指向演练 volume。恢复完成后：
+确认当前终端没有指向生产项目的 `COMPOSE_PROJECT_NAME`，也不要传生产项目的 `-p` 参数。这时五个实际卷名都应以 `openclaw-restore-drill_` 开头；恢复脚本会从容器挂载读取它们，无需手改脚本里的卷名。执行恢复后检查服务：
 
 ```bash
-docker compose up -d
+bash scripts/restore-stack.sh "$BACKUP_PATH"
+docker compose ps
 curl -i http://127.0.0.1:28789/health
 docker compose logs --tail 100 openclaw-gateway
 ```
@@ -1280,14 +1349,13 @@ docker compose logs --tail 100 openclaw-gateway
 docker compose exec openclaw-gateway ls -la /home/node/.openclaw
 ```
 
-演练结束后清理：
+演练结束后停止演练服务：
 
 ```bash
 docker compose down
-docker volume rm openclaw-restore-drill_openclaw-home-drill
 ```
 
-恢复演练每月做一次就够。关键是确认三个东西：备份文件能解压、volume 能挂载、Gateway 能启动。
+这一步保留演练卷。确认恢复结果、项目名和实际卷名后，再按需清理；下次演练也可以使用新的项目名。恢复演练可以按月安排，并在升级或备份流程变更后重做。除了能解压和启动，还要检查代表性的会话、工作区文件与记忆是否完整。
 
 ### Volume 安全：不要让数据跟容器一起消失
 
@@ -1300,17 +1368,17 @@ services:
   openclaw-gateway:
     image: openclaw/openclaw:latest
     ports:
-      - "18789:18789"
+      - "127.0.0.1:18789:18789"
 ```
 
 这个配置没有持久化挂载。容器重建后，你可能丢失工作空间。
 
-稳妥做法：
+下面只示意状态目录的持久化挂载，不是一份完整启动配置。完整部署仍使用前文的三卷 Gateway 配置，保留工作空间和认证加密密钥的独立挂载：
 
 ```yaml
 services:
   openclaw-gateway:
-    image: openclaw/openclaw:latest
+    image: openclaw/openclaw:2026.9.4
     volumes:
       - openclaw-home:/home/node/.openclaw
 
@@ -1318,7 +1386,7 @@ volumes:
   openclaw-home:
 ```
 
-如果你选择 bind mount，也要明确宿主机路径和权限：
+使用 bind mount 时，下面也只示意状态目录；完整部署还要保留或另行准备工作空间、认证加密密钥的挂载及权限，不能只复制这一处：
 
 ```yaml
 services:
@@ -1327,7 +1395,7 @@ services:
       - ./data/openclaw:/home/node/.openclaw
 ```
 
-设置权限：
+以下只准备状态目录；其他绑定目录按实际宿主机路径核对 UID 1000 的可写权限：
 
 ```bash
 mkdir -p /opt/openclaw/data/openclaw
@@ -1377,7 +1445,8 @@ ss -tlnp | grep 18789   # 或者用 ss
 
 ```bash
 docker compose exec openclaw-gateway ls -la /home/node/.openclaw   # 检查权限
-docker compose exec openclaw-gateway chown -R node:node /home/node/.openclaw  # 修复
+# 先停止 Gateway 并核对实际挂载；修复属主需要 root，普通 node 进程不能改他人的文件
+# bind mount 在宿主修复，命名卷可用一次性受控工具容器修复；勿把运行中 Gateway 改成 root
 ```
 
 ### 内存不足（OOM Killed）
@@ -1401,8 +1470,12 @@ docker compose exec openclaw-gateway ping postgres
 ### 数据卷挂载问题
 
 ```bash
-docker inspect openclaw-gateway | grep -A 10 Mounts   # 检查挂载
-docker run --rm -v openclaw-data:/data alpine ls -la /data  # 查看 volume 内容
+GATEWAY_CONTAINER=$(docker compose ps -aq openclaw-gateway)
+[ -n "$GATEWAY_CONTAINER" ] || { echo "没有找到 Gateway 容器" >&2; exit 1; }
+docker inspect "$GATEWAY_CONTAINER" --format '{{json .Mounts}}'
+# Gateway 运行时，从实际挂载检查内容
+docker compose exec openclaw-gateway ls -la /home/node/.openclaw
+docker compose exec openclaw-gateway ls -la /home/node/.openclaw/workspace
 ```
 
 ### Docker Compose 版本问题
@@ -1438,7 +1511,7 @@ proxy_set_header X-Real-IP $remote_addr;
 ls -la /opt/openclaw/.env
 
 # 2. 容器是否拿到环境变量
-docker compose exec openclaw-gateway env | grep -E "OPENAI|ANTHROPIC|TELEGRAM|DISCORD"
+docker compose exec openclaw-gateway node -e 'for (const k of ["OPENAI_API_KEY","ANTHROPIC_API_KEY","TELEGRAM_BOT_TOKEN","DISCORD_BOT_TOKEN"]) console.log(k + "=" + (process.env[k] ? "set" : "unset"))'
 
 # 3. OpenClaw 自身状态
 docker compose logs --tail 200 openclaw-gateway
@@ -1487,7 +1560,7 @@ docker image prune
 | 查看状态 | `docker compose ps` |
 | 查看日志 | `docker compose logs -f` |
 | 重启服务 | `docker compose restart` |
-| 更新镜像 | `docker compose pull && docker compose up -d` |
+| 更新镜像 | 先完成“更新与回滚工坊”，再按选定 tag 拉取和重建 |
 | 进入容器 | `docker compose exec openclaw-gateway /bin/bash` |
 | 资源监控 | `docker stats` |
 | 清理空间 | `docker system prune -a` |

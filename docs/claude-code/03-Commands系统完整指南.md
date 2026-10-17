@@ -9,8 +9,8 @@
 > - **个人博客**：https://aiking.dev
 > - **预计学时**：4-6小时
 > - **难度等级**：⭐⭐ 入门级
-> - **更新日期**：2026年6月9日
-> - **适用版本**：Claude Code v2.1.169（验证于 2026-06-09；v2.1.158 以前差量保留为历史基线）
+> - **更新日期**：2026年10月3日
+> - **适用版本**：Claude Code v2.1.270 为 2026-09-14 的历史参考；截至 2026-10-03 的新增行为按正文标注版本与官方文档
 > - **信息来源**：[内置命令参考](https://code.claude.com/docs/en/commands) | [Skills 官方文档](https://code.claude.com/docs/en/slash-commands) | [Claude Command Suite](https://github.com/qdhenry/Claude-Command-Suite) | [最佳实践](https://www.anthropic.com/engineering/claude-code-best-practices)
 > - **前置要求**：已完成Claude Code安装和基础使用
 
@@ -22,12 +22,12 @@
 
 完成本课学习后，你将能够：
 
-1. **理解Commands本质**：掌握Slash命令就是Markdown提示词的核心概念
+1. **理解Commands本质**：分清内置操作命令与用 Markdown 编写的自定义工作流入口
 2. **5分钟创建第一个命令**：从零开始创建并运行自定义命令
 3. **分清 legacy commands 与 Skills**：知道什么时候继续用 `.claude/commands/`，什么时候应该迁移到 Skills
 4. **掌握内置命令的新表面**：了解 `/plan`、`/plugin`、`/release-notes`、`/rewind`、`/insights`、`/schedule`、`/statusline`
 5. **组合命令构建工作流**：将多个命令串联成自动化流程
-6. **排查命令故障**：独立解决90%的常见配置和执行问题
+6. **排查命令故障**：解决大多数常见配置和执行问题
 7. **掌握frontmatter配置**：使用description、allowed-tools、model等高级配置
 8. **精通$ARGUMENTS参数**：接收和解析用户输入参数
 
@@ -54,7 +54,7 @@
 
 ---
 
-### 路径B：完整学习（3-4小时）
+### 路径B：完整学习（4-6小时）
 
 **适合人群**：想系统掌握Commands系统，成为命令开发高手
 
@@ -65,7 +65,7 @@
 - 第1天（30分钟）：第1-3部分（简介+快速开始+内置命令速查）
 - 第2天（1.5小时）：第4部分（自定义命令开发）⭐ 核心内容
 - 第3天（1小时）：第5部分（高级用法）
-- 第4天（0.5小时）：第6-7部分（FAQ+附录）
+- 第4天（1.5小时）：第6-7部分与附录（FAQ + 实战练习 + 模板查阅）
 
 > **注意**：内置命令的详细用法已在「02-基础使用完整指南」中讲解，本教程重点是**自定义命令开发**！
 
@@ -115,7 +115,7 @@
 | **内置命令**      | Built-in Commands | Claude Code自带的命令                        | 手机出厂预装的App                          |
 | **frontmatter**   | -                 | 命令文件开头的配置区（YAML格式，见下方说明） | 书的封面信息（书名、作者等）               |
 | **$ARGUMENTS**    | -                 | 接收用户输入参数的变量                       | 快递单上的"收件人"空格                     |
-| **allowed-tools** | -                 | 允许命令使用的工具列表                       | 工具箱（限定可用的工具）                   |
+| **allowed-tools** | -                 | 此工作流中无需逐次审批的工具规则               | 预先批准的操作清单                         |
 | **命令作用域**    | Command Scope     | 命令生效的范围（项目级/用户级）              | 门禁卡（有的只能开一个门，有的能开所有门） |
 | **命令命名空间**  | Namespace         | 命令的分组前缀                               | 文件夹分类（/dev:xxx、/test:xxx）          |
 
@@ -219,9 +219,9 @@ Claude Code做的事：
 4. 执行这个提示词
 ```
 
-### 1.2 命令的三大类型
+### 1.2 命令的类型与来源
 
-Claude Code的命令分为三大类：
+下表分别列出内置命令、自定义命令的两种作用域，以及当前推荐的 Skills：
 
 | 类型                 | 来源               | 存放位置                | 特点               |
 | -------------------- | ------------------ | ----------------------- | ------------------ |
@@ -458,6 +458,8 @@ You: /hello
 
 > **2026-05-30 版本差异速览（v2.1.158）**：当前稳定版新增 Opus 4.8 与 `/effort xhigh`，`/workflows` 可查看 dynamic workflows 后台编排，`claude agents` 支持用 `! <command>` 或 `claude --bg --exec '<command>'` 启动可附着/可分离的后台 shell 会话。v2.1.157 还补了 `/plugin` 参数补全、`/terminal-setup` 对 IDE 终端 GPU 加速的处理，以及 workflow 关键词触发开关；`/simplify` 现在是清理型 review，不再等同于完整 `/code-review --fix`，代码缺陷审查仍以 `/code-review` 为主路径。
 
+> **2026-09-14 当前基线（v2.1.270）**：`/diff` 在 v2.1.260 增强了全屏侧栏；新增的 `/skill-doctor` 用于查看 Skill 使用情况与上下文占用。`/output-style [name]` 可以列出和切换输出风格，`/advisor` 支持文本形式 `/advisor`、`/advisor <model>`、`/advisor off`。在 `/effort` 选择器里按 `s` 可只改当前会话。`/review` 自 v2.1.223 起是 `/code-review` 的别名；交互运行 `/ultrareview <PR编号> --post` 会预选把完成的发现发送为 PR 评论，仍需启动确认；默认不发布，只对 `github.com` PR 目标支持这项发布。插件作者还可使用 `claude plugin eval` 跑评测集并生成 JSON 与 HTML 报告，具体参数先查 `claude plugin eval --help`。来源：[官方 changelog](https://code.claude.com/docs/en/changelog)。
+
 > **本节说明**：这一节是参考表，不建议第一次学习时逐行阅读。你已经在第二部分创建过一个能运行的命令；如果目标是继续实操，可以直接跳到「第四部分：自定义命令开发」。需要查命令时再回来看这张表。
 >
 > **详细教程**：请回顾「02-基础使用完整指南.md」→ 第四部分：Slash命令大全
@@ -502,8 +504,12 @@ You: /hello
 |                      | `/code-review`      | 代码审查与正确性问题报告，可指定 effort | 审 PR / 提交前检查 |      |
 |                      | `/batch`         | 大规模并行改造  | 多 worktree/多 agent |      |
 |                      | `/autofix-pr`    | 远程盯 PR 并修 CI/评论 | PR 修复循环 |      |
-|                      | `/ultrareview`   | 云端多 Agent 深度审查 | 高风险 PR |      |
-|                      | `/ultraplan`     | 云端深度计划    | 复杂方案设计   |      |
+|                      | `/ultrareview`   | 云端多 Agent 深度审查；主入口 `/code-review ultra`，账号支持时 `/ultrareview` 为别名 | 高风险 PR |      |
+|                      | `/ultraplan`     | ~~云端深度计划~~（v2.1.222 已移除，改用 `/plan`）  | ~~复杂方案设计~~   |      |
+|                      | `/diff`          | 全屏实时查看未提交改动（v2.1.260+） | 边聊边看 diff |      |
+|                      | `/skill-doctor`  | 查没被用到的 Skill 和上下文占用（v2.1.261+） | Skill 排障 |      |
+|                      | `/output-style [name]` | 列出并切换输出风格，远程与无头会话可用（v2.1.269+） | 风格切换 |      |
+|                      | `/advisor`       | 查看 Advisor 状态，支持文本形式（v2.1.260+） | 低风险建议 |      |
 |                      | `/tasks`         | 后台任务管理    | 查看后台 Bash / agent 任务 |      |
 |                      | `/rewind`        | 回退检查点      | 撤销修改       |  ⭐  |
 | **诊断工具**   | `/doctor`        | 系统健康检查    | 排查问题       |      |
@@ -518,7 +524,7 @@ You: /hello
 |                      | `/plugin`        | 管理插件        | 安装/卸载插件  |      |
 |                      | `/reload-plugins` | 重载插件      | 调试插件改动   |      |
 |                      | `/skills`        | 查看 Skills     | 管理可用工作流 |      |
-|                      | `/reload-skills` | 重新扫描 Skills | 安装/调试 Skill 后立即生效 |      |
+|                      | `/reload-skills` | 重新扫描 Skills | 安装/调试 Skill 后重新发现入口，再调用核对新指令 |      |
 | **其他**       | `/help`          | 显示帮助        | 快速查命令     |  ⭐  |
 |                      | `/release-notes` | 更新日志（v2.1.92+ 为交互式版本选择器） | 查看新功能     |      |
 |                      | `/loop`          | Bundled skill：定时循环执行 | 监控部署状态   |  ⭐  |
@@ -541,7 +547,7 @@ You: /hello
 ### v2.1.69+ 到 v2.1.158 的常用命令增量 🆕
 
 
-以下命令是 Claude Code 在 2.1.69 之后持续扩展、到 v2.1.158 仍然值得优先掌握的一批能力：
+以下命令是 Claude Code 在 2.1.69 之后持续扩展、到 v2.1.270 仍然值得优先掌握的一批能力：
 
 - `/powerup`：交互式课程（**v2.1.90**，官方 release 原文：*interactive lessons teaching Claude Code features with animated demos*）
 - `/goal`：设置完成条件，Claude 会跨 turns 持续推进，直到达成目标、遇到限制或被你停止
@@ -575,6 +581,11 @@ You: /hello
 - `/config`：v2.1.157+ 可关闭 workflow 关键词触发，避免普通提示里的 “workflow” 误触发 dynamic workflow
 - Vim NORMAL 模式下 `/`：v2.1.152+ 打开反向历史搜索，和 bash/zsh vi-mode 更接近
 - Markdown 输出：v2.1.149+ GFM task list checkbox 会按勾选框渲染，不再只是普通项目符号
+- `/diff`：v2.1.260+ 全屏下在对话旁开一栏，实时显示未提交改动
+- `/skill-doctor`：v2.1.261+ 列出没被用到的 Skill 及其上下文占用，清理 Skill 目录时先跑它
+- `/output-style [name]`：v2.1.269+ 列出并切换输出风格，远程和无头会话同样可用
+- `/advisor`：v2.1.260+ 支持文本形式 `/advisor`、`/advisor <model>`、`/advisor off`
+- `/effort` 选择器：v2.1.257+ 按 `s` 只改当前会话的 effort；按 Enter 保存默认值。不要把选择器按键写成 `/effort s` 参数
 
 #### /powerup - 交互式功能教程（v2.1.90+）
 
@@ -592,7 +603,7 @@ You: /powerup
 
 ```bash
 /loop 5m check deployment status  # 每5分钟检查部署状态
-/loop 30s run tests               # 每30秒运行测试
+/loop 30s run tests               # 秒会向上取整到分钟，实际至少每1分钟
 /loop 1h check for updates        # 每1小时检查更新
 /loop check the build             # 不写间隔时由 Claude 动态选择
 ```
@@ -604,7 +615,7 @@ You: /powerup
 **注意事项**：
 - 只在 REPL 空闲时触发（不会打断你当前的工作）
 - 官方当前文档里，循环任务是 **7 天后自动过期**
-- 等待下一次迭代时，可按 `Esc` 取消当前循环
+- 动态间隔的 `/loop` 等待时，可按 `Esc` 取消；固定间隔的 cron 循环请让 Claude 删除对应任务
 - `/proactive` 是 `/loop` 的别名
 
 > 💡 **实用场景**：监控CI/CD部署进度、定期检查构建状态、轮询外部服务健康状况。
@@ -617,7 +628,7 @@ You: /powerup
 /effort low     # ○ 快速简洁
 /effort medium  # ◐ 平衡模式
 /effort high    # ● 深度推理
-/effort xhigh   # ◉ 深度推理（推荐 Opus 4.7 默认）
+/effort xhigh   # ◉ 深度推理（推荐 Opus 4.8 默认）
 /effort max     # ⬤ 极限推理
 /effort auto    # 重置为自动判断
 ```
@@ -627,7 +638,7 @@ You: /powerup
 | low | ○ | 最少 | 简单问答、格式转换 |
 | medium | ◐ | 中等 | 日常开发、代码修改 |
 | high | ● | 较多 | 架构设计、复杂调试 |
-| **xhigh** | ◉ | 多 | **深度推理，Opus 4.7 推荐默认** |
+| **xhigh** | ◉ | 多 | **深度推理，Opus 4.8 推荐默认** |
 | max | ⬤ | 最多 | 极限推理，关键决策 |
 
 > 💡 **省钱技巧**：批量处理简单任务时切换到 `low`，关键决策时切换到 `xhigh`。
@@ -636,34 +647,28 @@ You: /powerup
 
 > 💡 **其他设置方式**：`claude --effort xhigh`（CLI 参数）或 `CLAUDE_CODE_EFFORT_LEVEL=xhigh`（环境变量）。
 
-#### /sandbox - 沙箱隔离模式
+#### /sandbox - shell 命令沙箱
 
-**一句话理解**：给Claude套上"安全围栏"——限制它能读写哪些文件、能不能访问网络。
+**一句话理解**：给 Claude 运行的 shell 命令及其子进程设一道文件与网络边界。文件工具、MCP 和 Hook 不在这道边界内，要另查它们的权限与来源。
 
-```bash
-/sandbox        # 启用OS级沙箱隔离
-```
+在 Claude Code 会话中输入 `/sandbox` 打开面板，选择模式并确认已启用；输入命令本身不等于完成配置。OS 沙箱支持 macOS、Linux 和 WSL2，原生 Windows 的命令不受它保护。
 
-**隔离能力**：
-- **文件系统隔离**：限制可读写的目录范围
-- **网络隔离**：限制外部网络访问
-- **进程隔离**：OS级别的沙箱保护
-
-在 `settings.json` 中可以精细配置：
+下方是项目 `.claude/settings.json` 的合并片段，开启沙箱并拒绝 shell 读取两份敏感文件：
 
 ```json
 {
   "sandbox": {
+    "enabled": true,
     "filesystem": {
-      "allowWrite": ["/tmp", "./src"],
-      "allowRead": ["./", "/usr/lib"],
       "denyRead": [".env", "credentials.json"]
     }
   }
 }
 ```
 
-> ⚠️ **安全提示**：处理不信任的代码或敏感项目时，强烈建议启用沙箱模式。
+它不会把整个机器变成只读，也不会限制读取仅发生在某个目录内。`allowRead` 可以在普通路径规则中重新开放较宽拒绝区域里的具体路径；`allowWrite` 可以扩大默认写入范围。组织托管规则另有边界：项目设置不能关闭管理员强制启用的沙箱，也不能重新开放管理员拒绝读取的路径、扩大严格的允许名单，或替换受管拒绝名单背后的代理。
+
+排除命令也要检查设置来源。v2.1.282 起，托管设置或显式 `--settings` 把 `allowUnsandboxedCommands` 设为 `false` 时，项目和本地设置里的 `sandbox.excludedCommands` 不会作为绕过入口；管理员启用 `allowManagedDomainsOnly` 时也有相同限制。看到命令被阻止，先检查 `/sandbox` 的实际状态和组织配置，再请管理员调整需要的例外。详见 [官方沙箱说明](https://code.claude.com/docs/en/sandboxing)及[2.1.282/285 的策略变化](https://github.com/anthropics/claude-code/releases/tag/v2.1.285)。
 
 #### /color - 会话颜色设置
 
@@ -678,7 +683,7 @@ You: /powerup
 
 ```bash
 /copy           # 复制最新一条AI回复到剪贴板
-/copy 3         # 复制第3条AI回复到剪贴板
+/copy 3         # 复制倒数第3条AI回复到剪贴板
 ```
 
 #### /branch - 会话分支
@@ -690,6 +695,44 @@ You: /powerup
 **一句话理解**：就像Git分支——在当前对话点"分叉"，探索不同方案而不影响原对话。
 
 > 💡 **提示**：这是原 `/fork` 命令的重命名版本。适合在关键决策点创建分支，分别尝试方案A和方案B。
+
+---
+
+### 本地代码审查：控制报告数量
+
+先检查 `git diff`，再运行本地审查。v2.1.288 起可以调整报告数量：
+
+```text
+/code-review --max-findings 5
+/code-review --max-findings all
+/code-review --max-findings default
+```
+
+`5` 设定数量，`all` 请求不按通常上限截断，`default` 恢复默认；选择会在后续审查中复用，直到你重设。它控制报告数量，不保证找到所有错误。需要更多背景时还可以明确 PR、分支或路径；只有要实际修复、发送评论时才另选 `--fix` 或 `--comment`。`/review` 是同一入口的别名，详见[官方命令参考](https://code.claude.com/docs/en/commands)。
+
+### 云端深度审查：启动前先确认上传范围
+
+官方推荐用 `/code-review ultra` 启动云端深度审查；账号支持时，`/ultrareview` 是别名。云端运行需要用 claude.ai 账号登录，仅用 API Key 时先通过 `/login` 登录；Bedrock、Google Cloud Agent Platform、Foundry 和启用 Zero Data Retention 的组织不能使用云端 Ultrareview。不可用时，`/code-review ultra` 会改为本地审查，不能只凭命令已运行判断云端启动成功。准备启动云端审查时，先按下面几步检查：
+
+1. **先看本地改动**：用 `git status --short`、`git diff`、`git diff --cached` 查看工作区和暂存区。审查本地分支会上传仓库状态，可能包含未提交、已暂存的已跟踪文件改动；完整克隆还会带上各分支的仓库历史。普通未跟踪文件不随 bundle 上传，但这不是适合保存私人资料的隔离机制。审查明确的 PR 目标时，官方说明不会上传本机内容。
+2. **核对平台条件**：macOS、Linux 和 WSL 的本地上传需要 Git 2.31+，可先用 `git --version` 查看；不支持的检出布局会直接拒绝上传。这些平台不会上传部分凭据类文件的未提交改动，但已提交版本仍可能进入云端。原生 Windows 的已跟踪文件未提交改动会按原样上传，不因文件名像 `.env` 或密钥而自动排除。只在确认上传内容符合你的项目与组织要求后继续。
+3. **读启动确认框**：交互启动会显示审查范围、剩余免费次数和预计费用；分支审查还有文件数与行数。这个摘要不是完整文件预览。不确定范围或费用时取消启动，确认后审查在后台运行。
+4. **查看和停止**：输入 `/tasks`，打开该审查的详情查看状态，必要时停止。停止后不会返回部分发现；云会话已开始时，提前停止仍会消耗免费次数，付费运行按已经执行的部分收费。
+
+上传范围的提示在 v2.1.283 增补，macOS/Linux 的 Git 2.31 门槛在 v2.1.285 明确。详细例外与检出布局见[官方本地仓库上传规则](https://code.claude.com/docs/en/claude-code-on-the-web#send-local-repositories-without-github)；确认、费用和停止流程见[官方 Ultrareview 指南](https://code.claude.com/docs/en/ultrareview)。
+
+### 后台观察：Monitor 是工具，不是 `/monitor` 命令
+
+当你想继续聊天，同时观察日志、CI状态或文件变化，可以让 Claude 使用 Monitor。先准备项目里的 `logs/dev.log`，然后提出明确的观察任务：
+
+```text
+请用 Monitor 观察 logs/dev.log，持续5分钟。
+每次出现 ERROR，只报告新日志内容，先不要修改代码。
+```
+
+确认工具调用后，在编辑器里给这个文件追加一行 `ERROR: 这是观察测试` 并保存，检查 Claude 是否收到新事件。停止时直接说“停止刚才的日志观察”。能否使用取决于当前环境：Windows需要 Git Bash；Bedrock、Google Cloud Agent Platform、Foundry及关闭相应遥测/非必要流量时不可用。
+
+每个观察都有期限，默认5分钟、最长30分钟；单提示的 `-p` 调用最长10分钟。到期会结束并通知 Claude，需要时重新开始，不是一个永久运行的 `persistent` 任务。运行命令时遵守 Bash 权限规则，也可以观察受支持的 WebSocket；它和 `/loop`、`/schedule` 的定时检查用途不同。详见[官方 Monitor 工具](https://code.claude.com/docs/en/tools#monitor-tool)。
 
 ---
 
@@ -713,7 +756,7 @@ allowed-tools:
   - Read
   - Write
   - WebSearch
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # 公众号文章创作
@@ -746,29 +789,13 @@ model: claude-sonnet-4-6
 | **项目级** | `.claude/commands/`   | 仅当前项目 | 团队共享、项目特定 |
 | **用户级** | `~/.claude/commands/` | 所有项目   | 个人工具、通用模板 |
 
-#### 优先级规则
+#### 同名命令怎样处理
 
-当同名命令存在于多个位置时，按以下优先级：
+当前官方把兼容 command 文件也纳入 Skill 的同名解析规则：企业级高于个人级，个人级高于项目级；Skill 与 `.claude/commands/` 文件同名时，Skill 优先。插件 Skill 带插件命名空间，不能只按项目与用户目录排一条完整优先链。
 
-```
-1. 项目级（最高）: .claude/commands/
-2. 用户级: ~/.claude/commands/
-3. 内置命令（最低）
-```
+本地终端里的自定义 Skill 还可能替换同名内置命令，而内置别名仍保留原行为。不要把 `/clear`、`/help` 等名称当作永久受保护的自定义命名测试。给练习命令起不同名称，输入 `/` 核对实际来源，再调用。
 
-> ⚠️ **重要澄清**：核心系统命令（如 `/clear`、`/help`、`/compact`、`/doctor` 等）是**受保护的**，不能被自定义命令覆盖。上述优先级规则仅适用于**非核心内置命令**。
-
-**示例**：
-
-假设存在：
-
-- `.claude/commands/deploy.md`（项目级）
-- `~/.claude/commands/deploy.md`（用户级）
-- 另一个同名的共享 skill `/deploy`
-
-执行 `/deploy` 时，优先使用项目级的 `deploy.md`。
-
-**但是**：创建 `.claude/commands/clear.md` **不会**覆盖内置的 `/clear` 命令。
+例如，已有 `/deploy` Skill 时，不要只创建 `deploy.md` 就认定会运行这个文件。将练习保存为 `.claude/commands/deploy-lab.md`，用 `/deploy-lab` 验证；维护旧项目时对照 [官方同名解析表](https://code.claude.com/docs/en/skills#resolve-skills-that-share-a-name)。
 
 #### 目录结构建议
 
@@ -804,7 +831,7 @@ description: 这是命令的一句话描述
 # 参数提示（输入/命令后显示的占位符）
 argument-hint: <必需参数> [可选参数]
 
-# 允许使用的工具（限制命令可调用的工具）
+# 在调用此工作流的当前轮次中预先批准这些工具
 allowed-tools:
   - Read
   - Write
@@ -815,9 +842,9 @@ allowed-tools:
   - Grep
 
 # 指定使用的模型
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 
-# 禁用模型调用（用于纯文本替换命令）
+# 禁止 Claude 自动调用此工作流；用户手动调用仍交给模型处理
 # disable-model-invocation: true
 
 # === 非官方字段（可选，用于自己管理）===
@@ -856,7 +883,7 @@ allowed-tools:
   - WebSearch
 ```
 
-作用：限制命令只能使用指定的工具，提高安全性。
+作用：在调用此命令 / Skill 的当前轮次中，预先批准这些工具；其他工具仍按基础权限规则处理。它不是独占工具白名单，需要移除某些工具时看 `disallowed-tools`，需要约束整个执行环境时再配权限与沙箱。
 
 **可用工具列表**：
 
@@ -870,7 +897,7 @@ allowed-tools:
 | `WebFetch`  | 抓取网页       | 获取网页内容           | 下载网页内容来分析          |
 | `Glob`      | 按名称查找文件 | 批量查找特定类型的文件 | 比如找所有.md文件：`*.md` |
 | `Grep`      | 按内容搜索文件 | 在代码中搜索关键词     | 比如找包含"TODO"的代码      |
-| `Task`      | 启动子代理     | 并行执行复杂任务       | 派出分身帮你干活            |
+| `Agent`     | 启动子代理     | 并行执行复杂任务       | 派出分身帮你干活；旧资料可能写 Task |
 | `NotebookEdit` | 编辑Jupyter笔记本 | 数据分析、机器学习 | 编辑.ipynb文件          |
 | `TodoWrite` | 任务管理       | 跟踪待办事项           | 创建和更新待办清单          |
 
@@ -879,35 +906,26 @@ allowed-tools:
 **4. model（指定模型）**
 
 ```yaml
-model: claude-opus-4-6
+model: claude-opus-4-8
 ```
 
 作用：强制使用指定模型执行命令（覆盖当前会话模型）。
 
-**5. disable-model-invocation（禁用模型调用）**
+**5. disable-model-invocation（只允许用户手动调用）**
 
-```yaml
-disable-model-invocation: true
-```
+设为 `true` 后，Claude 不能自行选择这个工作流。用户仍可输入 `/命令名` 调用，正文也仍会交给模型处理；它不是“零模型调用”或单纯文本插入开关。
 
-作用：当设置为`true`时，命令只进行简单的文本替换，不会触发AI模型推理。
-
-**适用场景**：
-- 纯文本模板命令（快速插入固定内容）
-- 变量替换命令（`$ARGUMENTS` 直接替换）
-- 节省Token和响应时间
-
-**示例**：
 ```markdown
 ---
-description: 快速插入版权声明
+description: 根据姓名生成版权声明，仅手动使用
 disable-model-invocation: true
 ---
 
-© 2025 $ARGUMENTS. All rights reserved.
+请输出版权声明：© 2026 $ARGUMENTS. All rights reserved.
+不要添加其他文字。
 ```
 
-执行 `/copyright 老金` 会直接输出 `© 2025 老金. All rights reserved.`，不经过AI处理。
+把完整示例保存为 `.claude/commands/copyright.md`，手动执行 `/copyright 老金` 后核对生成文本。此设置适合控制工作流的触发时机，不能用来保证免 token 消耗；部署、提交等副作用仍受实际权限与任务授权约束。
 
 ### 4.4 $ARGUMENTS参数处理
 
@@ -976,7 +994,7 @@ $ARGUMENTS 格式：<主题> [风格] [字数]
 
 ### 4.5 工具调用语法
 
-自定义命令可以调用Claude Code的所有工具。
+自定义命令的正文是给 Claude 的指令，下面的 `Read(...)`、`Grep(...)` 写法用于说明希望调用什么工具，并不是可以直接运行的程序。实际可用工具和调用权限取决于本次会话。
 
 #### 基础工具调用
 
@@ -1003,6 +1021,8 @@ npm run test
 ````
 
 #### MCP工具调用
+
+下方的 `mcp-router` 工具名和参数仅演示如何在提示词中描述调用意图。本章没有安装或定义这台服务器；先按 04 章连接真实 MCP，在 `/mcp` 中核对当前工具名与输入 schema，再按对应接口编写要求，不能把示意函数当作已有 SDK API。
 
 > 💡 **什么是MCP？**
 >
@@ -1130,7 +1150,7 @@ allowed-tools:
 
 ### 步骤2：信息收集
 使用WebSearch搜索主题相关的最新信息：
-WebSearch(query="$ARGUMENTS 最新资讯 2025")
+搜索词：$ARGUMENTS 最新资讯；按本次任务的基准日期核对发布日期
 
 收集以下信息：
 - 核心概念和定义
@@ -1242,6 +1262,8 @@ You: /write Claude Code入门
 
 ### 5.2 命令组合与链式调用
 
+下面是提示词编排示例，不是 Claude Code 的自动 shell 流水线。先准备并单独验证示例中引用的 `/hotspot`、`/write`、`/pre-check` 等工作流；本章只给出了部分内容，其余要自行定义或按来源说明安装。Claude 可通过 Skill 工具调用允许自动调用的自定义工作流，`disable-model-invocation: true` 的工作流需要用户手动调用，不能靠在另一个命令里写名称绕过。缺少能力时停下说明，不假装已执行。
+
 #### 在命令中调用其他命令
 
 ````markdown
@@ -1307,7 +1329,6 @@ argument-hint: <热点关键词>
 - 文章文件路径
 - 选定的标题
 - 质量检查报告
-```
 ````
 
 ### 5.3 模块化设计
@@ -1371,7 +1392,8 @@ Read(".claude/modules/writing-style.md")
 git clone https://github.com/qdhenry/Claude-Command-Suite.git
 
 # 复制需要的命令到你的项目
-cp Claude-Command-Suite/.claude/commands/dev/* .claude/commands/dev/
+mkdir -p .claude/commands/dev
+cp -R Claude-Command-Suite/.claude/commands/dev/. .claude/commands/dev/
 ```
 
 **常用命令示例**：
@@ -1429,8 +1451,8 @@ claude
 # YAML语法错误会导致命令无法解析
 # 使用在线YAML验证器检查
 
-# 2. 检查allowed-tools配置
-# 如果限制了工具，确保需要的工具在列表中
+# 2. 检查工具是否可用及实际权限
+# allowed-tools只预批准当前轮次；另查disallowed-tools和基础deny规则
 
 # 3. 检查$ARGUMENTS使用
 # 确保参数格式正确
@@ -1547,7 +1569,7 @@ $ARGUMENTS 格式：<主题> [风格] [字数]
 
 ```yaml
 ---
-model: claude-opus-4-6
+model: claude-opus-4-8
 ---
 ```
 
@@ -1575,17 +1597,13 @@ argument-hint: <主题> [--style=formal]
 
 **Q10: 项目级和用户级命令同名怎么办？**
 
-项目级优先。优先级顺序：
-
-1. 项目级 `.claude/commands/`
-2. 用户级 `~/.claude/commands/`
-3. 内置命令
+按 4.2 节核对当前来源与同名解析规则：企业级高于个人级，个人级高于项目级；Skill 与兼容 command 文件同名时优先用 Skill。先在 `/` 列表确认实际入口，练习时改用不冲突的名称，不能只按“项目级优先”判断。
 
 ### 开发问题
 
 **Q11: 命令可以调用其他命令吗？**
 
-可以！在命令中说明调用哪个命令：
+可以在提示词中说明要使用哪个已安装、可由 Claude 调用的工作流。先按 5.2 节检查依赖；仅允许手动调用的工作流需要用户执行：
 
 ```markdown
 ## 步骤3
@@ -1596,7 +1614,7 @@ argument-hint: <主题> [--style=formal]
 
 **Q12: 如何在命令中使用MCP工具？**
 
-直接调用MCP工具函数：
+把希望使用的 MCP 工具写入提示词，并在 `/mcp` 中确认工具名与参数。下面是调用意图示意，不是可执行函数定义：
 
 ````markdown
 ## 搜索信息
@@ -1746,6 +1764,7 @@ argument-hint: <姓名>
 - 终止执行
 
 ### 步骤2：判断时间段
+先用当前可用的本机时间工具或 shell 命令取得时间，并注明时区；没有可靠时间来源时先向用户询问，不凭上下文猜测。
 - 6:00-11:59 → 早上好
 - 12:00-17:59 → 下午好
 - 18:00-21:59 → 晚上好
@@ -1768,7 +1787,7 @@ argument-hint: <姓名>
 
 **任务**：
 
-1. 创建 `.claude/commands/code-review.md`
+1. 创建 `.claude/commands/scan-code.md`
 2. 实现以下功能：
    - 接收文件路径参数
    - 读取文件内容
@@ -1777,7 +1796,7 @@ argument-hint: <姓名>
 
 **参考答案**：
 
-```markdown
+````markdown
 ---
 description: 代码审查命令 - 检查代码质量和潜在问题
 argument-hint: <文件路径>
@@ -1849,11 +1868,12 @@ Read("$ARGUMENTS")
 代码亮点：
 - [亮点1]
 ```
+````
 
 **测试**：
 
 ```bash
-/code-review src/main.py
+/scan-code src/main.py
 ```
 
 ### 7.3 练习3：创建工作流命令（30分钟）
@@ -1872,9 +1892,9 @@ Read("$ARGUMENTS")
 
 **参考答案**：
 
-```markdown
+````markdown
 ---
-description: 每日内容创作工作流 - 从热点到成稿一站式完成
+description: 每日内容创作工作流 - 从热点到成稿全流程完成
 argument-hint: [热点关键词（可选）]
 allowed-tools:
   - Read
@@ -1948,6 +1968,7 @@ allowed-tools:
 2. [标题2]
 3. [标题3]
 ```
+````
 
 **测试**：
 
@@ -2011,7 +2032,7 @@ allowed-tools:
   - WebSearch
   - Glob
   - Grep
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 version: 1.0.0
 author: 作者名
 ---
@@ -2052,6 +2073,7 @@ allowed-tools:
 ```
 [输出模板]
 ```
+````
 
 ---
 
@@ -2074,13 +2096,13 @@ allowed-tools:
 - 第2部分：基础使用 - CLI启动和交互模式
 - 第4部分：MCP集成 - 外部工具连接
 - 第5部分：Hooks系统 - 自动化工作流
-- 第6部分：Skills定制 - 技能包开发
+- 第7篇：Skills定制 - 技能包开发
 
 ## 学习总结
 
 通过本课学习，你已经掌握：
 
-1. **Commands核心概念**：Slash命令就是Markdown提示词文件
+1. **Commands核心概念**：内置命令控制会话，自定义 prompt 工作流可用 Markdown 文件定义
 2. **自定义命令开发**：frontmatter配置、$ARGUMENTS参数处理、工具调用
 3. **高级技巧**：命令命名空间、组合调用、模块化设计
 4. **社区资源**：Claude Command Suite等专业命令库
@@ -2095,7 +2117,7 @@ allowed-tools:
 3. 参考第四部分的实战案例，逐步构建命令库
 4. 探索社区资源，学习优秀命令的设计模式
 
-**记住**：Commands的核心价值是"一次配置，永久使用"。花时间设计好命令，能让你的开发效率翻倍！
+**记住**：把经常重复的要求写成工作流，下一次就能复用。工具和项目变化后，还要检查依赖、权限与结果，按需要维护命令。
 
 ---
 

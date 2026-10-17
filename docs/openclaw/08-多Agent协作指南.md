@@ -17,10 +17,12 @@
 
 ## 什么是 Agent？
 
-老金我把多 Agent 协作讲成责任拆分，而不是热闹分身；每个 agent 都要有清楚的交付物。
+我把多 Agent 协作讲成责任拆分，而不是热闹分身；每个 agent 都要有清楚的交付物。
 
 
-> **v2026.6.1 复核补充**：多 Agent 不只是“多开几个会话”。新版继续强化 interrupted tool calls、stale session bindings、compaction handoffs、media delivery retries、Workboard、agent coordination tools、session metadata 和 Gateway runtime state。排查多 Agent 卡住时，先看 Activity / transcript / Gateway 日志、Workboard 状态和具体 channel / provider，再判断是不是 agent 设计问题。
+> **2026-09-13 当前基线（v2026.9.4）**：多 Agent 侧这几版的变化集中在「跑得远、断得住」。v2026.8.1 起会话可以跑在配对设备或云端 worker 上，工作区随会话一起走，已经预热的机器和项目初始状态能被后续云会话复用；v2026.9.4 又支持从准备好的本地项目或公开 GitHub 仓库启动 Linux 云会话，并在开聊前先在 Control UI 里做可复用快照。启用云端路线前，要到 Settings → Connections → Cloud workers → Pool 核对备用机器，再按服务商的实际费用核对预算；符合条件的项目可能自动准备 Ready workers，这些机器会持续产生运行费用，直到服务商确认删除。需要关闭备用池时，可在 Profiles 核对并将对应备用目标或共享池上限设为 0，等待未使用机器完成回收，不能把会话结束当成所有云端费用都已停止。具体条件见[官方 Ready workers 说明](https://docs.openclaw.ai/gateway/cloud-workers/warm-images#ready-workers)。观察手段也变好了：v2026.8.1 起会话进度卡能跨重载保留，subagent 活动和累积改动在网页端和原生端都能跟。可靠性上，v2026.9.2 起活动中、排队中和被委派的回复能在 Gateway 重启后恢复；v2026.9.4 起 subagent 的结果能回到 Talk（语音模式），多轮委派后也能把最终答案送出去。
+
+> **v2026.6.8 复核补充**：多 Agent 不只是“多开几个会话”。新版继续强化 interrupted tool calls、stale session bindings、compaction handoffs、media delivery retries、Workboard、agent coordination tools、agent run recovery、session metadata 和 Gateway runtime state。排查多 Agent 卡住时，先看 Activity / transcript / Gateway 日志、Workboard 状态和具体 channel / provider，再判断是不是 agent 设计问题。
 
 在 OpenClaw 的世界里，Agent 就是一个独立的 AI 助手实例。每个 Agent 有自己的"大脑"（系统指令）、"记忆"（记忆文件）、"技能"（技能集）和"身份"（认证凭证）。
 
@@ -93,9 +95,11 @@ Agent = 一个独立的 AI 员工
 
 > **v2026.5.22 子代理注意**：默认子 Agent bootstrap context 已收窄到 `AGENTS.md` 与 `TOOLS.md`，不会自动把 persona、identity、user、memory、heartbeat、setup 等文件全部带入 delegated workers。多 Agent 教程里的“自动继承上下文”应按最小必要上下文理解。
 
+> **v2026.9.7+ 迁移提醒**：上面是旧版本的文件范围。当前 Agent 启动时不再读取 `TOOLS.md`；维护时用 `openclaw doctor --fix` 将其中的工具笔记合并到 `AGENTS.md`，并检查权限告警和合并内容。不要为了恢复旧行为把所有个人资料、记忆或凭据复制给子 Agent；仍然只提供完成任务所需的上下文。
+
 > ⏭️ **小白可跳过** — 这是底层运行时细节
 
-OpenClaw 的多 Agent 架构基于 Pi agent runtime（RPC 模式）运行，采用**扁平路由模型**，不是层级管理模型。没有"管理者 Agent"来调度其他 Agent，而是由 Gateway 根据消息来源直接路由到对应的 Agent。每个 Agent 通过 channel routing（消息路由，决定哪条消息由哪个 Agent 处理）配置绑定到不同的频道或账号。
+OpenClaw 的多 Agent 架构基于 Pi agent runtime（RPC 模式）运行，采用**扁平路由模型**（不是层级管理模型）。Gateway 根据消息来源直接路由消息到对应的 Agent，没有"管理者 Agent"在其中调度。每个 Agent 通过 channel routing（消息路由，决定哪条消息由哪个 Agent 处理）配置绑定到不同的频道或账号。
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -133,14 +137,14 @@ OpenClaw 的多 Agent 架构基于 Pi agent runtime（RPC 模式）运行，采�
 
 **为什么是扁平路由而不是层级管理？**
 
-OpenClaw 官方明确表示不会合并"Agent 层级框架（管理者的管理者/嵌套规划树）"。原因很实际：
+消息 bindings 按配置直接选择 Agent，不必先让一个模型判断消息给谁。这是入口路由的设计；不代表 OpenClaw 禁止子 Agent、运行时委派或编程任务的编排。直接路由的优势包括：
 
 1. 层级管理增加延迟 -- 消息要先经过管理者 Agent 判断，再转发给工作 Agent
 2. 管理者 Agent 本身也消耗 token -- 每条消息多一次 AI 调用
 3. 路由规则是确定性的 -- 不需要 AI 来判断消息该给谁，配置文件就能搞定
 4. 简单可靠 -- 越少的中间环节，越少的出错机会
 
-**每个 Agent 是完全独立的**
+**每个 Agent 有自己的工作空间和状态范围**
 
 Agent 之间默认没有任何共享：
 
@@ -148,9 +152,9 @@ Agent 之间默认没有任何共享：
 |------|----------|------|
 | 工作空间 | 否 | 每个 Agent 有独立的工作目录 |
 | 记忆文件 | 否 | 每个 Agent 有独立的 MEMORY.md 和日志 |
-| 记忆后端 | 可选 | 可配置 Builtin(SQLite)、QMD、Honcho 等后端 |
-| 会话历史 | 否 | 每个 Agent 的对话记录完全隔离 |
-| 认证凭证 | 否 | 每个 Agent 的 auth-profiles.json 独立 |
+| 记忆后端 | 可选 | 内置 SQLite；插件方案按所用版本与插件说明配置，v2026.9.4 已移除 QMD |
+| 会话历史 | 存储按 Agent 分开 | 跨 Agent 读取仍受会话工具可见性和 agentToAgent 策略控制 |
+| 认证凭证 | 按认证流程 | 每个 Agent 有自己的 SQLite auth store；同名 OAuth profile 可按规则读取 main 的新凭据 |
 | 技能配置 | 可选 | 可以配置 Agent 级别的技能白名单 |
 | AI 模型 | 可选 | 可以为每个 Agent 指定不同的模型 |
 
@@ -163,20 +167,16 @@ Agent 之间默认没有任何共享：
 ├── agents/                    # Agent 状态目录
 │   ├── main/                  # 默认 Agent
 │   │   ├── agent/
-│   │   │   └── auth-profiles.json    # main 的认证凭证
-│   │   └── sessions/                  # main 的会话历史
-│   │       ├── session-abc123.json
-│   │       └── session-def456.json
-│   │
+│   │   │   └── openclaw-agent.sqlite  # 模型认证与活跃会话状态
+│   │   └── sessions/          # 保留的转录产物；不是活跃会话数据库
 │   ├── coding/                # 编程 Agent
 │   │   ├── agent/
-│   │   │   └── auth-profiles.json    # coding 的认证凭证
-│   │   └── sessions/                  # coding 的会话历史
-│   │
+│   │   │   └── openclaw-agent.sqlite
+│   │   └── sessions/
 │   └── social/                # 社交 Agent
 │       ├── agent/
-│       │   └── auth-profiles.json    # social 的认证凭证
-│       └── sessions/                  # social 的会话历史
+│       │   └── openclaw-agent.sqlite
+│       └── sessions/
 │
 ├── workspace/                 # main Agent 的工作空间
 │   ├── SOUL.md               # main 的人格设定
@@ -215,7 +215,7 @@ openclaw agents add work
 # 每个 Agent 会自动创建：
 # - 独立的工作空间（SOUL.md, AGENTS.md, USER.md）
 # - 独立的 agentDir 和会话存储
-# - 独立的 auth-profiles.json
+# - 独立的 SQLite runtime store（模型认证与会话状态）
 ```
 
 ### 查看和管理 Agent
@@ -236,59 +236,70 @@ Agent 的核心配置在 `~/.openclaw/openclaw.json`（JSON5 格式）的 `agent
 {
   "agents": {
     "defaults": {
-      "model": "anthropic/claude-opus-4-6",
+      "model": "anthropic/claude-opus-4-8",
       "sandbox": {
         // 非主会话在 Docker 沙箱中运行
         "mode": "non-main",
       },
     },
-    "list": [
-      {
-        "id": "main",
+    "entries": {
+      "main": {
+        "default": true,
         "workspace": "~/.openclaw/workspace",
-        "model": "anthropic/claude-opus-4-6",
+        "model": "anthropic/claude-opus-4-8",
       },
-      {
-        "id": "coding",
+      "coding": {
         "workspace": "~/.openclaw/workspace-coding",
-        "model": "anthropic/claude-opus-4-6",
+        "model": "anthropic/claude-opus-4-8",
         // Agent 级别的 skills 是简单的字符串数组
         "skills": ["coding-agent", "github", "gh-issues", "tmux"],
       },
-      {
-        "id": "social",
+      "social": {
         "workspace": "~/.openclaw/workspace-social",
         "model": "openai/gpt-5.2",
         "skills": ["summarize", "weather", "goplaces"],
       },
-      {
-        "id": "work",
+      "work": {
         "workspace": "~/.openclaw/workspace-work",
-        "model": "anthropic/claude-sonnet-4-6",
+        "model": "anthropic/claude-sonnet-5",
         "skills": ["gog", "slack", "notion", "trello", "summarize"],
       },
-    ],
+    },
   },
 
   // bindings 是顶层配置，不嵌套在 agent 内部
   "bindings": [
     {
-      "agent": "coding",
-      "channel": "discord",
-      "guildId": "123456789",
-      "channelId": "987654321",
-    },
+  "agentId": "coding",
+  "match": {
+    "channel": "discord",
+    "guildId": "123456789",
+    "peer": {
+      "kind": "channel",
+      "id": "987654321"
+    }
+  }
+},
     {
-      "agent": "social",
-      "channel": "telegram",
-      "chatId": "-100123456789",
-    },
+  "agentId": "social",
+  "match": {
+    "channel": "telegram",
+    "peer": {
+      "kind": "group",
+      "id": "-100123456789"
+    }
+  }
+},
     {
-      "agent": "work",
-      "channel": "slack",
-      "teamId": "T01234567",
-      "channelId": "C01234567",
-    },
+  "agentId": "work",
+  "match": {
+    "channel": "slack",
+    "peer": {
+      "kind": "channel",
+      "id": "C01234567"
+    }
+  }
+},
   ],
 }
 ```
@@ -297,8 +308,8 @@ Agent 的核心配置在 `~/.openclaw/openclaw.json`（JSON5 格式）的 `agent
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `id` | `string` | 是 | Agent 唯一标识符，只能用字母、数字、连字符 |
-| `workspace` | `string` | 是 | 工作空间目录路径 |
+| `entries` 的对象键 | `string` | 是 | Agent ID，例如 `coding`；配置对象中不再单独写 `id` |
+| `workspace` | `string` | 否 | 工作空间目录路径；为清楚区分内容，示例显式指定独立目录 |
 | `model` | `string` 或 `object` | 否 | AI 模型，可以是字符串或 `{ primary, fallbacks }` 对象 |
 | `skills` | `string[]` | 否 | Agent 可用的技能列表（简单字符串数组） |
 | `sandbox` | `object` | 否 | 沙箱配置 |
@@ -414,36 +425,34 @@ Agent 的核心配置在 `~/.openclaw/openclaw.json`（JSON5 格式）的 `agent
 ```json5
 {
   "agents": {
-    "list": [
-      {
-        "id": "coding",
-        "model": "anthropic/claude-opus-4-6",
+    "entries": {
+      "coding": {
+        "default": true,
+        "model": "anthropic/claude-opus-4-8",
         // 编程需要最强的推理能力，用最好的模型
       },
-      {
-        "id": "social",
-        "model": "openai/gpt-5.2-mini",
+      "social": {
+        "model": "openai/gpt-5.6-luna",
         // 闲聊不需要太强的模型，用便宜的就行
       },
-      {
-        "id": "work",
-        "model": "anthropic/claude-sonnet-4-6",
+      "work": {
+        "model": "anthropic/claude-sonnet-5",
         // 办公任务中等复杂度，用性价比最高的
       },
-    ],
+    },
   },
 }
 ```
 
-成本对比（假设每天处理 100 条消息）：
+比较成本时，用同一组有代表性的任务记录实际输入、输出、缓存用量和其他服务费用，再按账号或提供商的当前计费规则计算。每天 100 条消息不足以推算固定日费用：消息长度、工具结果、重试和上下文累积都会影响用量。
 
-| 方案 | 模型 | 估算日成本 |
-|------|------|-----------|
-| 全部用 Opus | claude-opus-4-6 | ~$5-10 |
-| 按需分配 | Opus + Sonnet + Mini | ~$2-4 |
-| 全部用 Mini | gpt-5.2-mini | ~$0.5-1 |
+| 方案 | 模型组合示例 | 需要核对的结果 |
+|------|--------------|----------------|
+| 全部用 Opus | claude-opus-4-8 | 任务质量与实际费用 |
+| 按需分配 | Opus + Sonnet + Luna | 各类任务的完成质量、重试次数与实际费用 |
+| 全部用 Luna | gpt-5.6-luna | 是否达到任务要求，以及是否因重试增加费用 |
 
-按需分配能在保证关键任务质量的同时，大幅降低成本。
+按需分配可以作为降低成本的候选方案，是否节省、能否保持关键任务质量，要以这组任务的实际结果判断。
 
 ## Agent 间通信机制
 
@@ -459,26 +468,18 @@ OpenClaw 提供了一组 Sessions 工具，让 Agent 之间可以直接通信。
 |------|------|------|
 | `sessions_list` | 发现活跃会话 | 列出当前所有活跃的 Agent 会话 |
 | `sessions_history` | 获取会话日志 | 查看指定会话的历史消息 |
-| `sessions_send` | 向另一个会话发消息 | 支持 reply-back ping-pong 和 announce step 模式 |
+| `sessions_send` | 向另一个会话发消息 | 向授权目标会话发送请求；返回与后续交付按安装版本处理 |
 | `sessions_spawn` | 生成新会话 | 动态创建一个新的 Agent 会话 |
 
-**sessions_send 的两种模式：**
+**sessions_send 的返回方式与版本差异：**
 
-- **reply-back ping-pong** -- 发送消息并等待对方回复，适合需要来回协商的场景
-- **announce step** -- 单向通知，不等待回复，适合流水线式的任务传递
+它向有权限访问的目标会话发送消息。先用 `sessions_list` 找到真实 session key，再传递原始问题和所需上下文；Agent ID 本身不是目标会话 key。普通跨 Agent 访问还受 `tools.sessions.visibility`、`tools.agentToAgent` 和当前身份控制。
 
-**使用示例：**
+本章固定参考的 v2026.9.4 曾有自动 reply-back ping-pong 与 announcement 轮次。v2026.9.8 已移除这套自动往返：结果可以在调用内返回，或者在原请求会话仍符合身份和生命周期条件时稍后送回一次。继续讨论要显式再次发送；向 Telegram、Discord 等渠道交付要显式使用消息工具，不能靠旧 announce 机制。`REPLY_SKIP` 和 `ANNOUNCE_SKIP` 也不再压制旧循环的返回文本。隔离 cron 调用不会建立脱离调用的后台回复等待器。
 
-```
-coding Agent 完成代码审查
-    │
-    ├── sessions_list → 发现 writer Agent 的活跃会话
-    │
-    ├── sessions_send → 向 writer Agent 发送审查结果
-    │   （announce step 模式，不等待回复）
-    │
-    └── writer Agent 收到消息，开始生成审查报告
-```
+因此研究→写作→审核应明确每次输入、结果、目标会话和交付动作。不要把 `sessions_send` 写成“单向通知模式”等参数承诺，也不要把两条定时任务的时间差当作上游成功的证明。
+
+参见 [v2026.9.8 委派变更](https://docs.openclaw.ai/releases/2026.9.8#messaging)。
 
 **Sessions CLI 命令：**
 
@@ -501,16 +502,15 @@ openclaw sessions cleanup
 ```json5
 {
   "agents": {
-    "list": [
-      {
-        "id": "research",
+    "entries": {
+      "research": {
+        "default": true,
         "workspace": "~/.openclaw/workspace-research",
       },
-      {
-        "id": "writer",
+      "writer": {
         "workspace": "~/.openclaw/workspace-writer",
       },
-    ],
+    },
   },
 }
 ```
@@ -538,69 +538,55 @@ work Agent → 你：已创建 PROJ-101, PROJ-102, PROJ-103
 
 **方式三：通过定时任务串联**
 
-用 Cron 定时任务让 Agent 按顺序执行：
+Cron 可以分别安排执行时间，但不会因为两条任务相隔半小时就保证先后依赖。下游开始前应检查上游当天产物和成功状态；需要真正的串行依赖时，在一个受控工作流里等待上游结果再转交。下面先演示各任务的定时设置：
 
 ```json5
 {
   "cron": {
     "enabled": true,
-    "store": "file",
-    "maxConcurrentRuns": 2,
   },
 }
 ```
 
-> **注意：** `cron` 是一个配置对象（包含 `enabled`、`store`、`maxConcurrentRuns` 等字段），不是任务数组。具体的定时任务通过 CLI 管理：
+> **注意：** `cron` 是一个配置对象（包含 `enabled`、`sessionRetention`、`failureAlert` 等字段），不是任务数组。具体的定时任务通过 CLI 管理：
 
 ```bash
 # 添加定时任务
-openclaw cron add --name "research-phase" --schedule "0 9 * * 1-5" \
-  --agent research --prompt "搜索今天的行业新闻，整理成摘要，保存到 ~/.openclaw/shared/daily-news.md"
+openclaw cron add --tz Asia/Shanghai --name "research-phase" --cron "0 9 * * 1-5" \
+  --agent research --message "搜索今天的行业新闻，整理成摘要，保存到 ~/.openclaw/shared/daily-news.md"
 
-openclaw cron add --name "writing-phase" --schedule "30 9 * * 1-5" \
-  --agent writer --prompt "读取 ~/.openclaw/shared/daily-news.md，基于今天的新闻写一篇简报，发送到 Slack #news 频道"
+openclaw cron add --tz Asia/Shanghai --name "writing-phase" --cron "30 9 * * 1-5" \
+  --agent writer --message "读取 ~/.openclaw/shared/daily-news.md，基于今天的新闻写一篇简报，发送到 Slack #news 频道"
 
 # 列出所有定时任务
 openclaw cron list
 
 # 删除定时任务
-openclaw cron rm research-phase
+openclaw cron list
+openclaw cron rm <job-id>  # 替换成列表中的实际 ID
 ```
 
-**方式四：通过 HTTP 请求触发**
+添加任务后，在 **Automations** 找到它，先核对 Agent、时区、目的地和批准范围。必要时手动 **Run now**，再查看这次运行的执行结果与送达详情；暂停中的任务也可手动跑一次，这不会启用其日常计划。执行显示 OK 不代表报告已经送到：`OK · Error` 或 `OK · Unknown` 仍需查看送达错误或不确定状态。可用 `openclaw cron runs --id <job-id>` 查看对应记录；没有报告的成功任务也可能安静结束，不能单凭没有新消息判断失败。
 
-一个 Agent 完成任务后，可以通过 Gateway 的 HTTP API 触发另一个 Agent。在 coding Agent 的技能中，完成审查后通过 HTTP 请求触发 writer Agent：
+v2026.9.6 起，实质修改自动化会使之前的 **Always allow** 批准失效，即使后来把内容改回去，也需重新批准；只暂停和恢复未改变的任务会保留批准。旧批准升级后也可能需补一次确认，所以修改后要检查下一次是否等批准。v2026.9.7 起，指定已有会话的任务使用它绑定的项目目录或 managed worktree，绑定失效会停止；先恢复绑定或从有效会话重建任务再重试。本节的 `--message` 任务可以使用相应超时设置；若另建 system-event 任务，不要加入 `--timeout-seconds`，新版会拒绝，脚本任务则用自己的 `--script-timeout-seconds`。详见[运行历史](https://docs.openclaw.ai/automation/cron-jobs)与[定时参数](https://docs.openclaw.ai/cli/cron)。
 
-```markdown
-## 审查完成后
+**方式四：通过支持的入口触发**
 
-1. 把审查结果保存到 ~/.openclaw/shared/review-result.json
-2. 通过 HTTP 请求通知 Gateway: POST http://localhost:18789/api/message
-   发送消息给 writer Agent，提示它读取审查结果并生成报告
-```
+需要从外部系统触发指定 Agent 时，使用官方 inbound webhook 的 `/hooks/agent`，先配置 hooks token、允许的 agent ID 和对应访问策略；或者使用已经授权的 `sessions_send` 工作流。`POST /api/message` 不是这里可直接使用的 Gateway 接口。不要把 Gateway token 和 hooks token 混用，实际请求字段按 [官方 webhook 文档](https://docs.openclaw.ai/automation/webhook)准备。
+
+### 中断和后台工作怎么处理
+
+Gateway 重启后先查看父会话和子任务状态。v2026.9.7 会把被中断的子任务与失败分开记录，但不会自动重新启动子 Agent，也不会重放中断的工具调用。想重做时先确认旧任务已停止、外部文件或消息是否已经改变，再交代剩余步骤，避免重复发送或重复写入。突然丢失整台机器、SSH 会话或旧版本已丢失的编辑不具备同样的恢复保障。
+
+需要让一条命令跨回合继续执行时，要求 Agent 使用执行工具的 `background: true`，让长运行命令本身作为根命令，再通过 `process` 查看状态并收集结果。不要把 `command &` 当成持久后台任务：v2026.9.5 起根命令完成会清理它留下的子进程。sandbox 的生命周期仍由其后端控制。结束实验时，停止实际任务并核对状态，关闭网页或终端并不等于远端工作已经取消。详见[后台命令](https://docs.openclaw.ai/gateway/background-process)和[重启恢复](https://docs.openclaw.ai/gateway/restart-recovery)。
 
 ## 消息路由和绑定配置
 
 ### 路由规则详解
 
-Gateway 收到消息后，按以下顺序匹配 Agent：
+Gateway 按绑定的匹配精度选择 Agent：具体 peer 规则比 guild/team、账号或整个通道的规则更具体；同等精度时按 bindings 顺序匹配。未匹配时回到配置的默认 Agent。私聊也可以通过 direct peer 绑定，不能认定所有私聊必定进入 main。Agent 名单顺序不是绑定优先级。
 
-```
-消息进来
-    │
-    ▼
-1. 检查 bindings 配置
-   ├── 匹配到 → 路由到对应 Agent
-   └── 未匹配 → 继续
-    │
-    ▼
-2. 检查是否是私聊
-   ├── 是 → 路由到 main Agent（默认）
-   └── 否 → 继续
-    │
-    ▼
-3. 回退到默认 Agent（main）
-```
+用 `openclaw agents list --bindings` 核对实际绑定，再从目标通道发一条测试消息。配置能解析不等于收到的 peer ID 正确。
 
 ### 绑定类型
 
@@ -611,17 +597,22 @@ Gateway 收到消息后，按以下顺序匹配 Agent：
 {
   "bindings": [
     {
-      "agent": "coding",
-      "channel": "discord",
-      "guildId": "123456789",
-      "channelId": "987654321",
-    },
+  "agentId": "coding",
+  "match": {
+    "channel": "discord",
+    "guildId": "123456789",
+    "peer": {
+      "kind": "channel",
+      "id": "987654321"
+    }
+  }
+},
   ],
 }
 ```
 
 - `guildId` -- Discord 服务器 ID
-- `channelId` -- Discord 频道 ID
+- `peer.id` -- Discord 频道 ID，配合 `peer.kind: "channel"`
 - 可以只指定 `guildId`，这样整个服务器的消息都路由到这个 Agent
 
 **Telegram 绑定：**
@@ -630,16 +621,21 @@ Gateway 收到消息后，按以下顺序匹配 Agent：
 {
   "bindings": [
     {
-      "agent": "social",
-      "channel": "telegram",
-      "chatId": "-100123456789",
-    },
+  "agentId": "social",
+  "match": {
+    "channel": "telegram",
+    "peer": {
+      "kind": "group",
+      "id": "-100123456789"
+    }
+  }
+},
   ],
 }
 ```
 
-- `chatId` -- Telegram 群组 ID（负数开头）
-- 私聊默认走 main Agent，不需要绑定
+- `peer.id` -- Telegram 群组 ID（通常为负数），配合 `peer.kind: "group"`
+- 未匹配私聊走所配置默认 Agent；需要按联系人区分时增加 kind 为 direct 的 peer 绑定。
 
 **Slack 绑定：**
 
@@ -647,11 +643,15 @@ Gateway 收到消息后，按以下顺序匹配 Agent：
 {
   "bindings": [
     {
-      "agent": "work",
-      "channel": "slack",
-      "teamId": "T01234567",
-      "channelId": "C01234567",
-    },
+  "agentId": "work",
+  "match": {
+    "channel": "slack",
+    "peer": {
+      "kind": "channel",
+      "id": "C01234567"
+    }
+  }
+},
   ],
 }
 ```
@@ -662,10 +662,15 @@ Gateway 收到消息后，按以下顺序匹配 Agent：
 {
   "bindings": [
     {
-      "agent": "social",
-      "channel": "whatsapp",
-      "groupId": "120363xxx@g.us",
-    },
+  "agentId": "social",
+  "match": {
+    "channel": "whatsapp",
+    "peer": {
+      "kind": "group",
+      "id": "120363xxx@g.us"
+    }
+  }
+},
   ],
 }
 ```
@@ -679,28 +684,47 @@ Gateway 收到消息后，按以下顺序匹配 Agent：
 {
   "bindings": [
     {
-      "agent": "coding",
-      "channel": "discord",
-      "guildId": "111111",
-      "channelId": "222222",
-    },
+  "agentId": "coding",
+  "match": {
+    "channel": "discord",
+    "guildId": "111111",
+    "peer": {
+      "kind": "channel",
+      "id": "222222"
+    }
+  }
+},
     {
-      "agent": "coding",
-      "channel": "discord",
-      "guildId": "111111",
-      "channelId": "333333",
-    },
+  "agentId": "coding",
+  "match": {
+    "channel": "discord",
+    "guildId": "111111",
+    "peer": {
+      "kind": "channel",
+      "id": "333333"
+    }
+  }
+},
     {
-      "agent": "coding",
-      "channel": "telegram",
-      "chatId": "-100999888777",
-    },
+  "agentId": "coding",
+  "match": {
+    "channel": "telegram",
+    "peer": {
+      "kind": "group",
+      "id": "-100999888777"
+    }
+  }
+},
     {
-      "agent": "coding",
-      "channel": "slack",
-      "teamId": "T01234567",
-      "channelId": "C09876543",
-    },
+  "agentId": "coding",
+  "match": {
+    "channel": "slack",
+    "peer": {
+      "kind": "channel",
+      "id": "C09876543"
+    }
+  }
+},
   ],
 }
 ```
@@ -723,6 +747,37 @@ openclaw agents list
 # Agent: social
 #   telegram: chat=-100123456789
 ```
+
+## 让多个 Agent 在同一个群里讨论：Room Teams
+
+普通 bindings 为一条消息选择接收 Agent；实验性的 Room Teams 使用顶层 `broadcast`，让多个已配置 Agent 各自在自己的会话里回应，再在限定轮数内互相补充。v2026.9.5 的发布记录强调 Discord / Slack 的参与者回复归属；当前官方配置还支持其他明确列出的群通道。先在一个你有管理权限的测试群里做，别直接接管生产群。
+
+1. 先按本章创建 `reviewer`、`writer`，给它们不同的工作区，分别确认模型和实际工具权限。用 `openclaw agents list --bindings` 检查它们已存在。
+2. 按第 5 章配置并允许这个测试群，保留其普通路由绑定；Room Teams 不替代频道连接、发送者白名单或群准入。
+3. 把下面片段合并到现有配置，保留两 Agent 原有字段，并把 `slack:C0123` 换成真实的 `<channel>:<peerId>`。如果测试 Discord，使用 `discord:实际频道ID`。不要覆盖现有其他 bindings 或 broadcast 条目。
+
+```json5
+{
+  agents: {
+    entries: {
+      reviewer: { groupChat: { mentionPatterns: ["@reviewer\\b"] } },
+      writer: { groupChat: { mentionPatterns: ["@writer\\b"] } },
+    },
+  },
+  broadcast: {
+    "slack:C0123": {
+      agents: ["reviewer", "writer"],
+      mentionGating: true,
+      maxRounds: 2,
+      maxTurns: 4,
+    },
+  },
+}
+```
+
+配置加载后，在该测试群发送 `@reviewer @writer 请分别检查这段公开文案，最多补充一轮，只输出建议。` 检查回复是否标出参与者，并在各自 transcript 里核对内容。只点名 `@writer` 会选择它开始首轮；`mentionGating: true` 下没有匹配的参与者 mention 时会选全部，频道自己的 requireMention 仍然生效。
+
+`maxRounds` 包含首轮，`maxTurns` 限制启动的 Agent 回合，不是平台实际消息条数；长回复仍可能分成多条。每轮后续看到的是前一轮的署名摘要，顺序策略也不等于同轮流水线。讨论会消耗多次模型请求，活跃轮数与预算保存在内存，Gateway 重启后不能接着恢复原预算。想结束实验，先停止仍在执行的参与者会话，再移除这个 broadcast 条目并核对配置，避免新消息继续触发。完整字段与限制见[官方群组讨论配置](https://docs.openclaw.ai/channels/broadcast-groups)。
 
 ## 任务分发和协调策略
 
@@ -747,23 +802,21 @@ openclaw agents list
 ```json5
 {
   "agents": {
-    "list": [
-      {
-        "id": "coding",
+    "entries": {
+      "coding": {
+        "default": true,
         "skills": ["coding-agent", "github", "gh-issues", "tmux"],
-        "model": "anthropic/claude-opus-4-6",
+        "model": "anthropic/claude-opus-4-8",
       },
-      {
-        "id": "office",
+      "office": {
         "skills": ["gog", "slack", "notion", "trello", "summarize"],
-        "model": "anthropic/claude-sonnet-4-6",
+        "model": "anthropic/claude-sonnet-5",
       },
-      {
-        "id": "social",
+      "social": {
         "skills": ["weather", "goplaces", "summarize"],
-        "model": "openai/gpt-5.2-mini",
+        "model": "openai/gpt-5.6-luna",
       },
-    ],
+    },
   },
 }
 ```
@@ -793,13 +846,13 @@ openclaw agents list
 ┌──────────────────────────────────────────────────┐
 │                按安全等级分工                       │
 │                                                  │
-│  trusted Agent   → 有完整权限，只接受你的私聊      │
+│  trusted Agent   → 可信入口，权限按 tools 策略      │
 │  limited Agent   → 有限权限，处理群聊消息          │
 │  readonly Agent  → 只读权限，处理公开频道          │
 └──────────────────────────────────────────────────┘
 ```
 
-配置示例：
+配置示例：群聊 Agent 只开放读取和搜索，公开频道 Agent 只开放 `read`。沙箱镜像先按沙箱章节准备；可信入口还要在渠道侧限制发送人，下面的 bindings 只负责路由。技能若需要未开放的工具将无法执行。
 
 ```json5
 {
@@ -810,35 +863,47 @@ openclaw agents list
         "mode": "non-main",
       },
     },
-    "list": [
-      {
-        "id": "trusted",
+    "entries": {
+      "trusted": {
+        "default": true,
         "skills": ["coding-agent", "github", "gog", "slack"],
-        // 完整权限，只处理私聊
+        // 可信入口；工具权限继承实际 tools 策略
       },
-      {
-        "id": "limited",
+      "limited": {
         "skills": ["summarize", "weather", "goplaces"],
-        // 有限权限，处理群聊
+        "tools": {
+          "allow": ["read", "web_search", "web_fetch"],
+          "sandbox": { "tools": { "allow": ["read", "web_search", "web_fetch"] } },
+        },
+        "sandbox": { "mode": "all", "workspaceAccess": "ro" },
+        // 只开放读取与搜索工具，处理群聊
       },
-      {
-        "id": "readonly",
+      "readonly": {
         "skills": ["summarize"],
-        // 只读权限，处理公开频道
+        "tools": { "allow": ["read"] },
+        "sandbox": { "mode": "all", "workspaceAccess": "ro" },
+        // 仅开放 read；技能名称不会额外授予命令执行权限
       },
-    ],
+    },
   },
   "bindings": [
     {
-      "agent": "limited",
-      "channel": "telegram",
-      "chatId": "-100111222333",
-    },
+  "agentId": "limited",
+  "match": {
+    "channel": "telegram",
+    "peer": {
+      "kind": "group",
+      "id": "-100111222333"
+    }
+  }
+},
     {
-      "agent": "readonly",
-      "channel": "discord",
-      "guildId": "444555666",
-    },
+  "agentId": "readonly",
+  "match": {
+    "channel": "discord",
+    "guildId": "444555666"
+  }
+},
   ],
 }
 ```
@@ -857,6 +922,46 @@ openclaw agents list
 ```
 
 这种策略可以通过 `sessions_send` 工具直接传递、定时任务或 HTTP API 来串联（详见上面的"Agent 间通信机制"章节）。
+
+## 批量并行委派：先做一个有上限的 Swarm
+
+普通 `sessions_spawn` 适合一个或少数子任务。Swarm 适合一批相似、能独立交付的任务，例如让多个助手分别检查几段文案；它从 Code Mode 编排，用 collector 子任务返回结果，不向父会话自动发送完成通知。
+
+先使用当前 OpenClaw 运行时，明确开启 Code Mode，确认原生 `sessions_spawn` 在当前工具目录且有权限。只有同名 MCP 工具不满足要求，目标 Agent 也必须满足 `subagents.allowAgents`。把下面片段合并到现有配置，先用小上限：
+
+```json5
+{
+  tools: {
+    codeMode: true,
+    swarm: {
+      maxConcurrent: 2,
+      maxChildrenPerGroup: 5,
+      maxTotalPerGroup: 5,
+    },
+  },
+}
+```
+
+在新对话里让助手先读 `API.read("agents.d.ts")` 核对当前 API，再把下面 JavaScript 交给 **OpenClaw Code Mode** 执行。它只总结你提供的五句话，不能作为 shell 脚本运行：
+
+```javascript
+const excerpts = ["明确交付物。", "保留来源。", "限制修改范围。", "先检查已有结果。", "报告无法确认的部分。"];
+const outcomes = await Promise.allSettled(
+  excerpts.map((text, index) => agents.run(
+    `只解释这句话的意思，最多30字，不调用外部工具：${text}`,
+    { label: `note-${index + 1}` },
+  )),
+);
+return outcomes.map((outcome, index) => outcome.status === "fulfilled"
+  ? { index, answer: outcome.value }
+  : { index, error: String(outcome.reason) });
+```
+
+这会发起五个模型子任务，最多同时执行两个；按你自己的账户计费和限额。`Promise.allSettled` 保留成功与失败结果，不要因为某个失败就自动重开整批。结果必须由 `agents.run()` 的 await 或低层 `agents_wait` 收集，不能用 `sessions_yield` 等待 collector 的自动通知。
+
+需要停止时，点击父对话 **Stop**，检查其关联子任务和清理是否都结束。若 Stop 超时或报告未完成，通过 subagent 列表核对剩余子任务再取消；父任务停止不等于所有后代进程已停止。实验结束把 `tools.swarm` 改为 `false`，并检查是否有 Agent 级别显式重新启用。
+
+v2026.9.7 起默认每组 collector 并发从 8 提到 32，且使用独立执行通道，不与普通子任务共享运行槽；普通子任务限额也按各发起会话分别计算。上面的明确小限额适合第一次练习。Swarm 是带权限与资源上限的委派，不是默认生成无限 Agent。详见[官方 Swarm 流程与停止说明](https://docs.openclaw.ai/tools/swarm)。
 
 ## 实战案例
 
@@ -934,38 +1039,46 @@ openclaw agents add tech-support
 ```json5
 {
   "agents": {
-    "list": [
-      {
-        "id": "main",
+    "entries": {
+      "main": {
+        "default": true,
         "workspace": "~/.openclaw/workspace",
       },
-      {
-        "id": "community",
+      "community": {
         "workspace": "~/.openclaw/workspace-community",
-        "model": "openai/gpt-5.2-mini",
+        "model": "openai/gpt-5.6-luna",
         "skills": ["summarize"],
       },
-      {
-        "id": "tech-support",
+      "tech-support": {
         "workspace": "~/.openclaw/workspace-tech-support",
-        "model": "anthropic/claude-sonnet-4-6",
+        "model": "anthropic/claude-sonnet-5",
         "skills": ["coding-agent", "github", "summarize"],
       },
-    ],
+    },
   },
   "bindings": [
     {
-      "agent": "community",
-      "channel": "discord",
-      "guildId": "111222333",
-      "channelId": "444555666",
-    },
+  "agentId": "community",
+  "match": {
+    "channel": "discord",
+    "guildId": "111222333",
+    "peer": {
+      "kind": "channel",
+      "id": "444555666"
+    }
+  }
+},
     {
-      "agent": "tech-support",
-      "channel": "discord",
-      "guildId": "111222333",
-      "channelId": "777888999",
-    },
+  "agentId": "tech-support",
+  "match": {
+    "channel": "discord",
+    "guildId": "111222333",
+    "peer": {
+      "kind": "channel",
+      "id": "777888999"
+    }
+  }
+},
   ],
 }
 ```
@@ -1046,13 +1159,13 @@ openclaw agents add writer
 通过 CLI 添加定时任务来串联两个 Agent：
 
 ```bash
-openclaw cron add --name "translate-new-content" --schedule "0 10 * * *" \
+openclaw cron add --tz Asia/Shanghai --name "translate-new-content" --cron "0 10 * * *" \
   --agent translator \
-  --prompt "检查 ~/.openclaw/shared/drafts/ 目录，翻译所有新的中文稿件，保存到 ~/.openclaw/shared/translations/"
+  --message "检查 ~/.openclaw/shared/drafts/ 目录，翻译所有新的中文稿件，保存到 ~/.openclaw/shared/translations/"
 
-openclaw cron add --name "polish-translations" --schedule "0 11 * * *" \
+openclaw cron add --tz Asia/Shanghai --name "polish-translations" --cron "0 11 * * *" \
   --agent writer \
-  --prompt "检查 ~/.openclaw/shared/translations/ 目录，润色所有新的翻译稿，保存到 ~/.openclaw/shared/published/"
+  --message "检查 ~/.openclaw/shared/translations/ 目录，润色所有新的翻译稿，保存到 ~/.openclaw/shared/published/"
 ```
 
 **手动触发的工作流：**
@@ -1184,17 +1297,17 @@ openclaw agents add reviewer
 通过 CLI 添加定时任务来串联三个 Agent：
 
 ```bash
-openclaw cron add --name "weekly-research" --schedule "0 9 * * 1" \
+openclaw cron add --tz Asia/Shanghai --name "weekly-research" --cron "0 9 * * 1" \
   --agent researcher \
-  --prompt "进行本周的 AI 行业研究，收集最新动态、融资信息、产品发布，保存到 shared/research/"
+  --message "进行本周的 AI 行业研究，收集最新动态、融资信息、产品发布，保存到 ~/.openclaw/shared/research/"
 
-openclaw cron add --name "weekly-report" --schedule "0 14 * * 1" \
+openclaw cron add --tz Asia/Shanghai --name "weekly-report" --cron "0 14 * * 1" \
   --agent report-writer \
-  --prompt "基于 shared/research/ 中的资料，撰写本周 AI 行业研究报告，保存到 shared/reports/"
+  --message "基于 ~/.openclaw/shared/research/ 中的资料，撰写本周 AI 行业研究报告，保存到 ~/.openclaw/shared/reports/"
 
-openclaw cron add --name "weekly-review" --schedule "0 16 * * 1" \
+openclaw cron add --tz Asia/Shanghai --name "weekly-review" --cron "0 16 * * 1" \
   --agent reviewer \
-  --prompt "审核 shared/reports/ 中最新的报告草稿，生成审核报告保存到 shared/reviews/"
+  --message "审核 ~/.openclaw/shared/reports/ 中最新的报告草稿，生成审核报告保存到 ~/.openclaw/shared/reviews/"
 ```
 
 每周一的流程：
@@ -1240,17 +1353,27 @@ Agent: tech-support
 {
   "bindings": [
     {
-      "agent": "community",
-      "channel": "discord",
-      "guildId": "111222333",
-      "channelId": "444555666",
-    },
+  "agentId": "community",
+  "match": {
+    "channel": "discord",
+    "guildId": "111222333",
+    "peer": {
+      "kind": "channel",
+      "id": "444555666"
+    }
+  }
+},
     {
-      "agent": "tech-support",
-      "channel": "discord",
-      "guildId": "111222333",
-      "channelId": "777888999",
-    },
+  "agentId": "tech-support",
+  "match": {
+    "channel": "discord",
+    "guildId": "111222333",
+    "peer": {
+      "kind": "channel",
+      "id": "777888999"
+    }
+  }
+},
   ],
 }
 ```
@@ -1340,6 +1463,28 @@ tech-support Agent：
 
 这样写的关键，是不要让第一个 Agent “代替”第二个 Agent 做判断。转交应该保留上下文，让接收方能重新判断。
 
+## 并行改同一个代码仓库：使用 managed worktree
+
+共享目录适合交接报告；两个 Agent 同时编辑同一份代码时，更适合给任务各建一个 managed worktree，也就是独立工作副本。它会分开各自的修改，但不会自动形成安全隔离，也不会自动安装依赖或合并成果。
+
+使用当前 v2026.9.8 时，先选一个你已授权 Agent 修改、已有提交的仓库，把下面路径换成它的实际绝对路径：
+
+```bash
+openclaw worktrees create /path/to/repo --name review-task
+openclaw worktrees list --json
+```
+
+在 Control UI 的新会话位置选择中确认任务使用这个工作副本，再交代允许修改的范围和交付物。v2026.9.6 起，新 worktree 在未指定起始分支时会优先使用获取到的远端默认分支；如果任务依赖某个本地分支，在创建时明确指定 `--base-ref`，不要只凭原目录当前分支推测。
+
+完成后先审阅改动并处理未提交、未推送的成果，再清理。需要仅删除不丢失工作的副本时，使用实际 worktree ID：
+
+```bash
+openclaw worktrees remove <id> --if-lossless
+openclaw worktrees list --json
+```
+
+这个选项会保留不符合清理条件的副本。普通 `remove` 是归档路线，并不等于 Git 的非强制删除；`--force` 可能允许快照丢失，不能拿来处理“为什么没删掉”。高级的精确状态归档和恢复另按[官方 managed worktree 说明](https://docs.openclaw.ai/concepts/managed-worktrees)操作。固定 v2026.9.4 环境要先查本机 `openclaw worktrees --help`，不要直接套用当前版新增选项。
+
 ## 共享文件协作：什么时候用共享目录，什么时候不用
 
 多 Agent 协作很容易走向“大家读写同一个目录”。这很方便，但也容易混乱。共享目录适合传递产物，不适合共享人格、凭证或未整理的上下文。
@@ -1358,7 +1503,7 @@ tech-support Agent：
 ```text
 SOUL.md
 USER.md
-auth-profiles.json
+openclaw-agent.sqlite 与旧版 auth-profiles.json
 未脱敏的用户私聊
 API Key 或 Bot Token
 ```
@@ -1418,31 +1563,43 @@ openclaw agents list
 {
   "bindings": [
     {
-      "agent": "tech-support",
-      "channel": "discord",
-      "guildId": "111222333",
-      "channelId": "777888999",
-    },
+  "agentId": "tech-support",
+  "match": {
+    "channel": "discord",
+    "guildId": "111222333",
+    "peer": {
+      "kind": "channel",
+      "id": "777888999"
+    }
+  }
+},
   ],
 }
 ```
 
-第三步，看顺序。多个规则都能匹配时，前面的规则通常更容易先命中。把更具体的规则放前面：
+第三步，比较匹配范围。具体 peer 比整个 guild 更优先，同等精度时才看 bindings 顺序。下面把具体规则写在前面便于阅读，但不能把“第一条”当成所有情况下的优先级：
 
 ```json5
 {
   "bindings": [
     {
-      "agent": "tech-support",
-      "channel": "discord",
-      "guildId": "111222333",
-      "channelId": "777888999",
-    },
+  "agentId": "tech-support",
+  "match": {
+    "channel": "discord",
+    "guildId": "111222333",
+    "peer": {
+      "kind": "channel",
+      "id": "777888999"
+    }
+  }
+},
     {
-      "agent": "community",
-      "channel": "discord",
-      "guildId": "111222333",
-    },
+  "agentId": "community",
+  "match": {
+    "channel": "discord",
+    "guildId": "111222333"
+  }
+},
   ],
 }
 ```
@@ -1488,45 +1645,33 @@ openclaw gateway --verbose 2>&1 | grep "Loading workspace"
 ```json5
 {
   "agents": {
-    "list": [
-      {
-        "id": "coding",
+    "entries": {
+      "coding": {
+        "default": true,
         // Agent 级别的 skills 是简单的字符串数组
         "skills": ["coding-agent", "github", "gh-issues", "tmux"],
       },
-      {
-        "id": "office",
+      "office": {
         "skills": ["gog", "slack", "notion", "trello", "summarize"],
       },
-      {
-        "id": "social",
+      "social": {
         "skills": ["weather", "goplaces", "summarize"],
+        "tools": { "deny": ["exec", "process"] },
       },
-    ],
+    },
   },
 
-  // 技能的详细配置放在顶层 skills.entries 中
+  // 是否启用技能在顶层 skills.entries 中配置
   "skills": {
     "entries": {
-      "coding-agent": {
-        "config": {
-          "workDir": "~/projects",
-          "allowedCommands": ["npm", "node", "git", "tsc", "pnpm"],
-          "autoApprove": false,
-        },
-      },
-      "gog": {
-        "config": {
-          "timezone": "Asia/Shanghai",
-          "language": "zh-CN",
-        },
-      },
+      "coding-agent": { "enabled": true },
+      "gog": { "enabled": true },
     },
   },
 }
 ```
 
-> ⏭️ **小白可跳过** — 默认的沙箱配置已经足够安全
+> 公开频道或其他不可信消息入口不要跳过这一节。沙箱默认关闭；下面的 skills 配置只筛选可见技能，`config.allowedCommands`、`autoApprove` 等自定义属性不是通用执行权限。命令、文件与网络边界仍需 tools 策略、sandbox 和所用外部 CLI 实际配置落实。
 
 ### 沙箱隔离
 
@@ -1547,41 +1692,30 @@ openclaw gateway --verbose 2>&1 | grep "Loading workspace"
 
 **工具 allowlist 和 denylist：**
 
-沙箱环境中，Agent 可用的工具受到严格限制：
+v2026.9.4 的默认沙箱工具策略如下，实际可用工具还受顶层与 Agent 的工具策略限制：
 
 | 类型 | 工具列表 |
 |------|----------|
-| allowlist（允许使用） | `bash`, `process`, `read`, `write`, `edit`, `sessions_list`, `sessions_history`, `sessions_send`, `sessions_spawn` |
-| denylist（禁止使用） | `browser`, `canvas`, `nodes`, `cron`, `discord`, `gateway` |
+| 默认 allowlist | `exec`, `process`, `read`, `ls`, `write`, `edit`, `apply_patch`, `view_image`, `sessions_list`, `sessions_history`, `sessions_search`, `sessions_send`, `sessions_spawn`, `sessions_yield`, `subagents`, `session_status` |
+| 默认 denylist | `browser`, `canvas`, `computer`, `mobile_ui`, `nodes`, `automations`, `gateway`，以及渠道工具 |
 
-allowlist 中的工具是 Agent 在沙箱中可以调用的全部工具。denylist 中的工具即使在 allowlist 中也会被阻止，确保沙箱内的 Agent 无法访问浏览器、管理 Gateway 或操作 Discord 等外部服务。
+共享沙箱策略配置在 `tools.sandbox.tools`，Agent 覆盖配置在 `agents.entries.<id>.tools.sandbox.tools`。`deny` 优先于 `allow`。这些默认列表可以修改，不能据此保证浏览器永远不可用；要开放沙箱浏览器，需要同时配置 browser 沙箱和工具策略。要禁止某个工具在沙箱内外执行，使用顶层或 Agent 的 `tools.deny`。
 
 ### 认证隔离
 
-每个 Agent 的认证凭证是独立的：
+v2026.9.4 的模型认证资料存放在各 Agent 的 `<agentDir>/openclaw-agent.sqlite`。旧 `auth-profiles.json` 是迁移来源，不能当作当前凭据共享接口直接复制。
 
-```
-~/.openclaw/agents/<agentId>/agent/auth-profiles.json
-```
-
-main Agent 的 Google 凭证不会自动共享给 coding Agent。如果 coding Agent 也需要访问 Google，需要单独认证：
+非主 Agent 的同名 OAuth profile 在自身凭据过期或刷新失败时，可以读取 main 的更新凭据；因此“每个 Agent 的 OAuth 完全独立”并不准确。需要独立账号时，从目标 Agent 的认证流程登录。模型 provider 认证、gog 的 Google Workspace 授权和 gh 的 GitHub 授权是不同流程，不能互相替代。
 
 ```bash
-# 为 coding Agent 认证 Google
-openclaw models auth login --provider google --agent coding
+# 查看目标 Agent 的认证状态；不要输出或复制凭据内容
+openclaw models status --agent coding
 
-# 为 coding Agent 认证 GitHub
-openclaw models auth login --provider github --agent coding
+# GitHub 技能由 gh 管理认证，使用目标运行环境的 gh
+gh auth status
 ```
 
-如果你确实需要共享凭证，可以手动复制：
-
-```bash
-cp ~/.openclaw/agents/main/agent/auth-profiles.json \
-   ~/.openclaw/agents/coding/agent/auth-profiles.json
-```
-
-但不推荐这样做 -- 独立认证更安全，而且可以为不同 Agent 使用不同的账号。
+不要复用多个 Agent 的 agentDir，也不要复制 OAuth refresh token 或正在使用的 SQLite 文件。静态 key 的共享也应按实际 SecretRef 或认证管理流程处理。
 
 ## Agent 性能监控
 
@@ -1600,7 +1734,9 @@ openclaw sessions cleanup
 
 ### 监控关键指标
 
-| 指标 | 说明 | 健康范围 | 异常处理 |
+下面的数字只是示例观察阈值，便于开始记录，不是 OpenClaw 官方性能标准。先用自己的模型、任务和网络跑几次，再决定哪些目标适合你的工作。
+
+| 指标 | 说明 | 示例观察阈值 | 异常处理 |
 |------|------|----------|----------|
 | 响应时间 | 从收到消息到发出回复 | < 10s | 检查模型选择和网络 |
 | Token 消耗 | 每条消息的平均 token 数 | < 5000 | 检查技能加载是否过多 |
@@ -1614,13 +1750,12 @@ openclaw sessions cleanup
 ```json5
 {
   "agents": {
-    "list": [
-      {
-        "id": "social",
-        "model": "openai/gpt-5.2-mini",
+    "entries": {
+      "social": {
+        "model": "openai/gpt-5.6-luna",
         // 闲聊用便宜模型
       },
-    ],
+    },
   },
 }
 ```
@@ -1629,15 +1764,15 @@ openclaw sessions cleanup
 
 每个加载的技能都会增加系统提示词的长度，消耗更多 input token。只启用真正需要的技能。
 
-**3. 调整会话压缩阈值**
+**3. 调整压缩后的近期对话预算**
 
 ```json5
 {
   "agents": {
     "defaults": {
       "compaction": {
-        "reserveTokensFloor": 15000,
-        // 更早压缩会话，减少 token 消耗
+        "keepRecentTokens": 15000,
+        // 压缩时保留近期对话的 token 预算；不是压缩触发阈值
       },
     },
   },
@@ -1651,19 +1786,18 @@ Agent 的 `model` 字段支持故障转移配置：
 ```json5
 {
   "agents": {
-    "list": [
-      {
-        "id": "work",
+    "entries": {
+      "work": {
         // model 可以是对象形式，指定主模型和备用模型
         "model": {
-          "primary": "anthropic/claude-sonnet-4-6",
+          "primary": "anthropic/claude-sonnet-5",
           "fallbacks": [
-            "openai/gpt-5.2-mini",
+            "openai/gpt-5.6-luna",
             "ollama/llama3.1",
           ],
         },
       },
-    ],
+    },
   },
 }
 ```
@@ -1735,27 +1869,12 @@ openclaw agents add devops
 mkdir -p ~/.openclaw/workspace-devops/skills/server-monitor
 ```
 
-`~/.openclaw/workspace-devops/skills/server-monitor/skill.md`：
+`~/.openclaw/workspace-devops/skills/server-monitor/SKILL.md`：
 
 ````markdown
 ---
 name: server-monitor
-description: 服务器监控和运维操作
-triggers:
-  - 服务器状态
-  - 检查服务
-  - 磁盘空间
-  - 内存使用
-  - 重启服务
-tools:
-  - shell_exec
-  - file_write
-  - file_read
-permissions:
-  - shell_exec
-  - file_write
-  - file_read
-category: system
+description: 用户明确要求检查服务器资源、容器或服务状态时使用；重启服务前核对对象并确认授权。
 ---
 
 # 服务器监控技能
@@ -1794,22 +1913,25 @@ journalctl --since "1 hour ago" --priority err --no-pager | tail -20
 ```json5
 {
   "agents": {
-    "list": [
-      {
-        "id": "devops",
+    "entries": {
+      "devops": {
         "workspace": "~/.openclaw/workspace-devops",
-        "model": "anthropic/claude-sonnet-4-6",
+        "model": "anthropic/claude-sonnet-5",
         "skills": ["server-monitor", "summarize"],
       },
-    ],
+    },
   },
   "bindings": [
     {
-      "agent": "devops",
-      "channel": "slack",
-      "teamId": "T01234567",
-      "channelId": "C-ops-channel",
-    },
+  "agentId": "devops",
+  "match": {
+    "channel": "slack",
+    "peer": {
+      "kind": "channel",
+      "id": "C-ops-channel"
+    }
+  }
+},
   ],
   "cron": {
     "enabled": true,
@@ -1820,13 +1942,13 @@ journalctl --since "1 hour ago" --priority err --no-pager | tail -20
 通过 CLI 添加定时任务：
 
 ```bash
-openclaw cron add --name "health-check" --schedule "*/30 * * * *" \
+openclaw cron add --tz Asia/Shanghai --name "health-check" --cron "*/30 * * * *" \
   --agent devops \
-  --prompt "执行服务器健康检查，如果发现异常，通过 Slack 通知 #ops 频道"
+  --message "执行服务器健康检查，如果发现异常，通过 Slack 通知 #ops 频道"
 
-openclaw cron add --name "daily-report" --schedule "0 18 * * *" \
+openclaw cron add --tz Asia/Shanghai --name "daily-report" --cron "0 18 * * *" \
   --agent devops \
-  --prompt "生成今日运维日报，发送到 Slack #ops 频道"
+  --message "生成今日运维日报，发送到 Slack #ops 频道"
 ```
 
 ### Agent 开发最佳实践
@@ -1880,7 +2002,7 @@ openclaw cron add --name "daily-report" --schedule "0 18 * * *" \
 
 ```bash
 # 启动 Gateway 时开启 Agent 调试
-openclaw gateway --verbose --agent-debug
+openclaw gateway --verbose
 
 # 或者在配置中开启
 ```
@@ -1903,7 +2025,7 @@ openclaw gateway --verbose --agent-debug
 [AGENT] Loading MEMORY.md (tokens: 150)
 [AGENT] Loading skills: weather, goplaces, summarize
 [AGENT] Total system prompt tokens: 1,850
-[AGENT] Calling model: openai/gpt-5.2-mini
+[AGENT] Calling model: openai/gpt-5.6-luna
 [AGENT] Model response received (tokens: 120, time: 1.2s)
 [AGENT] Sending response to telegram:chat=-100123456789
 ```
@@ -1977,11 +2099,11 @@ WebChat 是调试 Agent 最方便的工具。你可以在浏览器中直接跟�
 openclaw gateway --port 18789
 
 # 打开浏览器访问
-# http://localhost:18789/chat?agent=coding
-# http://localhost:18789/chat?agent=social
+# http://localhost:18789/
+# 登录后在 New session 页面选择 coding 或 social
 ```
 
-通过 URL 参数 `?agent=<agentId>` 可以指定跟哪个 Agent 对话，方便逐个测试。
+在 Control UI 的新会话入口选择目标 Agent，并检查会话显示的 Agent 和工作区。不要只凭 URL 查询参数认定路由已经切换。
 
 ## 常见问题
 
@@ -1993,33 +2115,35 @@ openclaw gateway --port 18789
 
 默认不能。每个 Agent 有独立的 MEMORY.md 和每日日志。如果你需要共享某些信息，可以：
 
-1. 把共享信息写入公共目录（如 `~/.openclaw/shared/`）
-2. 在每个 Agent 的 SOUL.md 中指示它读取公共目录
+1. 把可共享的信息放进经审查的公共目录（如 `~/.openclaw/shared/`），指定谁负责写入
+2. 为需要读取的 Agent 配置实际文件访问权限；启用 sandbox 时还需核对只读挂载和可见路径，再在 SOUL.md 中说明用途
 3. 手动复制记忆文件（不推荐，容易冲突）
-4. 使用 Memory Wiki 插件（`memory-wiki`，v2026.4.12+ 可用）-- 提供结构化的知识页面层，支持确定性的页面组织和跨 Agent 共享查询。详见官方文档 [memory-wiki](https://docs.openclaw.ai/concepts/memory)
+4. 使用 Memory Wiki 插件（`memory-wiki`，v2026.4.7 起随包内置）-- 提供结构化的知识页面层，支持确定性的页面组织和跨 Agent 共享查询。详见官方文档 [memory-wiki](https://docs.openclaw.ai/concepts/memory)
 5. 使用 Honcho 后端 -- 支持跨会话、多 Agent 感知的记忆系统
 
 ### Q3：能不能让一个 Agent 调用另一个 Agent？
 
 可以。OpenClaw 提供了 Sessions 工具来实现 Agent 间的直接通信：
 
-- `sessions_list` -- 发现活跃会话
-- `sessions_send` -- 向另一个会话发消息（支持 reply-back ping-pong 和 announce step 模式）
+- `sessions_list` -- 列出当前权限可见的会话；最近更新不证明会话正在执行
+- `sessions_send` -- 向另一个会话发消息（向授权目标会话发送请求；返回与后续交付按安装版本处理）
 - `sessions_spawn` -- 生成新的 Agent 会话
 
 如果不需要实时通信，也可以使用定时任务 + 共享文件的方式（参见"Agent 间通信机制"章节）。
 
 ### Q4：删除 Agent 会丢失数据吗？
 
-删除 Agent 会移除 Agent 的状态目录（`~/.openclaw/agents/<agentId>/`），但不会删除工作空间目录。你的 SOUL.md、记忆文件、技能文件都还在。如果要彻底清理，需要手动删除工作空间目录。
+`openclaw agents delete <id>` 会从配置中删除 Agent，并处理对应 workspace、Agent 状态和会话目录，通常移到 Trash。执行前核对实际路径和备份，不能假定工作区会原地保留；路径清理失败时按命令报告处理。
 
 ### Q5：多个 Agent 绑定同一个频道会怎样？
 
-只有第一个匹配的 Agent 会处理消息。如果你不小心把两个 Agent 绑定到了同一个频道，检查 `openclaw.json` 中 `agents.list` 的顺序 -- 排在前面的 Agent 优先匹配。
+同一条入站消息通常只路由到一个 Agent。先比较 bindings 的匹配范围：具体会话或群组范围优先于账号、通道的兜底规则；同一优先级内才由 bindings 数组中靠前的规则决定。Agent 配置对象的排列顺序不决定路由。重叠绑定时核对 accountId、peer、guildId 或 teamId，并显式设置默认 Agent。
+
+显式配置了本章的 Room Teams / `broadcast` 时，符合群准入的一条消息可以交给多个参与者；这项设置优先于普通路由绑定。匹配的 ACP 类型绑定则是独占路线，会交给指定 ACP 会话，不进行 broadcast fan-out。排查时先区分普通绑定、broadcast 与 ACP，不能靠把同一频道绑定多次来实现团队讨论。
 
 ### Q6：Agent 的会话是独立的吗？
 
-是的，完全独立。coding Agent 的对话历史不会出现在 social Agent 的上下文中。这是设计如此 -- 保证每个 Agent 的上下文干净、专注。
+会话状态按 Agent 分开存储，但这不等于其他 Agent 永远不能读到历史。v2026.9.4 的普通跨 Agent 会话访问默认开启，由 tools.sessions.visibility 和 tools.agentToAgent 控制；需要限制时明确收窄可见性或关闭普通跨 Agent 访问。要求严格隔离时使用独立 Gateway 或 OS/主机边界。
 
 ### Q7：如何迁移 Agent 到另一台机器？
 
@@ -2042,7 +2166,7 @@ Gateway 本身的资源消耗不会显著增加。Agent 是按需加载的 -- �
 - 磁盘空间：每个 Agent 的工作空间和会话历史
 - AI API 调用：每个 Agent 独立计费
 
-> v2026.4.20+ 优化了插件启动性能（冷启动时间降低约 74%，依赖加载时间降低 82-90%），多 Agent 场景下 Gateway 的首次响应速度明显改善。
+> v2026.4.22 优化了插件启动性能（捆绑插件加载时间降低 82-90%，`doctor --non-interactive` 运行时间降低约 74%），多 Agent 场景下 Gateway 的首次响应速度明显改善。
 
 ### Q9：能不能动态创建和销毁 Agent？
 

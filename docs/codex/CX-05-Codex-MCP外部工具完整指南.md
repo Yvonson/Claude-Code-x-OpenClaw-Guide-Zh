@@ -15,7 +15,7 @@
 > - **个人博客**：https://aiking.dev
 > - **预计学时**：2-3小时
 > - **难度等级**：⭐⭐ 入门级
-> - **更新日期**：2026年5月30日
+> - **更新日期**：2026年10月3日
 > - **信息来源**：OpenAI Codex MCP 官方文档、Codex App Settings、Codex CLI MCP 命令
 > - **前置要求**：已完成 [CX-01 安装](./CX-01-Codex-App安装与认证完整指南.md)、[CX-02 桌面工作流](./CX-02-Codex-App桌面工作流完整指南.md)、[CX-04 权限配置](./CX-04-Codex项目指令权限配置完整指南.md)
 
@@ -83,7 +83,7 @@ MCP 章节最常见的误区是：把 MCP 当成“搜索”“插件”“账�
 
 ## 0. MCP 的工作机制
 
-我在 MCP 这一讲里坚持要求列来源，是因为老金不希望读者把模型记忆当成官方证据。
+我在 MCP 这一讲里坚持要求列来源，是因为我不希望读者把模型记忆当成官方证据。
 
 一次 MCP 调用可以理解为：
 
@@ -213,7 +213,7 @@ CLI 配好后回到 App 仍要核对：
 | 类型 | 说明 |
 |---|---|
 | stdio | 本地命令启动，适合本机工具 |
-| HTTP / SSE | 远程服务，适合团队或云服务 |
+| Streamable HTTP | 远程服务，可配 bearer token 或 OAuth |
 | 插件携带 | Plugin 安装后提供 MCP server |
 
 App 用户重点不是背协议，而是知道工具从哪里来、权限是什么、结果能否验证。
@@ -232,9 +232,13 @@ App 用户重点不是背协议，而是知道工具从哪里来、权限是什�
 - `enabled_tools` / `disabled_tools`：限制工具集合。
 - `default_tools_approval_mode`：决定工具默认审批行为。
 - 单工具 approval override：高风险工具单独要求审批。
-- `startup_timeout_sec` / `tool_timeout_sec`：避免工具卡死太久。
+- `startup_timeout_sec` / `tool_timeout_sec`：分别控制单个 server 的启动超时和工具调用超时。
+- `mcp_optional_startup_grace_ms`（CLI v0.151.0 起）：顶层配置，控制首次收集工具目录时等待可选 MCP server 的共享时限，默认 1000 毫秒。设为 `0` 表示改为等待各 server 自己的 `startup_timeout_sec`，不是立即跳过等待。
+- `mcp_servers.<id>.tools.<tool>.output_token_limit`（CLI v0.152.0 起）：正整数，覆盖某个工具的默认输出预算。它控制结果截断，不是调用超时；设得太小可能截掉需要的证据。
 
-字段会随官方 Config Reference 更新，教程示例只讲用途，不把所有字段写成静态背诵表。
+CLI v0.152.0 起，server 名称支持 `:`、`@`、`/`、`.`。写 TOML 时，包含特殊字符的名称要加引号，例如 `[mcp_servers."team/docs.v1"]`；单工具设置则写在 `[mcp_servers."team/docs.v1".tools.search]`。其中 server 名和 `search` 都要替换为 `/mcp` 里实际显示的名称。
+
+字段和类型见 [官方 Config Reference](https://developers.openai.com/codex/config-reference)。排查时先区分“还没发现工具”“调用超时”和“输出被截断”，再改对应设置。
 
 ### 6.2 密钥和环境变量怎么放
 
@@ -303,9 +307,17 @@ bearer_token_env_var = "DOCS_MCP_TOKEN"
 | CLI 能看到，App 看不到 | App 和 CLI 当前配置层或会话状态不同 | 回到 App 线程核对，以 App 使用结果为准 |
 | server 启动失败 | 命令不存在、依赖未安装、PATH 不一致、timeout 太短 | 在终端单独跑启动命令，检查日志 |
 | 工具调用超时 | server 慢、网络慢、工具 timeout 太短 | 缩小任务或调整 timeout |
-| OAuth 失败 | 回调 URL / port、账号权限、组织策略问题 | 重新 login，确认 callback 设置 |
+| OAuth 失败 | 回调 URL / port、账号权限、组织策略问题 | 完成重新登录，再用 `/mcp` 核对连接状态和可用工具 |
 | 工具要求过大权限 | server 默认工具太宽 | 用 enabled_tools / disabled_tools 收窄 |
 | 结果不可信 | 来源不明、时间过期、权限范围不清 | 要求 Codex 列出来源和查询条件 |
+
+CLI v0.158.0 起，预注册 OAuth client 需要 client secret 时，`codex mcp add` 支持 `--oauth-client-secret`；本机 0.157.1 的 help 尚无该参数。只在服务器确实要求且本机帮助支持时使用，并按组织凭据保存方式配置，不要把真实 secret 写入教程或仓库。普通 OAuth 不需要为了跟上新版强行增加 client secret。
+
+CLI v0.148.0 已支持 OAuth 重新认证后恢复 MCP，无需为此重启整个 Codex；v0.152.0 又修复了缓存刷新、远程插件变化和认证重试时的工具可用性。v0.154.0 会在刷新失败时提示登录，也不会自动重放已被拒绝的工具调用。登录完成后先核对状态，再决定是否重试原动作。版本依据见 [官方 changelog](https://developers.openai.com/codex/changelog)。
+
+CLI v0.155.0 起，过期且无法刷新的 MCP OAuth 凭据会明确请求重新连接，状态也可能显示 `NotLoggedIn`。看到这类提示时，按第16.3节重新登录指定 server，再用 `/mcp` 核对它是否恢复；不要仅凭本地曾保存过凭据判断连接仍有效。认证恢复后，仍由你决定是否重新发起原工具动作，尤其是写入或发送动作。
+
+OAuth 元数据发现返回 `503` 则不一定意味着凭据已撤销。v0.156.0 增加了同一 issuer 的 OIDC 元数据回退，帮助过期 token 在启动时恢复刷新；回退失败仍会报告错误。持续失败时先检查服务与网络状态，再按错误处理认证，不把重新安装或删除凭据当成固定第一步。依据：[过期凭据与重新连接](https://github.com/openai/codex/pull/43947)、[MCP认证状态](https://github.com/openai/codex/pull/44359)、[503发现回退](https://github.com/openai/codex/pull/44636)。
 
 排障时不要第一步就重装。先确认“配置在哪一层、当前线程是否加载、server 是否启动、工具是否可见、调用是否被审批拦住”。
 
@@ -320,7 +332,7 @@ bearer_token_env_var = "DOCS_MCP_TOKEN"
 | GitHub issue / PR | 只读起步 | 评论和更新需明确指令 | 不自动合并 |
 | 邮箱 / 云盘 | 最小范围只读 | 不自动发送或移动文件 | 隐私风险高 |
 
-MCP 的安全原则不是“绝不用”，而是“先只读、再小范围、可审计、可撤销”。
+MCP 的安全原则不是"绝不用"，而是"先只读、再小范围、可审计、可撤销"。
 
 ## 10. 课堂工坊：从只读文档工具到安全排查
 
@@ -598,6 +610,12 @@ codex mcp login server-name
 ```
 
 如果 OAuth callback 端口或 URL 有企业网络要求，可以在 `config.toml` 配置 callback port 或 callback URL。
+
+### 16.4 本地 Mac 的 MCP 请求出现 Touch ID 验证时
+
+CLI v0.155.0 为支持的 Mac 本地 TUI 增加了 MCP 用户验证。它用于需要确认当前用户身份的工具请求，不是所有 MCP 工具都要指纹验证，也不代替外部账号连接和工具审批。出现验证提示时，先读清请求的工具与动作；决定继续后选择验证并批准，按 macOS 提示完成 Touch ID。失败或取消会取消这次验证，回到请求线程查看原因，再决定是否重试。
+
+它要求受支持的硬件、可用的本地验证能力和对应客户端；远程工作区不支持这条本地验证流程。不能因为自己的 Windows、SSH 或远程 TUI 没弹 Touch ID 就判断 MCP 配置坏了。依据：[本地TUI验证入口](https://github.com/openai/codex/pull/43712)、[Mac验证支持](https://github.com/openai/codex/pull/43624)、[客户端条件](https://github.com/openai/codex/pull/43715)。
 
 ## 17. MCP 工具审批：不是所有工具都该自动跑
 
@@ -1413,7 +1431,7 @@ Do not write to the issue tracker.
 - [ ] 工具调用结果能在线程中被Review
 - [ ] 知道如何禁用server、撤销token或卸载插件
 
-**如果以上全部勾选，恭喜你掌握Codex MCP！**
+**全部勾选后即掌握 Codex MCP。**
 
 ---
 
@@ -1447,7 +1465,7 @@ Do not write to the issue tracker.
 ---
 
 **课程制作**：老金
-**最后更新**：2026年5月30日
+**最后更新**：2026年9月14日
 **许可**：本课程采用 MIT License；转载、复制或二次分发时必须保留版权声明与许可声明
 
 ---

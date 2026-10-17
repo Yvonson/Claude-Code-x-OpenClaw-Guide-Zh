@@ -9,15 +9,19 @@
 > - **个人博客**：https://aiking.dev
 > - **预计学时**：4-6小时
 > - **难度等级**：⭐⭐ 入门级（有Claude Code基础即可）
-> - **更新日期**：2026年6月9日
-> - **适用版本**：Claude Code v2.1.169（验证于 2026-06-09；v2.1.158 以前差量保留为历史基线）
+> - **更新日期**：2026年10月3日
+> - **适用版本**：既有说明保留 v2.1.270 历史基线；新增 Mods 区别与治理适用于 v2.1.287+，参考官方说明核对于 2026-10-03。
 > - **前置要求**：已完成Claude Code安装和基础使用
 
 ---
 
 ## 本课学习目标
 
-老金，我写 Hooks 这类内容时不会只给脚本，重点是让团队知道什么时候该拦、什么时候不该拦。
+我写 Hooks 这类内容时不会只给脚本，重点是让团队知道什么时候该拦、什么时候不该拦。
+
+> **2026-06-18 操作口径**：v2.1.178 起权限规则支持 `Tool(param:value)` 形式，例如只允许特定模型的 `Agent(model:opus)`；v2.1.176 修复了 Hook `if` 条件的路径匹配。团队课程里讲 Hook 时，要把“匹配范围”和“参数级权限”分开演示，避免只用一个大而全的 allow/deny 例子。
+
+> **2026-09-14 当前基线（v2.1.270）**：v2.1.251 新增 `PreModelSwitch`（切换前允许、拒绝或请求确认）和 `PostModelSwitch`（切换后补充上下文）。两个事件不能互换：后者不负责撤销已经完成的切换。`SessionStart` 的 resume hook 还可取得会话陈旧度和预估重新缓存成本。`PermissionRequest` 在 `--print` 模式下不触发的问题已在 v2.1.268 修复；阻断型 `Stop` 导致下一轮丢失推理、部分模型错过缓存的问题已在 v2.1.259 修复。v2.1.268 还修复了 `CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS` 对未单独配置 `timeout` 的 SessionEnd hook 不生效的问题。来源：[官方 Hooks 文档](https://code.claude.com/docs/en/hooks)与[changelog](https://code.claude.com/docs/en/changelog)。
 
 完成本课学习后，你将能够：
 
@@ -25,7 +29,7 @@
 2. **配置第一个Hook**：5分钟内完成最简单的Hook配置并看到效果
 3. **按事件族理解Hooks**：理解工具、会话、任务、失败、文件系统、压缩和 Elicitation 等事件面
 4. **实现自动化工作流**：Git提交检查、代码格式化、文件保护等实战场景
-5. **排查Hook故障**：独立解决90%的常见配置和执行问题
+5. **排查Hook故障**：解决大多数常见配置和执行问题
 6. **安全使用Hooks**：理解安全风险并正确配置权限
 
 ---
@@ -53,12 +57,12 @@
 
 ### 路径B：完整学习（4-6小时）
 
-**适合人群**：想深入理解Hooks，掌握所有类型和高级用法
+**适合人群**：想深入理解Hooks，掌握常用事件和高级用法
 
 **学习顺序**：从头到尾所有章节
 
 **建议分段学习**：
-- 第1天（2小时）：第1-3部分（理解+15种类型）
+- 第1天（2小时）：第1-3部分（理解+常用事件）
 - 第2天（2小时）：第4-5部分（实战场景+故障排查）
 - 第3天（1小时）：第6-7部分（FAQ+附录）
 
@@ -89,7 +93,7 @@
 | 想学什么 | 看哪几节 | 预计时间 |
 |----------|---------|---------|
 | **Git自动化** | 第四部分4.1节 | 45分钟 |
-| **代码格式化** | 第四部分4.2节 | 30分钟 |
+| **代码格式化** | 第三部分3.2节的自动代码格式化示例 | 30分钟 |
 | **文件保护** | 第三部分3.1节 | 20分钟 |
 | **提示词优化** | 第三部分3.3节 | 30分钟 |
 | **安全最佳实践** | 第一部分1.4节 + 第五部分 | 40分钟 |
@@ -116,8 +120,8 @@
 | **Decision** | - | PreToolUse Hook的返回决策 | 安检结果（放行/拦截/询问） |
 | **stdin** | Standard Input | 标准输入，Hook接收数据的方式 | 传送带送入检查口 |
 | **stdout** | Standard Output | 标准输出，Hook返回结果的方式 | 检查结果显示屏 |
-| **stderr** | Standard Error | 标准错误输出，仅用于调试日志（不会显示在Claude Code界面） | 后台监控日志（用户看不到） |
-| **timeout** | - | 超时时间，Hook最长运行时间 | 限时检查（超时自动放行） |
+| **stderr** | Standard Error | 标准错误输出；退出0时只进debug日志，其他退出码按事件显示或反馈 | 排障日志或阻断理由 |
+| **timeout** | - | 超时时间；到期后的流程按事件和处理器决定 | 限时检查 |
 | **JSON** | JavaScript Object Notation | 一种通用的数据格式，用花括号`{}`组织数据，settings.json配置文件就是JSON格式 | 标准化的表格模板 |
 | **`~`（波浪号）** | Home Directory | 用户的"家目录"，macOS是`/Users/用户名`，Linux是`/home/用户名`，Windows对应`C:\Users\用户名` | 你电脑上"我的文档"的上级目录 |
 
@@ -126,9 +130,15 @@
 ## 第一部分：Hooks简介（5分钟理解）
 
 
+### 先分清两种 Hooks
+
+这篇的主要练习是 **settings hooks**：你在设置文件里登记事件，让 Claude Code 运行脚本、发 HTTP 请求，或调用相应处理器。v2.1.287 新增的 **Mods 函数 hooks** 则在 Claude Code 进程内运行 JavaScript/TypeScript，使用自己的事件名和 API，还能修改界面。两者都叫 hook，但配置方式不同，不是往现有 `settings.json` 填一个 `type: function`。
+
+你只想自动格式化或记录一次工具操作，可以继续用本篇脚本；想增加界面计数或由代码直接处理自定义命令，再做[08 的 Mods 练习](08-Plugins生态完整指南.md#45-做一个-mods让工具调用次数显示出来)。Mods 不会让现有 settings hooks 退役，权限和组织控制也需要分别检查。依据：[官方比较说明](https://code.claude.com/docs/en/plugins/mods/overview#compare-mods-settings-hooks-skills-and-mcp-servers)。
+
 ### 1.1 Hooks是什么
 
-> **一句话理解**：Hooks是Claude Code的"自动化传感器"，在特定事件发生时自动执行你的脚本，实现100%可靠的自动化。
+> **一句话理解**：Hooks是Claude Code的"自动化传感器"，在特定事件发生时自动执行你的脚本，实现可靠的自动化。
 
 #### 为什么需要Hooks？
 
@@ -147,7 +157,7 @@ Claude：代码写好了！
 Claude：抱歉，我忘了...
 ```
 
-**有了Hooks之后（100%自动执行）**：
+**配置了 Hooks 之后（匹配事件自动触发）**：
 
 ```
 解决方案：不依赖AI记忆，配置Hook后自动执行
@@ -156,18 +166,18 @@ Claude：抱歉，我忘了...
 
 Claude：代码写好了！
 [Hook自动触发：运行 prettier --write xxx.js]
-结果：代码已自动格式化，100%不会忘记
+结果：事件匹配后运行格式化脚本；是否成功要检查工具依赖、退出结果和文件内容
 ```
 
 > **生活类比**：
 > - **没有Hooks**：靠人记住每次开车前检查轮胎（经常忘）
-> - **有Hooks后**：汽车传感器自动检测胎压，异常自动报警（100%可靠）
+> - **有Hooks后**：汽车传感器自动检测胎压，异常自动报警（更可靠）
 
 #### Hooks的核心价值
 
 | 对比维度 | 提示词方式 | Hooks方式 |
 |----------|-----------|-----------|
-| **可靠性** | 不确定（AI可能忘记） | 100%执行（确定性） |
+| **可靠性** | 依赖AI是否执行要求 | 匹配事件后自动调用处理器；仍需处理失败和超时 |
 | **一致性** | 每次可能不同 | 每次完全相同 |
 | **自动化** | 需要AI主动执行 | 事件触发自动执行 |
 | **团队协作** | 每人都要提醒AI | 配置一次，全员生效 |
@@ -199,7 +209,7 @@ Hook执行：运行 prettier --write src/app.js
 场景：自动在写作任务后追加写作规范
 
 用户输入："帮我写一篇关于AI的文章"
-Hook检测：包含"写"和"文章"关键词
+Hook检测：输入含任一写作关键词（如“写”“文章”）
 Hook追加："\n\n## 写作规范\n1. 风格：接地气\n2. 字数：1500字"
 Claude收到：原始输入 + 写作规范
 ```
@@ -211,7 +221,7 @@ Claude收到：原始输入 + 写作规范
 Hook触发：Claude执行Bash(command="git commit -m xxx")
 Hook执行：运行lint检查、测试、敏感信息扫描
 Hook决策：全部通过 → allow；有问题 → deny
-结果：低质量代码无法提交
+结果：这个 Bash 命令在检查失败时被拦截；其他提交渠道需另外配置检查
 ```
 
 **案例5：会话初始化（SessionStart）**
@@ -239,7 +249,7 @@ Hook执行：调用系统通知API
 ```
 用户输入
     ↓
-[UserPromptSubmit Hook] ← 可以修改/增强提示词
+[UserPromptSubmit Hook] ← 可以补充上下文或阻止提交
     ↓
 Claude处理提示词
     ↓
@@ -264,12 +274,15 @@ Claude处理提示词
 | **Notification** | 通知发送时 | 日志记录、桌面通知 | ❌ 否 |
 | **SessionStart** | 会话开始时 | 环境初始化 | ❌ 否 |
 | **SessionEnd** | 会话结束时 | 清理临时文件 | ❌ 否 |
-| **Stop / StopFailure** | AI 正常停止 / 异常停止时 | 保存状态、错误告警 | ❌ 否 |
-| **TaskCreated / TaskCompleted** | 子任务创建 / 完成时 | 子代理日志、任务收集 | ❌ 否 |
+| **Stop** | Claude 准备结束响应时 | 完成条件校验 | ✅ 可要求继续 |
+| **StopFailure** | API 错误导致回合停止时 | 错误告警、记录失败 | ❌ 无决策控制 |
+| **TaskCreated / TaskCompleted** | 任务创建 / 标记完成时 | 创建校验、完成条件校验 | ✅ 可回滚创建 / 阻止标记完成 |
 | **PermissionDenied** | 权限被拒绝时 | 审计、自动补救提示 | ❌ 否 |
-| **PreCompact / PostCompact** | 上下文压缩前 / 后 | 保存关键上下文、记录 token 变化 | ❌ 否 |
+| **PreCompact** | 上下文即将压缩时 | 保存关键上下文、压缩前校验 | ✅ 可阻止压缩 |
+| **PostCompact** | 上下文压缩完成后 | 记录压缩摘要 | ❌ 不撤销压缩 |
 | **CwdChanged / FileChanged** | 工作目录切换 / 文件变化时 | 同步环境、触发检查 | ❌ 否 |
-| **Elicitation** | MCP 请求额外交互输入时 | 记录交互日志、输入校验 | ❌ 否 |
+| **Elicitation** | MCP 请求额外交互输入时 | 接受、拒绝或取消请求 | ✅ 可拒绝请求 |
+| **ElicitationResult** | 用户响应交互输入后、返回 MCP 前 | 验证或修改响应 | ✅ 可拒绝响应 |
 
 > 💡 **记忆方式**：先记三大高频入口 `UserPromptSubmit`、`PreToolUse`、`PostToolUse`，再按“失败 / 任务 / 文件 / 压缩 / 交互”五个补充事件族扩展。
 
@@ -317,7 +330,7 @@ Claude处理提示词
 
 - ✅ 最简单，只需要3个文件
 - ✅ 效果直观，立即看到输出
-- ✅ 无依赖，不需要安装任何东西
+- ✅ 只用 Python 标准库；先安装 Python 3，并确认终端中的 `python --version` 可用。若本机只有 `python3`，后续配置和测试统一改用 `python3`
 
 #### 步骤1：创建Hook脚本目录
 
@@ -396,9 +409,9 @@ file_path = tool_input.get('file_path', '')
 # 只处理Write工具
 if tool_name == 'Write':
     # PostToolUse Hook执行后处理任务
-    # 注意：PostToolUse Hook无法向用户输出信息
-    # Claude Code只会显示"Hook执行成功"
-    # 如果需要调试，可以写入日志文件
+    # 本示例只写日志，不打印成功消息
+    # PostToolUse 可通过 JSON 的 systemMessage 显示消息，
+    # 或用 additionalContext 给 Claude 补充上下文
     log_file = Path.home() / '.claude' / 'hooks' / 'post-write.log'
     log_file.parent.mkdir(parents=True, exist_ok=True)
     with open(log_file, 'a', encoding='utf-8') as f:
@@ -415,11 +428,11 @@ cat > .claude/hooks/post-write-hello.py << 'EOF'
 # 粘贴上方 Windows 示例中 @' 和 '@ 之间的完整 Python 脚本
 EOF
 
-# 添加执行权限（macOS/Linux必须）
-chmod +x .claude/hooks/post-write-hello.py
+# 本例由 Python 解释器读取脚本，不要求 chmod +x
+# 只有直接执行脚本路径时，才需要执行权限和有效的 shebang
 ```
 
-这两个平台使用的是同一份 Python 脚本，差别只在写入文件的命令和 macOS/Linux 需要 `chmod +x`。不要维护两份略有差异的 Hook 代码，否则排查时很容易把平台问题误判成脚本问题。
+这两个平台使用的是同一份 Python 脚本，差别只在写入文件的命令；本例由 Python 解释器读取脚本，不要求执行位。不要维护两份略有差异的 Hook 代码，否则排查时很容易把平台问题误判成脚本问题。
 
 **验证脚本创建成功：**
 ```bash
@@ -433,6 +446,8 @@ cat .claude/hooks/post-write-hello.py
 **这一步要做什么**：告诉Claude Code在PostToolUse时运行你的脚本
 
 **创建或编辑 `.claude/settings.json`**：
+
+下面是一份新建文件示例。如果文件已存在，把对应事件合并进现有 `hooks`，保留 permissions、env 等其他设置；不要直接覆盖整个文件。后续所有配置示例也按这个合并方式使用。
 
 > 💡 **你有两种选择**：
 >
@@ -460,7 +475,7 @@ cat .claude/hooks/post-write-hello.py
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/post-write-hello.py",
+            "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/post-write-hello.py"],
             "timeout": 10
           }
         ]
@@ -482,7 +497,7 @@ cat > .claude/settings.json << 'EOF'
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/post-write-hello.py",
+            "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/post-write-hello.py"],
             "timeout": 10
           }
         ]
@@ -516,26 +531,14 @@ claude
 
 **预期结果**：
 
-```
-Claude：我来帮你创建test.txt文件。
+Claude 用 Write 创建文件后，这份脚本会把带时间戳的文件路径追加到 `~/.claude/hooks/post-write.log`，不会打印“Hook触发成功”。
 
-[Write工具执行]
-
-✅ Hook执行成功
-
-文件已创建成功！
+```bash
+cat ~/.claude/hooks/post-write.log
+# 找到本次运行新增的一行：带当前时间戳和 test.txt 的实际路径
 ```
 
-> 💡 **重要说明**：
-> - PostToolUse Hook执行后，Claude Code只会显示"Hook执行成功"
-> - Hook的日志已写入`~/.claude/hooks/post-write.log`文件
-> - 你可以查看日志文件确认Hook确实执行了：
->   ```bash
->   cat ~/.claude/hooks/post-write.log
->   # 应该看到类似：[2026-03-05 16:30:00] ✅ 文件已保存: /path/to/test.txt
->   ```
-
-> ✅ **关键确认**：看到 `Hook触发成功！` 说明Hook配置正确并成功执行！
+PowerShell 可用 `Get-Content "$HOME/.claude/hooks/post-write.log"`。确认本次新增记录才是这个示例的验证依据，不要求界面出现固定成功文案。
 
 ### 2.2 验证Hook工作正常
 
@@ -544,11 +547,11 @@ Claude：我来帮你创建test.txt文件。
 - [ ] `.claude/hooks/` 目录存在
 - [ ] `.claude/hooks/post-write-hello.py` 文件存在且内容正确
 - [ ] `.claude/settings.json` 文件存在且JSON格式正确
-- [ ] macOS/Linux上脚本有执行权限（`chmod +x`）
+- [ ] 已安装 Python 3，配置使用本机可用的解释器命令
 - [ ] Claude Code启动时没有报错
-- [ ] 让Claude创建文件后看到Hook输出
+- [ ] 让 Claude 用 Write 创建文件后，日志出现本次新增记录
 
-**如果没有看到Hook输出**：
+**如果日志没有新增记录**：
 
 1. **检查JSON格式**：
 ```bash
@@ -566,7 +569,7 @@ python --version
 3. **手动测试脚本**：
 ```bash
 echo '{"tool_name": "Write", "tool_input": {"file_path": "test.txt"}}' | python .claude/hooks/post-write-hello.py
-# 应该显示Hook触发成功的消息
+# 不会打印消息；测试后查看 ~/.claude/hooks/post-write.log 是否新增 test.txt 记录
 ```
 
 ### 2.3 恭喜完成第一个Hook！
@@ -580,16 +583,16 @@ echo '{"tool_name": "Write", "tool_input": {"file_path": "test.txt"}}' | python 
 
 **接下来可以**：
 
-- 继续学习15种Hook类型（第三部分）
+- 继续学习各类 Hook 事件（第三部分）
 - 学习实战应用场景（第四部分）
 - 遇到问题查看故障排查（第五部分）
 
 ---
 
-## 第三部分：15种Hook类型详解
+## 第三部分：常用 Hook 事件详解
 
 
-> **本节目的**：掌握所有Hook类型的用法
+> **本节目的**：掌握常用 Hook 事件的用法与控制边界
 >
 > ⏱️ **预计时间**：1.5-2小时
 
@@ -629,18 +632,21 @@ PreToolUse Hook可以返回**决策指令**控制工具是否执行。
 ```json
 {
   "hookSpecificOutput": {
-    "permissionDecision": "deny"
-  },
-  "message": "禁止修改production目录下的文件"
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "禁止修改production目录下的文件"
+  }
 }
 ```
+
+`hookEventName` 必填，拒绝原因写在同级的 `permissionDecisionReason`，不要写成顶层 `message`。
 
 **旧版API（已废弃但仍支持）** — 通过 `decision` 字段：
 
 ```json
 {
-  "decision": "deny",
-  "message": "禁止修改production目录下的文件"
+  "decision": "block",
+  "reason": "禁止修改production目录下的文件"
 }
 ```
 
@@ -648,10 +654,12 @@ PreToolUse Hook可以返回**决策指令**控制工具是否执行。
 
 | 决策值 | 说明 | 工具是否执行 |
 |------------|------|-------------|
-| `"allow"` | 允许执行，绕过权限系统 | ✅ 是 |
+| `"allow"` | 允许匹配调用跳过常规权限询问；仍受系统保护例外约束 | 通常执行，例外需确认 |
 | `"deny"` | 拒绝执行，原因会反馈给Claude | ❌ 否 |
 | `"ask"` | 暂停，询问用户决定 | 🤔 等待用户决定 |
-| 无输出 | 默认允许 | ✅ 是 |
+| 无输出 | 不做决策，交给正常权限流程 | 按权限设置决定 |
+
+`allow` 的边界要和实际操作一起看。v2.1.287 起，整工具 `Bash` allow 或 Hook 的允许决策，不会直接放行向 Claude 或宿主凭据存储等系统保护文件的 shell 写入，这类调用仍会要求人工确认。通过仓库已提交的符号链接写到敏感文件或工作树外时，也会说明最终写入位置并等你决定。看到提示时先核对目的与实际目标，不能把“Hook 返回 allow”当成所有写入都已获准。依据见[官方 2.1.287 权限变化](https://github.com/anthropics/claude-code/releases/tag/v2.1.287)。
 
 **旧版决策值**（`decision`，已废弃）：
 
@@ -660,11 +668,11 @@ PreToolUse Hook可以返回**决策指令**控制工具是否执行。
 | `"approve"` | `"allow"` | 允许执行 |
 | `"block"` | `"deny"` | 拒绝执行 |
 
-> **PostToolUse 和 UserPromptSubmit 的决策值**：这两个Hook类型使用 `"block"` 来阻止/提供反馈，无输出则默认允许。
+> **PostToolUse 和 UserPromptSubmit 的决策值**：两者都可返回 `"block"`，但含义不同。UserPromptSubmit 可以阻止提示词提交；PostToolUse 发生在工具执行之后，只能把阻断反馈交给 Claude，不能撤销已经发生的工具操作。无输出表示这个 Hook 没有追加决策。
 
 #### 完整示例1：文件保护Hook
 
-**场景**：禁止修改`production/`目录下的文件
+**场景**：演示拦截 Write / Edit 输入路径中含 `production/`、`prod/` 或 `.env` 的调用。下面按字符串匹配，不解析符号链接和 `..`，也不覆盖 Bash、MCP 等其他写入渠道；它不能作为整个目录的安全隔离。严格保护需结合工具权限和操作系统访问控制。
 
 **脚本 `.claude/hooks/pre-protect-production.py`**：
 
@@ -700,13 +708,16 @@ for protected in protected_dirs:
     if protected in file_path_normalized:
         # 拒绝执行
         decision = {
-            "decision": "deny",
-            "message": f"❌ 禁止修改受保护的路径！\n路径: {file_path}\n原因: 包含受保护目录 '{protected}'\n\n请先切换到dev环境或手动操作。"
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": f"❌ 禁止修改受保护的路径！\n路径: {file_path}\n原因: 包含受保护目录 '{protected}'\n\n请先切换到dev环境或手动操作。"
+            }
         }
         print(json.dumps(decision, ensure_ascii=False))
         sys.exit(0)
 
-# 允许执行（无输出=默认allow）
+# 不做决策，交给正常权限流程
 sys.exit(0)
 ```
 
@@ -721,7 +732,7 @@ sys.exit(0)
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/pre-protect-production.py",
+            "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/pre-protect-production.py"],
             "timeout": 5
           }
         ]
@@ -747,7 +758,7 @@ Claude：我来修改production/config.json...
 
 #### 完整示例2：危险命令拦截Hook
 
-**场景**：拦截危险的Bash命令（如rm -rf）
+**场景**：用正则识别一些明显危险的 Bash 文本（如 `rm -rf /`）。它不能完整解析 shell；改变参数顺序、引号或调用别的程序都可能绕过。下面用于理解 PreToolUse 决策，不代替工具权限、沙箱或系统访问控制。
 
 **脚本 `.claude/hooks/pre-block-dangerous-cmd.py`**：
 
@@ -767,7 +778,7 @@ DANGEROUS_PATTERNS = [
     r'rm\s+-rf\s+~',           # rm -rf ~
     r'rm\s+-rf\s+\*',          # rm -rf *
     r'rm\s+-rf\s+\.\.',        # rm -rf ..
-    r':()\s*{\s*:\|:&\s*};:',  # Fork炸弹
+    r':\(\)\s*{\s*:\|:&\s*};:',  # Fork炸弹
     r'mkfs\.',                  # 格式化磁盘
     r'dd\s+if=.+of=/dev/',     # 覆盖磁盘
     r'>\s*/dev/sda',           # 覆盖磁盘
@@ -792,8 +803,11 @@ if tool_name != 'Bash':
 for pattern in DANGEROUS_PATTERNS:
     if re.search(pattern, command, re.IGNORECASE):
         decision = {
-            "decision": "deny",
-            "message": f"🚨 危险命令已拦截！\n\n命令: {command}\n\n匹配的危险模式: {pattern}\n\n如果确实需要执行，请在终端手动运行。"
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": f"🚨 危险命令已拦截！\n\n命令: {command}\n\n匹配的危险模式: {pattern}\n\n如果确实需要执行，请在终端手动运行。"
+            }
         }
         print(json.dumps(decision, ensure_ascii=False))
         sys.exit(0)
@@ -812,7 +826,7 @@ sys.exit(0)
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/pre-block-dangerous-cmd.py",
+            "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/pre-block-dangerous-cmd.py"],
             "timeout": 5
           }
         ]
@@ -832,16 +846,18 @@ sys.exit(0)
 
 #### 输入参数（通过stdin的JSON）
 
+下面省略会话等公共字段，只展示工具相关部分。`tool_input` 和 `tool_response` 的具体结构随工具变化，不能把 Write 的返回字段当成所有工具的通用字段：
+
 ```json
 {
   "tool_name": "Write",
   "tool_input": {
-    "file_path": "C:/project/src/app.js",
+    "file_path": "C:\\project\\src\\app.js",
     "content": "console.log('Hello');"
   },
-  "tool_output": {
-    "success": true,
-    "message": "File written successfully"
+  "tool_response": {
+    "filePath": "C:\\project\\src\\app.js",
+    "type": "create"
   }
 }
 ```
@@ -850,26 +866,18 @@ sys.exit(0)
 |------|------|------|
 | `tool_name` | string | 工具名称 |
 | `tool_input` | object | 工具的输入参数 |
-| `tool_output` | object | 工具的输出结果 |
+| `tool_response` | 依工具而定 | 工具的返回结果；字段名不是 `tool_output` |
 
 #### 输出格式
 
-> ⚠️ **重要：PostToolUse Hook的输出机制**
->
-> **v2.1.133 前**：PostToolUse Hook 无法向用户输出信息，只能做后处理（格式化、备份、日志）。
->
-> **v2.1.133 起**：PostToolUse Hook 可以通过 `hookSpecificOutput.updatedToolOutput` **替换工具的实际输出内容**，适用于所有工具类型。
->
-> - ✅ **可以做**：执行后处理任务（格式化、备份、测试、写日志文件）
-> - ✅ **v2.1.133+ 可以做**：通过 `hookSpecificOutput.updatedToolOutput` 替换工具输出
-> - ❌ **常见误区**：`print(..., file=sys.stderr)`不会显示在界面，只在终端可见
->
-> 如果需要向用户注入额外上下文信息，也可以使用 **UserPromptSubmit Hook** 的 `additionalContext` 机制。
+PostToolUse 已在工具执行之后，可以做格式化、备份、测试等后处理，也可以返回 JSON：
 
-PostToolUse Hook**不返回决策**（工具已经执行完了），可以：
-- 执行后处理任务（格式化、备份、测试）
-- 写入日志文件（用于调试）
-- **v2.1.133+**：通过 `hookSpecificOutput.updatedToolOutput` 替换工具输出
+- `systemMessage`：向用户显示消息
+- `hookSpecificOutput.additionalContext`：向 Claude 补充上下文
+- `hookSpecificOutput.updatedToolOutput`：替换随后发给 Claude 的工具结果；内置工具必须保持原结果的结构，不能随意改成纯文本
+- 顶层 `decision: "block"` 配合 `reason`：把反馈交给 Claude，不能撤销已经完成的操作
+
+退出 `0` 时的 stderr 只进入 debug 日志，不会直接打印在对话里；退出 `2` 可把 stderr 反馈给 Claude，但工具已执行。下面的格式化示例只做后处理并写 debug 日志。
 
 #### 完整示例1：自动代码格式化
 
@@ -889,15 +897,17 @@ import subprocess
 from pathlib import Path
 
 # 格式化工具配置
+# 本示例在 macOS / Linux / WSL 中运行，并先安装项目需要的格式化工具。
+# 文件路径作为独立参数传递，不插入 shell 命令。
 FORMATTERS = {
-    '.js': 'npx prettier --write "{file}"',
-    '.ts': 'npx prettier --write "{file}"',
-    '.jsx': 'npx prettier --write "{file}"',
-    '.tsx': 'npx prettier --write "{file}"',
-    '.json': 'npx prettier --write "{file}"',
-    '.css': 'npx prettier --write "{file}"',
-    '.py': 'black "{file}"',
-    '.go': 'gofmt -w "{file}"',
+    '.js': ['npx', 'prettier', '--write', '--'],
+    '.ts': ['npx', 'prettier', '--write', '--'],
+    '.jsx': ['npx', 'prettier', '--write', '--'],
+    '.tsx': ['npx', 'prettier', '--write', '--'],
+    '.json': ['npx', 'prettier', '--write', '--'],
+    '.css': ['npx', 'prettier', '--write', '--'],
+    '.py': ['black', '--'],
+    '.go': ['gofmt', '-w'],
 }
 
 # 排除的目录
@@ -923,12 +933,12 @@ def run_formatter(file_path: str) -> str:
     if suffix not in FORMATTERS:
         return None
 
-    cmd = FORMATTERS[suffix].format(file=file_path)
+    cmd = [*FORMATTERS[suffix], str(path.resolve())]
 
     try:
         result = subprocess.run(
             cmd,
-            shell=True,
+            shell=False,
             capture_output=True,
             text=True,
             timeout=30
@@ -983,7 +993,7 @@ if __name__ == '__main__':
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/post-auto-format.py",
+            "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/post-auto-format.py"],
             "timeout": 30
           }
         ]
@@ -993,15 +1003,7 @@ if __name__ == '__main__':
 }
 ```
 
-**运行效果**：
-
-```
-Claude：我来创建app.js文件...
-
-[Write工具执行成功]
-
-[AutoFormat] app.js: ✅ 格式化成功
-```
+**验证效果**：Write 完成后检查文件是否按对应格式化工具改变。脚本把 `[AutoFormat]` 结果写到 stderr；退出 `0` 时在 debug 日志中查看，不要求对话界面显示这行。需要用户可见结果时，另用 `systemMessage` 返回消息。
 
 #### 完整示例2：自动备份Hook
 
@@ -1089,7 +1091,7 @@ if __name__ == '__main__':
 
 #### 输出格式
 
-Hook的stdout输出会被**添加到AI上下文**（作为系统消息注入）。
+退出 `0` 时，纯文本 stdout 会作为额外上下文交给 Claude；若输出 JSON，则只按支持的字段处理。它不会改写用户原始提示词，也不等于向用户显示一条消息。
 
 **方式1：直接输出文本**（会作为额外上下文添加）
 ```
@@ -1102,8 +1104,10 @@ Hook的stdout输出会被**添加到AI上下文**（作为系统消息注入）�
 **方式2：输出JSON格式**（更多控制）
 ```json
 {
-  "continue": true,
-  "suppressOutput": false
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "写作时请包含具体案例，并核对事实来源。"
+  }
 }
 ```
 
@@ -1160,7 +1164,7 @@ if is_writing_task:
 1. **风格**：接地气、说人话，避免AI腔
 2. **结构**：开头金句 -> 核心要点 -> 实战案例 -> 总结升华
 3. **字数**：1500-2000字
-4. **检查**：完成后运行 /pre-check 进行质量检查
+4. **检查**：完成后按上述规范逐项检查；如有项目自定义检查命令，先确认它存在再调用
 ---"""
     print(enhancement)
     print(f"[Hook] 已为写作任务注入规范", file=sys.stderr)
@@ -1171,8 +1175,8 @@ sys.exit(0)
 > 💡 **注意**：
 > - 输入是JSON，必须用`json.loads()`解析
 > - 用户原始输入在`prompt`字段中
-> - 通过stdout输出JSON格式的`additionalContext`字段来注入上下文
-> - stderr仅用于调试，不会显示在Claude Code界面
+> - 本例用纯文本 stdout 添加上下文；也可改用 `hookSpecificOutput.additionalContext` 的 JSON 格式
+> - 本例退出 `0`，stderr 进入 debug 日志，不直接显示在对话中
 
 **配置**：
 
@@ -1184,7 +1188,7 @@ sys.exit(0)
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/user-prompt-enhance.py",
+            "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/user-prompt-enhance.py"],
             "timeout": 5
           }
         ]
@@ -1210,7 +1214,7 @@ Claude实际收到：
 1. **风格**：接地气、说人话，避免AI腔
 2. **结构**：开头金句 -> 核心要点 -> 实战案例 -> 总结升华
 3. **字数**：1500-2000字
-4. **检查**：完成后运行 /pre-check 进行质量检查
+4. **检查**：完成后按上述规范逐项检查；如有项目自定义检查命令，先确认它存在再调用
 ---
 ```
 
@@ -1220,7 +1224,7 @@ Claude实际收到：
 
 #### 触发时机
 
-当Claude Code需要请求用户权限或提示输入空闲超过60秒时。
+常见类型包括权限等待、输入空闲、认证完成、MCP 表单 / URL 请求、后台代理状态和额度恢复。权限等待等通知有空闲计时条件；如果要在权限请求出现时立即处理，使用 `PermissionRequest`。通知类型与具体触发条件见[官方 Notification 参考](https://code.claude.com/docs/en/hooks#notification)。
 
 #### 输入参数（通过stdin的JSON）
 
@@ -1230,7 +1234,9 @@ Claude实际收到：
   "transcript_path": "/Users/.../.claude/projects/.../session.jsonl",
   "cwd": "/your/project/path",
   "hook_event_name": "Notification",
-  "message": "Claude is waiting for your input"
+  "message": "Claude is waiting for your input",
+  "title": "Input needed",
+  "notification_type": "idle_prompt"
 }
 ```
 
@@ -1240,9 +1246,11 @@ Claude实际收到：
 | `transcript_path` | string | 会话记录文件路径 |
 | `cwd` | string | 工作目录 |
 | `hook_event_name` | string | 事件类型标识（固定为"Notification"） |
-| `message` | string | 通知消息内容（**Notification特有字段**） |
+| `message` | string | 通知正文 |
+| `title` | string | 可选通知标题；缺省时由转发脚本给默认值 |
+| `notification_type` | string | 通知类型，也是 Notification matcher 匹配的值 |
 
-> ⚠️ **注意**：根据官方实现，Notification Hook**没有`title`字段**，只有`message`字段。
+> **字段说明**：Notification 输入有 `message` 和 `notification_type`，还可以包含 `title`。转发时保留已有标题；没有标题时再使用默认值。Notification Hook 用于通知等副作用，不能靠它修改或阻断原通知。
 
 #### 完整示例：桌面通知Hook
 
@@ -1262,41 +1270,30 @@ import subprocess
 import platform
 
 def send_notification(title: str, message: str):
-    """发送系统桌面通知"""
+    """把通知作为数据传入，避免拼进 AppleScript 或 PowerShell 代码。"""
     system = platform.system()
-
     try:
-        if system == 'Darwin':  # macOS
-            subprocess.run([
-                'osascript', '-e',
-                f'display notification "{message}" with title "{title}"'
-            ])
+        if system == 'Darwin':
+            script = 'on run argv\ndisplay notification (item 2 of argv) with title (item 1 of argv)\nend run'
+            subprocess.run(['osascript', '-e', script, title, message], check=True)
         elif system == 'Linux':
-            subprocess.run(['notify-send', title, message])
+            subprocess.run(['notify-send', title, message], check=True)
         elif system == 'Windows':
-            # Windows Toast通知（推荐方式）
-            # 需要先安装：Install-Module -Name BurntToast -Scope CurrentUser
-            try:
-                # 优先使用BurntToast（更可靠）
-                ps_cmd = f'New-BurntToastNotification -Text "{title}", "{message}"'
-                result = subprocess.run(['powershell', '-Command', ps_cmd], capture_output=True)
-                if result.returncode != 0:
-                    raise Exception("BurntToast not available")
-            except:
-                # 回退方案：使用Windows原生Toast
-                ps_cmd = f'''
-                [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
-                $template = [Windows.UI.Notifications.ToastTemplateType]::ToastText02
-                $xml = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent($template)
-                $text = $xml.GetElementsByTagName("text")
-                $text[0].AppendChild($xml.CreateTextNode("{title}")) | Out-Null
-                $text[1].AppendChild($xml.CreateTextNode("{message}")) | Out-Null
-                $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
-                [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("Claude Code").Show($toast)
-                '''
-                subprocess.run(['powershell', '-Command', ps_cmd], capture_output=True)
+            # 需先安装 BurntToast；JSON 使用 base64 传入，通知正文不参与脚本解析。
+            import base64
+            payload = base64.b64encode(
+                json.dumps({'title': title, 'message': message}, ensure_ascii=False).encode('utf-8')
+            ).decode('ascii')
+            script = (
+                "$ErrorActionPreference = 'Stop'; "
+                "$data = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('"
+                + payload + "')) | ConvertFrom-Json; "
+                "Import-Module BurntToast -ErrorAction Stop; "
+                "New-BurntToastNotification -Text $data.title, $data.message"
+            )
+            subprocess.run(['powershell', '-NoProfile', '-Command', script], check=True)
     except Exception as e:
-        print(f"通知发送失败: {e}", file=sys.stderr)
+        print(f'通知发送失败: {e}', file=sys.stderr)
 
 def main():
     try:
@@ -1304,15 +1301,15 @@ def main():
     except json.JSONDecodeError:
         return
 
-    # 获取消息内容（注意：没有notification_type字段）
+    # Notification 输入包含 message、可选 title 和 notification_type
     message = input_data.get('message', '')
     session_id = input_data.get('session_id', '')
 
     if not message:
         return
 
-    # 构建通知标题
-    title = "Claude Code"
+    # 保留事件标题；缺失或为空时使用默认值。
+    title = input_data.get("title") or "Claude Code"
 
     # 发送桌面通知
     send_notification(title, message)
@@ -1328,7 +1325,7 @@ if __name__ == '__main__':
 
 #### 触发时机
 
-Claude Code**启动时**触发。
+新建会话、恢复会话、`/clear`、压缩后及 fork 新会话时触发，输入 `source` 分别说明来源；需要只在新建时执行，可以设 `matcher: "startup"`。
 
 #### 用途
 
@@ -1351,7 +1348,7 @@ import shutil
 
 # 检查必需的工具
 required_tools = {
-    'node': 'Node.js (npm install)',
+    'node': 'Node.js（从 Node.js 官方安装说明安装）',
     'python': 'Python 3.x',
     'git': 'Git版本控制',
 }
@@ -1395,6 +1392,12 @@ if missing_required or missing_optional:
 else:
     print("V 环境检查通过，所有工具已就绪", file=sys.stderr)
 
+# 向用户显示汇总；上面的详细 stderr 留在 debug 日志中
+import json
+summary = "环境检查通过" if not missing_required else "缺少必需工具：" + "; ".join(missing_required)
+if missing_optional:
+    summary += "；可选工具：" + "; ".join(missing_optional)
+print(json.dumps({"systemMessage": summary}, ensure_ascii=False))
 sys.exit(0)
 ```
 
@@ -1408,7 +1411,7 @@ sys.exit(0)
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/session-start-check.py",
+            "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/session-start-check.py"],
             "timeout": 10
           }
         ]
@@ -1459,7 +1462,7 @@ exit 0
 }
 ```
 
-> ⚠️ **注意**：Stop Hook**没有`reason`字段**，只有标准字段。
+> ⚠️ **注意**：上面只是省略事件字段的最小输入示意。Stop 还包含 `stop_hook_active`、`last_assistant_message` 及任务、定时任务状态；`reason` 是要求继续时的输出反馈字段，不是这个输入里的停止原因。返回 `decision: "block"` 时先检查 `stop_hook_active`，避免反复要求继续。
 
 **用途**：
 - 保存当前状态
@@ -1518,85 +1521,131 @@ sys.exit(0)
 
 #### WorktreeCreate（工作树创建时触发）
 
-**触发时机**：Claude Code 创建新的 Git Worktree 时自动触发
+**触发时机**：通过 `claude --worktree`、配置了 `isolation: "worktree"` 的子代理或需要隔离的后台会话创建工作副本时。
 
-**典型用途**：
-- 初始化工作树特定的环境配置
-- 安装工作树所需的依赖
-- 设置工作树专属的环境变量
-- 记录工作树创建日志
-
-**配置示例**：
-
-```json
-{
-  "hooks": {
-    "WorktreeCreate": [
-      {
-        "command": "echo \"新工作树已创建: $(date)\" >> ~/.claude/worktree.log",
-        "timeout": 10000
-      }
-    ]
-  }
-}
-```
+配置这个 Hook 后，Claude Code 会把默认的 Git 创建过程交给它。Hook 必须实际创建工作目录并返回路径；仅写一条“已创建”的日志会使创建失败。适合自定义 Git 流程，或接入 SVN、Perforce、Mercurial 等版本控制系统。
 
 **输入数据**（通过 stdin 接收 JSON）：
 
 ```json
 {
-  "worktree_path": "/path/to/worktree",
-  "branch": "feature/new-feature"
+  "session_id": "example-session",
+  "transcript_path": "/path/to/transcript.jsonl",
+  "cwd": "/path/to/project",
+  "hook_event_name": "WorktreeCreate",
+  "name": "feature-auth"
 }
 ```
 
-#### WorktreeRemove（工作树删除时触发）
+`name` 是用户指定或自动生成的工作树短名称。此时目录还没有由默认流程创建，输入里没有供你直接使用的 `worktree_path` 或 `branch`。
 
-**触发时机**：Claude Code 删除 Git Worktree 时自动触发
+**完整示例：由 Hook 创建 Git 工作树**
 
-**典型用途**：
-- 清理工作树相关的临时文件
-- 释放工作树占用的资源
-- 记录工作树删除日志
-- 归档工作树的工作成果
+适用于已有提交的 Git 仓库，需要 Git 和 Python 3。把下面代码保存为项目中的 `.claude/hooks/create-worktree.py`。示例只接受字母或数字开头的短名称，创建 `hook-worktree/<name>` 新分支；目录或分支已存在时直接报错，不覆盖既有成果。
 
-**配置示例**：
+```python
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
 
-```json
-{
-  "hooks": {
-    "WorktreeRemove": [
-      {
-        "command": "echo \"工作树已删除: $(date)\" >> ~/.claude/worktree.log",
-        "timeout": 10000
-      }
-    ]
-  }
-}
+request = json.load(sys.stdin)
+name = request["name"]
+if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", name):
+    raise ValueError("worktree name must be a simple slug")
+
+root = Path(subprocess.run(
+    ["git", "-C", request["cwd"], "rev-parse", "--show-toplevel"],
+    check=True, capture_output=True, text=True,
+).stdout.strip()).resolve()
+base = root / ".claude" / "worktrees"
+for parent in (root / ".claude", base):
+    if parent.is_symlink():
+        raise ValueError("worktree parent must not be a symlink")
+base.mkdir(parents=True, exist_ok=True)
+target = base / name
+if target.exists() or target.is_symlink():
+    raise FileExistsError(target)
+
+branch = "hook-worktree/" + name
+subprocess.run(
+    ["git", "check-ref-format", "--branch", branch],
+    check=True, stdout=sys.stderr,
+)
+subprocess.run(
+    ["git", "-C", str(root), "worktree", "add", "-b", branch, str(target), "HEAD"],
+    check=True, stdout=sys.stderr,
+)
+print(str(target.resolve()))
 ```
 
-**实战场景：工作树生命周期管理**
+将下列事件合并到现有 `.claude/settings.json` 的 `hooks` 中。这里使用 exec form，脚本路径作为独立参数，能处理项目路径中的空格；若本机 Python 命令叫 `python3`，相应修改 `command`。
 
 ```json
 {
   "hooks": {
     "WorktreeCreate": [
       {
-        "command": ".claude/hooks/worktree-init.sh",
-        "timeout": 30000
-      }
-    ],
-    "WorktreeRemove": [
-      {
-        "command": ".claude/hooks/worktree-cleanup.sh",
-        "timeout": 15000
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/create-worktree.py"],
+            "timeout": 30
+          }
+        ]
       }
     ]
   }
 }
 ```
 
-> ⚠️ **注意**：WorktreeCreate 和 WorktreeRemove 都是**不可阻止**的Hook，它们只用于执行附加操作，不能阻止工作树的创建或删除。
+**输出契约**：command Hook 把创建目录的路径放在 stdout 最后一条非空行，其他日志写 stderr。非零退出、没有返回路径，或返回的目录无法进入，都会使创建失败。优先返回规范化的绝对路径；不要含 `.`、`..`，也不要经过仓库内部的符号链接。HTTP Hook 则通过 `hookSpecificOutput.worktreePath` 返回路径，并设置 `hookEventName: "WorktreeCreate"`。
+
+自定义创建接管了整个默认流程，`.worktreeinclude` 不会自动处理；需要复制哪些本地配置或执行哪些初始化步骤，要由创建脚本明确实现。这里只演示创建工作树，没有安装依赖或复制本地配置。
+
+#### WorktreeRemove（工作树删除时触发）
+
+**触发时机**：工作树即将被移除时，例如退出工作树会话并选择删除，或隔离子代理结束。输入使用 `worktree_path`，这与创建事件的 `name` 不同：
+
+```json
+{
+  "session_id": "example-session",
+  "transcript_path": "/path/to/transcript.jsonl",
+  "cwd": "/path/to/project",
+  "hook_event_name": "WorktreeRemove",
+  "worktree_path": "/path/to/project/.claude/worktrees/feature-auth"
+}
+```
+
+Git 工作树由 Claude Code 使用 `git worktree remove` 清理。下面是可选的调试 Hook，只把收到的删除路径写到 stderr，不承担删除动作：
+
+```json
+{
+  "hooks": {
+    "WorktreeRemove": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": [
+              "-c",
+              "import json, sys; data = json.load(sys.stdin); print('WorktreeRemove requested: ' + data['worktree_path'], file=sys.stderr)"
+            ],
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+如果用 WorktreeCreate 创建了非 Git 工作副本，还必须自己实现配套的清理逻辑：从 stdin 读取 `worktree_path`，先核对规范化路径和允许清理的根目录，再清理该工作副本；只记录日志不会完成清理。没有配套清理 Hook 时，目录会留在磁盘上。
+
+**失败契约**：WorktreeRemove 非零退出且目标目录仍存在时，移除失败；后台会话删除也会保留对应会话。它的 JSON 决策字段会被忽略，不能靠 `continue: false` 代替退出码；已被脚本删除的内容也不会因此恢复。完整规则见 [官方 WorktreeCreate](https://code.claude.com/docs/en/hooks#worktreecreate) 与 [WorktreeRemove](https://code.claude.com/docs/en/hooks#worktreeremove)。
 
 #### 与 `--worktree` 启动参数的关系
 
@@ -1645,7 +1694,7 @@ claude -w
 ```
 
 **Hook 的角色**：
-- **Git 用户**：直接使用 `claude -w` 即可，Hook 是可选的增强（如自动安装依赖）
+- **Git 用户**：直接使用 `claude -w` 即可；只有需要接管默认创建流程时才配置 WorktreeCreate。配置后要负责实际创建，不能只添加安装依赖或日志命令。
 - **非 Git 用户**（SVN/Perforce/Mercurial）：通过 WorktreeCreate/WorktreeRemove Hook 自定义工作树的创建和清理逻辑，替代默认的 Git 行为
 
 ---
@@ -1670,8 +1719,13 @@ claude -w
   "hooks": {
     "SubagentStart": [
       {
-        "command": "echo \"子代理已启动: $(date)\" >> ~/.claude/subagent.log",
-        "timeout": 5000
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"子代理已启动: $(date)\" >> ~/.claude/subagent.log",
+            "timeout": 5
+          }
+        ]
       }
     ]
   }
@@ -1680,7 +1734,7 @@ claude -w
 
 #### SubagentStop（子代理停止时触发）
 
-**触发时机**：子代理完成任务或被终止时自动触发
+**触发时机**：子代理准备结束响应时触发。可以返回 `decision: "block"` 和 `reason` 要求它继续处理未完成事项；不要把它当成所有强制终止都会经过的清理保证。
 
 **典型用途**：
 - 收集子代理执行结果
@@ -1707,13 +1761,23 @@ claude -w
   "hooks": {
     "PermissionRequest": [
       {
-        "command": "python .claude/hooks/permission-policy.py",
-        "timeout": 5000
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "timeout": 5,
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/permission-policy.py"
+            ]
+          }
+        ]
       }
     ]
   }
 }
 ```
+
+这里的 `permission-policy.py` 是扩展入口，需先创建脚本并实现具体策略：从 stdin 读取权限请求，在退出 `0` 时通过 `hookSpecificOutput` 返回 `hookEventName: "PermissionRequest"` 和 `decision.behavior`（`allow` / `deny`）。不要把一个尚不存在的脚本路径当成完整的自动审批方案；精确结构见 [官方 PermissionRequest 参考](https://code.claude.com/docs/en/hooks#permissionrequest)。
 
 ---
 
@@ -1721,12 +1785,14 @@ claude -w
 
 > **v2.1.49+ 新增**：在 Claude Code 执行上下文压缩（Compact）前触发。
 
-**触发时机**：当对话上下文即将被压缩时
+**触发时机**：当对话上下文即将被压缩时；matcher 可用 `manual` 或 `auto`。
 
 **典型用途**：
 - 在压缩前保存关键上下文信息
 - 记录压缩事件日志
-- 导出当前对话状态
+- 在必要校验未完成时阻止压缩
+
+**控制方式**：退出码 `2`，或退出 `0` 并返回 `{"decision":"block"}`，都能阻止压缩。手动 `/compact` 的 stderr 会显示给用户。阻止提前触发的自动压缩时，会话继续保持未压缩状态；如果压缩是为恢复 API 已返回的上下文超限错误而触发，阻止它会让原错误继续暴露、本次请求失败。`continue` 和 `systemMessage` 在这个事件中会被忽略。
 
 ---
 
@@ -1734,25 +1800,29 @@ claude -w
 
 > **v2.1.49+ 新增**：在 Claude Code 配置发生变更时触发。
 
-**触发时机**：settings.json 或其他配置文件被修改时
+**触发时机**：会话中的设置文件、部分受管策略文件或 Skill 文件变化时，输入中的 `source` 标明来源，`file_path` 可能提供具体路径。
 
 **典型用途**：
 - 配置变更审计和日志记录
-- 自动同步配置到其他环境
-- 配置变更通知
+- 校验新的项目或用户设置
+- 阻止不符合策略的新设置应用到当前会话
+
+**控制方式**：退出码 `2` 或 `{"decision":"block"}` 可阻止当前会话应用新配置，不会回滚磁盘上已经写入的文件。`policy_settings` 是例外：本机受管设置文件变化会触发审计，但阻断结果被忽略；服务端受管设置下发或刷新不触发此事件。
 
 ---
 
 ### 3.12 TeammateIdle（队友空闲）🆕
 
-> **v2.1.49+ 新增**：在多代理协作场景中，当队友代理进入空闲状态时触发。
+> **v2.1.49+ 新增**：在多代理协作场景中，队友即将进入空闲状态时触发。
 
-**触发时机**：协作中的队友代理完成当前任务、进入空闲状态时
+**触发时机**：队友完成当前回合、准备空闲时；不支持 matcher。
 
 **典型用途**：
-- 自动分配待处理任务给空闲队友
+- 检查交付文件或验证结果是否齐全
 - 发送状态通知
-- 协调多代理工作流
+- 把未完成事项反馈给队友继续处理
+
+**控制方式**：退出码 `2` 会把 stderr 反馈给队友，让它继续工作而非进入空闲。另一种控制是返回 `{"continue":false,"stopReason":"..."}`，这会停止该队友；两者作用相反，不能混用。
 
 ---
 
@@ -1766,12 +1836,12 @@ claude -w
 
 **触发时机**：当API错误（429限流、401认证失败、500服务器错误等）导致会话异常停止时触发
 
-> ⚡ **与Stop的区别**：`Stop` 是正常结束（用户主动退出、任务完成），就像下班正常关灯锁门；`StopFailure` 是异常中断，就像突然停电——你需要知道发生了什么并采取措施。
+> **与 Stop 的区别**：`Stop` 在 Claude 准备结束响应时触发，可要求继续；`StopFailure` 在 API 错误导致回合结束时替代 Stop。用户退出会话属于 SessionEnd，不能与 Stop 混为一谈。
 
 **典型用途**：
 - 发送告警通知（Slack/邮件/钉钉）
 - 记录错误日志用于后续分析
-- 触发自动重试或降级逻辑
+- 记录恢复线索，供后续重试或降级时使用
 
 **配置示例**：
 
@@ -1780,15 +1850,23 @@ claude -w
   "hooks": {
     "StopFailure": [
       {
-        "command": "python .claude/hooks/alert-on-failure.py",
-        "timeout": 10000
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "timeout": 10,
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/alert-on-failure.py"
+            ]
+          }
+        ]
       }
     ]
   }
 }
 ```
 
-> 📝 **输入数据**：StopFailure的stdin JSON中包含 `error` 字段，携带具体的错误类型和消息，可用于区分限流、认证失败等不同场景。
+> **输入与控制**：`error` 是错误类型（如 `rate_limit`），具体说明在可选的 `error_details` 中，`last_assistant_message` 此时可能是展示给用户的 API 错误文本。除 `terminalSequence` 外，输出和退出码均不参与决策，不能靠返回 block 或 continue 重启失败的回合。示例中的 `alert-on-failure.py` 需要你先实现；可只记录错误类型和必要的排障信息。
 
 ---
 
@@ -1799,9 +1877,9 @@ claude -w
 > 🎯 **生活类比**：就像搬家后清点物品——压缩完成后，你想知道"丢掉了多少东西、还剩多少空间"。
 
 **典型用途**：
-- 记录压缩前后的token数量变化
-- 触发上下文恢复操作（如重新加载关键文件）
-- 日志记录用于监控上下文使用趋势
+- 记录 `trigger`（manual / auto）和 `compact_summary`
+- 按压缩摘要更新外部记录
+- 记录压缩完成的时间；前后 token 数需另外采集，事件不直接提供这两个计数
 
 **配置示例**：
 
@@ -1810,8 +1888,13 @@ claude -w
   "hooks": {
     "PostCompact": [
       {
-        "command": "echo \"[$(date)] 上下文已压缩\" >> ~/.claude/compact.log",
-        "timeout": 5000
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"[$(date)] 上下文已压缩\" >> ~/.claude/compact.log",
+            "timeout": 5
+          }
+        ]
       }
     ]
   }
@@ -1840,15 +1923,23 @@ claude -w
   "hooks": {
     "InstructionsLoaded": [
       {
-        "command": "python .claude/hooks/verify-instructions.py",
-        "timeout": 5000
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "timeout": 5,
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/verify-instructions.py"
+            ]
+          }
+        ]
       }
     ]
   }
 }
 ```
 
-> 📝 **输入数据**：stdin JSON中包含已加载指令文件的路径列表，可用于检查关键指令文件是否缺失。
+> **输入与控制**：每次事件提供一个已加载文件的 `file_path`，以及 `memory_type`、`load_reason` 等字段，不是路径列表。它会随启动加载和后续惰性加载多次触发，异步运行且不能阻止或修改指令加载。示例中的 `verify-instructions.py` 是需要自行实现的审计脚本，不能靠它返回 deny 来阻止文件生效。
 
 ---
 
@@ -1868,7 +1959,7 @@ claude -w
 
 **ElicitationResult — 用户完成输入后触发**
 
-**触发时机**：用户完成MCP交互输入并提交后
+**触发时机**：用户响应 MCP 交互请求后、结果返回 MCP server 之前；Hook 可以检查、改写或拒绝这份响应。
 
 **典型用途**：
 - 验证用户输入数据的合法性
@@ -1882,19 +1973,36 @@ claude -w
   "hooks": {
     "Elicitation": [
       {
-        "command": "echo \"MCP请求输入: $(date)\" >> ~/.claude/elicitation.log",
-        "timeout": 5000
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"MCP请求输入: $(date)\" >> ~/.claude/elicitation.log",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "ElicitationResult": [
       {
-        "command": "python .claude/hooks/validate-elicitation.py",
-        "timeout": 5000
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "timeout": 5,
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/validate-elicitation.py"
+            ]
+          }
+        ]
       }
     ]
   }
 }
 ```
+
+`Elicitation` 的退出码 `2` 拒绝输入请求；`ElicitationResult` 的退出码 `2` 拒绝响应，把 action 改为 `decline`。这两个事件的 stderr 不会显示给用户或 Claude。需要明确返回结果时，使用 `hookSpecificOutput`，填写对应的 `hookEventName` 和 `action`（`accept` / `decline` / `cancel`），`content` 只在接受时承载表单数据。
+
+上例中的 `validate-elicitation.py` 需要自行实现：读取 stdin 的 `mcp_server_name`、`action` 和可选的 `content`，再按上述契约返回。配置示例本身不包含校验策略。其他字段见 [官方 Elicitation 参考](https://code.claude.com/docs/en/hooks#elicitation)。
 
 ---
 
@@ -1911,9 +2019,13 @@ claude -w
   "hooks": {
     "PostToolUse": [
       {
-        "type": "http",
-        "url": "https://your-webhook.example.com/hook",
-        "timeout": 5000
+        "hooks": [
+          {
+            "type": "http",
+            "url": "https://your-webhook.example.com/hook",
+            "timeout": 5
+          }
+        ]
       }
     ]
   }
@@ -1946,6 +2058,35 @@ claude -w
 
 ---
 
+### 3.15 直接调用 MCP 工具的 Hook
+
+当前 Hook 有五种处理器：`command`、`http`、`mcp_tool`、`prompt`、`agent`。`mcp_tool` 从 v2.1.118 起可用，可以让事件直接调用已配置 MCP 服务器上的工具；它与让 Claude 自行选择调用工具不同。
+
+下面是配置示意：先配置名为 `my_server`、确实提供 `security_scan` 的服务器，并在 `/mcp` 中确认连接与认证。将事件合并进现有设置；示例没有提供扫描服务器，不能只粘贴 JSON 就完成扫描。
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [{
+      "matcher": "Write|Edit",
+      "hooks": [{
+        "type": "mcp_tool",
+        "server": "my_server",
+        "tool": "security_scan",
+        "input": {"file_path": "${tool_input.file_path}"},
+        "timeout": 30
+      }]
+    }]
+  }
+}
+```
+
+`server` 和 `tool` 必填，`input` 是工具参数，字符串里的 `${路径}` 从事件 JSON 取值。插件附带的服务器要写作用域名称，例如 `plugin:my-plugin:db`。工具的文本结果按 command Hook 的 stdout 规则解析；`isError: true` 只产生非阻断错误，不能当作可靠的拒绝开关。
+
+在 `PreToolUse`、`Stop` 这类能影响流程的事件上，连接中的服务器会在 MCP 连接超时和 Hook 自身超时范围内被等待；通知等观察事件不等待。Hook 不会替你开启 OAuth 登录。启动时的 `SessionStart`（包括 resume / continue）和所有 `Setup` 发生在 MCP 客户端可用之前，会跳过 `mcp_tool`；会话内 `/clear` 或压缩后的 `SessionStart` 才能调用它。启动必须执行的工作使用 command Hook。完整契约见[官方 MCP tool Hook 参考](https://code.claude.com/docs/en/hooks#mcp-tool-hook-fields)。
+
+---
+
 ## 第四部分：实战应用场景
 
 > **本节目的**：学习真实项目中的Hook应用
@@ -1962,6 +2103,8 @@ claude -w
 - 分支保护（禁止直接提交main）
 
 **完整脚本 `.claude/hooks/git-pre-commit-checker.py`**：
+
+下面的 Python 脚本按 macOS / Linux / WSL 环境讲解，并先安装所需的 ruff、eslint。它只匹配 Bash 输入里字面包含 `git commit` 的命令；`git -C ... commit`、`git -c ... commit` 或其他工具执行提交都可能绕过它。因此它是事件检查示例，不能当完整提交策略。需要统一执行的规则，应结合真正的 Git hook、CI 和受保护分支；也要检查对应工具和配置是否可被绕过。
 
 ```python
 #!/usr/bin/env python3
@@ -1991,7 +2134,7 @@ CONFIG = {
 def run_command(cmd, timeout=60):
     """运行命令并返回结果"""
     try:
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout)
+        result = subprocess.run(cmd, shell=False, capture_output=True, text=True, timeout=timeout)
         return result.returncode, result.stdout, result.stderr
     except subprocess.TimeoutExpired:
         return -1, '', 'Command timed out'
@@ -2000,9 +2143,9 @@ def run_command(cmd, timeout=60):
 
 def check_branch():
     """检查分支规则"""
-    code, stdout, _ = run_command('git rev-parse --abbrev-ref HEAD')
+    code, stdout, _ = run_command(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
     if code != 0:
-        return True, "无法获取当前分支"
+        return False, "无法获取当前分支，检查未完成"
 
     branch = stdout.strip()
     if branch in CONFIG['protected_branches']:
@@ -2012,9 +2155,9 @@ def check_branch():
 
 def check_secrets():
     """检查敏感信息"""
-    code, stdout, _ = run_command('git diff --cached')
+    code, stdout, _ = run_command(['git', 'diff', '--cached'])
     if code != 0:
-        return True, "无法获取diff"
+        return False, "无法获取diff，检查未完成"
 
     findings = []
     for pattern in CONFIG['secret_patterns']:
@@ -2027,11 +2170,11 @@ def check_secrets():
 
 def check_lint():
     """代码风格检查"""
-    code, stdout, _ = run_command('git diff --cached --name-only --diff-filter=ACMR')
+    code, stdout, _ = run_command(['git', 'diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z'])
     if code != 0:
-        return True, "无法获取变更文件列表"
+        return False, "无法获取变更文件列表，检查未完成"
 
-    files = [f for f in stdout.strip().split('\n') if f]
+    files = [f for f in stdout.split('\0') if f]
     py_files = [f for f in files if f.endswith('.py')]
     js_files = [f for f in files if f.endswith(('.js', '.ts', '.jsx', '.tsx'))]
 
@@ -2039,13 +2182,13 @@ def check_lint():
 
     # Python文件检查
     if py_files:
-        code, stdout, stderr = run_command(f'ruff check {" ".join(py_files)}')
+        code, stdout, stderr = run_command(['ruff', 'check', '--', *py_files])
         if code != 0:
             errors.append(f"Python代码问题:\n{stdout or stderr}")
 
     # JavaScript/TypeScript文件检查
     if js_files:
-        code, stdout, stderr = run_command(f'npx eslint {" ".join(js_files)} --quiet')
+        code, stdout, stderr = run_command(['npx', 'eslint', '--quiet', '--', *js_files])
         if code != 0:
             errors.append(f"JS/TS代码问题:\n{stdout or stderr}")
 
@@ -2106,8 +2249,11 @@ def main():
     # 输出决策
     if not all_passed:
         decision = {
-            "decision": "ask",
-            "message": "检查未通过，是否仍要继续提交？"
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "ask",
+                "permissionDecisionReason": "检查未通过，请确认是否继续提交。"
+            }
         }
         print(json.dumps(decision, ensure_ascii=False))
     else:
@@ -2128,7 +2274,7 @@ if __name__ == '__main__':
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/git-pre-commit-checker.py",
+            "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/git-pre-commit-checker.py"],
             "timeout": 120
           }
         ]
@@ -2169,7 +2315,7 @@ def check_article_quality(file_path):
     # 统计指标
     char_count = len(content)
     word_count = len(content.split())
-    has_title = content.strip().startswith('#')
+    has_title = content.strip().startswith('# ')
     paragraphs = [p for p in content.split('\n\n') if p.strip()]
     paragraph_count = len(paragraphs)
 
@@ -2236,7 +2382,7 @@ if __name__ == '__main__':
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/user-prompt-enhance.py",
+            "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/user-prompt-enhance.py"],
             "timeout": 5
           }
         ]
@@ -2248,7 +2394,7 @@ if __name__ == '__main__':
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/pre-protect-production.py",
+            "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/pre-protect-production.py"],
             "timeout": 5
           }
         ]
@@ -2258,12 +2404,12 @@ if __name__ == '__main__':
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/pre-block-dangerous-cmd.py",
+            "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/pre-block-dangerous-cmd.py"],
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python .claude/hooks/git-pre-commit-checker.py",
+            "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/git-pre-commit-checker.py"],
             "timeout": 120
           }
         ]
@@ -2275,12 +2421,12 @@ if __name__ == '__main__':
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/post-auto-format.py",
+            "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/post-auto-format.py"],
             "timeout": 30
           },
           {
             "type": "command",
-            "command": "python .claude/hooks/post-article-quality.py",
+            "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/post-article-quality.py"],
             "timeout": 10
           }
         ]
@@ -2290,7 +2436,7 @@ if __name__ == '__main__':
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/post-auto-backup.py",
+            "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/post-auto-backup.py"],
             "timeout": 10
           }
         ]
@@ -2301,7 +2447,7 @@ if __name__ == '__main__':
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/session-start-check.py",
+            "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/session-start-check.py"],
             "timeout": 10
           }
         ]
@@ -2312,7 +2458,7 @@ if __name__ == '__main__':
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/notification-desktop.py",
+            "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/notification-desktop.py"],
             "timeout": 5
           }
         ]
@@ -2351,12 +2497,9 @@ python -c "import json; json.load(open('.claude/settings.json'))"
 ```
 
 3. **检查Matcher是否匹配**
-```json
-// 错误：matcher拼写错误
-"matcher": "write"  // X 应该是大写W
-
-// 正确
-"matcher": "Write"  // V
+```text
+错误的字段片段："matcher": "write"  （工具名应使用大写 W）
+正确的字段片段："matcher": "Write"
 ```
 
 4. **检查脚本路径**
@@ -2418,11 +2561,15 @@ print(f"DEBUG: 收到输入: {input_data}", file=sys.stderr)
 **解决方案**：
 
 1. **增加timeout配置**
+
+下面是内层 `hooks` 数组中的一个 handler，`timeout` 的单位为秒。先提供实际脚本，再合并到对应事件：
+
 ```json
 {
   "type": "command",
-  "command": "python .claude/hooks/slow-hook.py",
-  "timeout": 120  // 增加到120秒
+  "command": "python",
+  "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/slow-hook.py"],
+  "timeout": 120
 }
 ```
 
@@ -2505,8 +2652,10 @@ if DEBUG:
 ```
 
 **技巧3：逐步排除法**
+
+先只保留一个 Hook 测试：
+
 ```json
-// 先只保留一个Hook测试
 {
   "hooks": {
     "PostToolUse": [
@@ -2535,7 +2684,7 @@ if DEBUG:
 | 对比 | Hook | CLAUDE.md |
 |------|------|-----------|
 | **执行方式** | 自动执行Shell命令 | Claude解读后决定是否遵循 |
-| **可靠性** | 100%执行 | 不确定（AI可能忘记） |
+| **可靠性** | 匹配事件自动调用；依赖配置、程序和运行结果 | 依赖Claude是否遵循 |
 | **用途** | 强制规则、自动化 | 提供上下文、建议 |
 
 **Q2: Hook可以用什么语言写？**
@@ -2549,14 +2698,11 @@ if DEBUG:
 
 **Q3: Hook的timeout默认是多少？**
 
-默认60秒。建议根据任务复杂度设置：
-- 简单检查：5-10秒
-- 代码格式化：30秒
-- 完整测试：120秒
+当前默认值按处理器和事件区分：command / http / mcp_tool 通常为600秒，prompt为30秒，agent为60秒；前三类在 UserPromptSubmit、PreModelSwitch、PostModelSwitch 上默认30秒，在 MessageDisplay 上默认10秒。SessionEnd 另有默认1.5秒总预算，显式较长 timeout 可提高预算，但上限60秒。`timeout` 单位是秒，生产检查应按任务明确设置，而不是依赖一个统一默认值。
 
 **Q4: 一个事件可以配置多个Hook吗？**
 
-可以！多个Hook会按顺序执行：
+可以。匹配到同一事件的多个 Hook 会并行运行，不保证数组顺序。如果后一步必须读取前一步的结果，把这些步骤放在同一个脚本里串行执行。下面两个 Hook 应当互不依赖。示例是 `hooks.PostToolUse` 数组中的一个匹配组，需放入现有配置的对应位置：
 
 ```json
 {
@@ -2576,14 +2722,14 @@ PreToolUse 有新旧两套API（新旧并存）：
 
 | 值 | 效果 |
 |---|------|
-| `"allow"` | 允许执行，绕过权限系统 |
+| `"allow"` | 跳过常规权限询问；系统保护例外仍需人工确认 |
 | `"deny"` | 拒绝执行，原因会反馈给Claude |
 | `"ask"` | 暂停，询问用户决定 |
-| 无输出 | 默认允许 |
+| 无输出 | 不做决策，按该事件的正常流程继续 |
 
 **旧版（已废弃但仍支持）**：通过 `decision` 字段返回，映射关系见前文“旧版决策值”表。这里不重复展开，实际新脚本优先使用 `hookSpecificOutput.permissionDecision`。
 
-PostToolUse 和 UserPromptSubmit 使用 `"block"` 来阻止/提供反馈，无输出则默认允许。
+PostToolUse 的 `"block"` 是执行后的反馈，不能撤销工具操作；UserPromptSubmit 的 `"block"` 可阻止提示词提交。无输出表示没有追加决策。
 
 ### 配置问题
 
@@ -2630,12 +2776,13 @@ session_id = input_data.get('session_id', '')
 
 **Q10: 如何临时禁用Hook？**
 
-方法1：重命名配置文件
+临时关闭可在设置中写 `"disableAllHooks": true`。只想关闭本次会话时，从终端启动：
+
 ```bash
-mv .claude/settings.json .claude/settings.json.bak
+claude --settings '{"disableAllHooks": true}'
 ```
 
-方法2：注释掉Hook配置（JSON不支持注释，需要删除）
+它不能从用户或项目层关闭组织受管 Hook。若只删除某个 Hook，编辑其对应条目即可；不要重命名整个 settings.json，那会连 permissions、env 等其他配置一起停用。
 
 ### 脚本问题
 
@@ -2652,60 +2799,35 @@ tool_name = input_data.get('tool_name')
 
 **Q12: 如何在Hook中向用户输出信息？**
 
-**重要**：不同Hook类型的输出机制不同！
+不同事件的输出机制不同。向用户显示消息，通常返回 `systemMessage`；向 Claude 添加上下文，使用该事件支持的 `additionalContext`。两者不要混淆。
 
-**PostToolUse Hook**：无法直接输出给用户
-- Claude Code只会显示"Hook执行成功/失败"
-- 如需调试，写入日志文件：
-```python
-from pathlib import Path
-log_file = Path.home() / '.claude' / 'hooks' / 'debug.log'
-with open(log_file, 'a') as f:
-    f.write(f"调试信息\n")
-```
-
-**UserPromptSubmit Hook**：通过stdout JSON的`additionalContext`字段
 ```python
 import json
-output = {
-    "hookSpecificOutput": {
-        "hookEventName": "UserPromptSubmit",
-        "additionalContext": "要显示给用户的内容"
-    }
-}
-print(json.dumps(output))
+print(json.dumps({"systemMessage": "格式化检查完成"}, ensure_ascii=False))
 ```
 
-**PreToolUse Hook**：通过stdout JSON返回决策
-```python
-import json
-decision = {
-    "hookSpecificOutput": {
-        "hookEventName": "PreToolUse",
-        "permissionDecision": {
-            "decision": "deny",
-            "message": "拒绝原因（用户可见）"
-        }
-    }
-}
-print(json.dumps(decision))
-```
+PostToolUse 可显示消息、追加上下文或替换工具输出，但不能撤销工具操作。UserPromptSubmit 的纯文本 stdout 或 `hookSpecificOutput.additionalContext` 是给 Claude 的上下文。PreToolUse 的拒绝理由写 `hookSpecificOutput.permissionDecisionReason`。
 
-**stderr输出**：仅用于调试，不会显示在Claude Code界面
-```python
-print("调试信息", file=sys.stderr)  # 只在终端可见，用户看不到
-```
+退出 `0` 时的 stderr 只进入 debug 日志；退出 `2` 或其他非零码的显示、阻断效果要按事件判断。Notification、MessageDisplay 等事件会忽略 `systemMessage`，不要对所有事件套同一返回格式。完整规则见[官方输入输出参考](https://code.claude.com/docs/en/hooks#hook-input-and-output)。
 
 **Q13: 如何返回决策（PreToolUse）？**
 
 使用stdout输出JSON：
 ```python
-print(json.dumps({"decision": "deny", "message": "原因"}))
+print(json.dumps({
+    "hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "permissionDecision": "deny",
+        "permissionDecisionReason": "原因"
+    }
+}))
 ```
+
+> 退出码 0 且无输出表示这个 Hook 没有决策，工具调用会走正常权限流程；沉默不等于批准。
 
 **Q14: 脚本报错会影响Claude Code吗？**
 
-不会！Hook脚本出错不会阻止Claude Code运行，只是该Hook功能失效。
+需要按事件和返回内容判断。普通脚本错误且没有合法决策时，多数事件报告非阻断错误并继续；PreToolUse 退出 `2` 会阻止工具，合法 JSON 决策也可能拒绝操作。WorktreeCreate 的任意非零退出都会使创建失败，WorktreeRemove 非零且目录仍在会使移除失败。不要把“程序异常”与“策略正常拒绝”混在一起，也不要默认所有失败都会放行。
 
 **Q15: 如何处理Windows/macOS/Linux兼容性？**
 
@@ -2714,24 +2836,22 @@ import platform
 system = platform.system()
 
 if system == 'Windows':
-    # Windows特定代码
+    pass  # 在此放 Windows 特定代码
 elif system == 'Darwin':  # macOS
-    # macOS特定代码
+    pass  # 在此放 macOS 特定代码
 else:  # Linux
-    # Linux特定代码
+    pass  # 在此放 Linux 特定代码
 ```
 
 ### 高级问题
 
 **Q16: Hook可以修改Claude的输出吗？**
 
-不能直接修改。但可以：
-- PostToolUse后修改文件内容
-- UserPromptSubmit修改用户输入
+可以改变特定层面的输出：MessageDisplay 的 `hookSpecificOutput.displayContent` 可以替换屏幕显示文本，但不改变会话记录或发给 Claude 的内容；PostToolUse 的 `updatedToolOutput` 可替换随后发给 Claude 的工具结果。UserPromptSubmit 添加上下文，不改写原始用户输入。先区分显示文本、工具结果和实际文件，再选择事件。
 
 **Q17: 多个Hook的执行顺序是什么？**
 
-按配置文件中的顺序依次执行。
+同一事件匹配到的多个 Hook 会并行运行，不保证配置文件或数组中的顺序。有前后依赖的步骤应放进同一个脚本，由脚本串行执行；Q4 的两个独立 Hook 不能依赖彼此先完成。
 
 **Q18: Hook可以调用Claude API吗？**
 
@@ -2752,7 +2872,7 @@ git commit -m "Add Claude Code hooks"
 **Q20: Hook有性能影响吗？**
 
 有一定影响：
-- 每次工具调用都会触发Hook
+- 只有配置的事件和 matcher / if 条件匹配时才运行对应 Hook
 - 复杂脚本会增加延迟
 - 建议优化脚本性能，设置合理timeout
 
@@ -2760,30 +2880,34 @@ git commit -m "Add Claude Code hooks"
 
 ## 附录A：配置速查表
 
-### Hook类型速查
+### 本课常用 Hook 类型速查
 
 | Hook类型 | 触发时机 | 输入格式 | 输出格式 | 可阻止 | 重要 |
 |----------|----------|----------|----------|--------|:----:|
 | UserPromptSubmit | 用户输入后 | JSON | 文本（注入上下文） | V |  |
 | PreToolUse | 工具调用前 | JSON | JSON决策 | V | ⭐ |
-| PostToolUse | 工具调用后 | JSON | 无 | X | ⭐ |
+| PostToolUse | 工具调用成功后 | JSON | JSON 反馈或上下文 | 不撤销已执行操作 | ⭐ |
 | Notification | 通知发送时 | JSON | 无 | X |  |
-| SessionStart | 会话开始 | 无 | 无 | X |  |
-| SessionEnd | 会话结束 | 无 | 无 | X |  |
-| Stop | AI停止 | JSON | 无 | X |  |
+| SessionStart | 会话开始或恢复 | JSON | 文本或 JSON 上下文 | X |  |
+| SessionEnd | 会话结束 | JSON | 清理与日志 | X |  |
+| Stop | Claude 准备结束响应 | JSON | block + reason | V：可要求继续 |  |
 | SubagentStart 🆕 | 子代理启动 | JSON | 无 | X |  |
-| SubagentStop 🆕 | 子代理停止 | JSON | 无 | X |  |
+| SubagentStop | 子代理准备结束 | JSON | block + reason | V：可要求继续 |  |
 | PermissionRequest 🆕 | 权限请求 | JSON | JSON决策 | V |  |
-| PreCompact 🆕 | 上下文压缩前 | JSON | 无 | X |  |
-| ConfigChange 🆕 | 配置变更 | JSON | 无 | X |  |
-| TeammateIdle 🆕 | 队友空闲 | JSON | 无 | X |  |
-| WorktreeCreate | 工作树创建 | JSON | 无 | X |  |
-| WorktreeRemove | 工作树删除 | JSON | 无 | X |  |
+| PreCompact 🆕 | 上下文压缩前 | JSON | 退出码 2 或 decision: block | V：可阻止压缩 |  |
+| ConfigChange 🆕 | 新配置应用前 | JSON | 退出码 2 或 decision: block | V：policy_settings 除外 |  |
+| TeammateIdle 🆕 | 队友即将空闲 | JSON | 退出码 2 + stderr 反馈 | V：让队友继续工作 |  |
+| WorktreeCreate | 接管工作树创建 | JSON（含 name） | 创建目录路径 | V：失败或无路径则创建失败 |  |
+| WorktreeRemove | 工作树即将移除 | JSON（含 worktree_path） | 退出码；JSON 决策忽略 | V：非零且目录仍存在则失败 |  |
 | StopFailure 🆕 | API异常停止 | JSON | 无 | X |  |
 | PostCompact 🆕 | 上下文压缩后 | JSON | 无 | X |  |
 | InstructionsLoaded 🆕 | 指令文件加载 | JSON | 无 | X |  |
-| Elicitation 🆕 | MCP请求输入 | JSON | 无 | X |  |
-| ElicitationResult 🆕 | MCP输入完成 | JSON | 无 | X |  |
+| Elicitation 🆕 | MCP 请求输入 | JSON | action / content，或退出码 2 | V：可拒绝请求 |  |
+| ElicitationResult 🆕 | 输入返回 MCP 前 | JSON | action / content，或退出码 2 | V：可拒绝响应 |  |
+| PreModelSwitch | 用户或客户端请求切换模型前 | JSON | JSON 决策 | V |  |
+| PostModelSwitch | 模型切换后 | JSON | 文本或 JSON 上下文 | 不撤销切换 |  |
+
+此表只列本课常用事件。其他事件及精确输入、输出字段请查[官方事件参考](https://code.claude.com/docs/en/hooks#hook-events)。
 
 ### 常用工具名速查
 
@@ -2803,10 +2927,10 @@ git commit -m "Add Claude Code hooks"
 
 | 值 | 含义 | 工具执行 | 重要 |
 |----|------|---------|:----:|
-| `"allow"` | 允许，绕过权限系统 | V | ⭐ |
+| `"allow"` | 跳过常规权限询问；系统保护例外仍需确认 | 通常执行 | ⭐ |
 | `"deny"` | 拒绝，原因反馈给Claude | X | ⭐ |
 | `"ask"` | 暂停，询问用户 | ? |  |
-| 无输出 | 默认允许 | V |  |
+| 无输出 | 不做决策，交给正常权限流程 | 按权限设置决定 |  |
 
 **PreToolUse 旧版 API**：`decision` 字段仍可兼容旧脚本，映射关系沿用前文“旧版决策值”表；新脚本优先写新版字段。
 
@@ -2814,8 +2938,8 @@ git commit -m "Add Claude Code hooks"
 
 | 值 | 含义 |
 |----|------|
-| `"block"` | 阻止/提供反馈 |
-| 无输出 | 默认允许 |
+| `"block"` | UserPromptSubmit 阻止提交；PostToolUse 提供执行后反馈，不撤销工具操作 |
+| 无输出 | 不做决策，按该事件的正常流程继续 |
 
 ---
 
@@ -2844,11 +2968,14 @@ def main():
     # 你的逻辑
     # ...
 
-    # 输出到Claude Code界面
+    # 本例退出0时，stderr只进入debug日志
     print("信息", file=sys.stderr)
 
-    # 如果是PreToolUse，输出决策
-    # print(json.dumps({"decision": "allow"}))
+    # PreToolUse 如需拒绝，使用合法的事件专用字段：
+    # print(json.dumps({"hookSpecificOutput": {
+    #     "hookEventName": "PreToolUse", "permissionDecision": "deny",
+    #     "permissionDecisionReason": "拒绝原因"
+    # }}))
 
 if __name__ == '__main__':
     main()
@@ -2887,7 +3014,7 @@ exit 0
 ### 社区资源
 
 - [ClaudeLog Hooks教程](https://claudelog.com/mechanics/hooks/)
-- [GitButler Claude Code Hooks集成](https://docs.gitbutler.com/features/ai-integration/claude-code-hooks)
+- [GitButler Agent 集成](https://docs.gitbutler.com/ai-agents/getting-started)：按当前官方支持配置 Agent 集成，旧 Hooks 专页已移除。
 - [Awesome Claude Code](https://github.com/hesreallyhim/awesome-claude-code)
 
 ### 相关课程
@@ -2903,7 +3030,7 @@ exit 0
 通过本课学习，你已经掌握：
 
 1. **Hooks核心概念**：理解Hook是什么、为什么需要、能做什么
-2. **15种Hook类型**：PreToolUse、PostToolUse、UserPromptSubmit、Notification、Stop、SessionStart、SessionEnd、SubagentStart、SubagentStop、PermissionRequest、PreCompact、ConfigChange、TeammateIdle、WorktreeCreate、WorktreeRemove全部类型
+2. **常用事件族**：工具调用、会话、子代理、权限、压缩、配置、工作树和 MCP 交互等事件的适用场景与控制方式
 3. **配置方法**：settings.json配置格式、Matcher语法、timeout设置
 4. **实战场景**：Git自动化、代码格式化、文件保护、质量检查
 5. **故障排查**：常见问题诊断和解决方法

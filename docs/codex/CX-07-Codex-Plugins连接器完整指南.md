@@ -13,7 +13,7 @@
 > - **个人博客**：https://aiking.dev
 > - **预计学时**：2-3小时
 > - **难度等级**：⭐⭐ 入门级
-> - **更新日期**：2026年5月30日
+> - **更新日期**：2026年10月3日
 > - **信息来源**：OpenAI Codex App Features、Plugins、Apps/Connectors、MCP、Skills 官方文档
 > - **前置要求**：已完成 [CX-01 安装](./CX-01-Codex-App安装与认证完整指南.md)、[CX-02 桌面工作流](./CX-02-Codex-App桌面工作流完整指南.md)
 
@@ -96,7 +96,7 @@
 |---|---|---|
 | 读取 GitHub PR / issue 上下文 | GitHub Connector / App | 账号上下文最直接 |
 | 使用浏览器、数据库、文档工具 | MCP | 工具协议更合适 |
-| 复用团队固定流程 | Skill | 不需要外部授权 |
+| 复用团队固定流程 | Skill | 复用指令与配套资源；是否需要授权取决于流程调用的外部工具 |
 | 一次安装一整套工作流 | Plugin | 能打包 Skills、MCP、Apps |
 | 定时读外部状态 | Automation + Connector / Skill | Connector 不负责调度 |
 
@@ -138,6 +138,14 @@
 ```text
 读取这个 GitHub issue 和当前仓库代码，判断问题是否已经被修复。只读，不修改文件。
 ```
+
+### 2.1 在插件界面里查看和编辑内容
+
+2026 年 9 月 29 日公布的 **Plugin extensions** 是 ChatGPT 插件界面的扩展，供使用相应网页或桌面入口的读者了解。支持它的插件可以拥有自己的界面：你可以从侧边栏打开插件，在对话旁的面板里操作，或用插件提供的查看器、编辑器打开受支持的文件。它适合需要一边讨论、一边查看设计稿、表单或文件的任务。
+
+先安装支持扩展的插件，完成它要求的账号连接，再按插件说明从侧边栏或对话面板打开。打开文件时，也可以检查当前插件是否提供该文件类型的查看、编辑入口。先确认界面里显示的是预期文件或项目，再选取需要带入对话的内容；涉及保存、发送或更新外部数据时，核对这次动作的权限和目标。
+
+不能据此认定 Codex CLI 会显示侧栏或文件编辑器。不是每个插件都有这些入口，客户端与账号开放范围也不同。官方当前说明：网页端 Free / Go 的扩展仍待开放，composer mentions 只在桌面 App 提供。扩展界面不会替你取得外部账号或工作区权限。依据：[9 月 29 日发布记录](https://help.openai.com/en/articles/6825453-chatgpt-release-notes)、[官方扩展入口与支持范围](https://developers.openai.com/plugins/build/extensions)。
 
 ## 3. 安装或连接前的检查
 
@@ -428,9 +436,9 @@ App 中禁用或卸载插件
 
 ---
 
-## 14. 深入理解：Plugin 不是“装更多按钮”，而是交付一组可复用能力
+## 14. 深入理解：Plugin 不是"装更多按钮"，而是交付一组可复用能力
 
-很多人学 Plugin 的第一反应是：我是不是要像装浏览器扩展一样，把能装的都装上？这会把 Codex 用歪。Plugin 的真正价值不是“多一个入口”，而是把一个团队已经认可的工作方式打包成可安装、可分享、可关闭、可治理的能力包。
+很多人学 Plugin 的第一反应是：我是不是要像装浏览器扩展一样，把能装的都装上？这会把 Codex 用歪。Plugin 的真正价值不是"多一个入口"，而是把一个团队已经认可的工作方式打包成可安装、可分享、可关闭、可治理的能力包。
 
 在 Codex 里，一个 Plugin 可能带来三类能力：
 
@@ -488,7 +496,7 @@ Codex App 的插件目录会把插件按来源分组。对课程学习来说，�
   ↓
 观察输出和工具调用
   ↓
-沉淀团队使用模板
+整理团队使用模板
   ↓
 定期复盘是否保留
   ↓
@@ -585,7 +593,16 @@ codex plugin marketplace upgrade marketplace-name
 codex plugin marketplace remove marketplace-name
 ```
 
-注意这里管理的是 marketplace，不是用一个普通 `plugin list` 命令列出所有插件。App 用户日常仍然从 App 的 Plugins 页面和 CLI TUI 的 `/plugins` 浏览。
+`codex plugin marketplace list` 列出的是来源；`codex plugin list` 列出插件。CLI v0.153.0 把插件的列出、安装和移除扩展到远程 marketplace；安装子命令拼作 `add`。先用下面这些只读命令核对列表和参数：
+
+```bash
+codex plugin list
+codex plugin list --available --json
+codex plugin add --help
+codex plugin remove --help
+```
+
+App 用户日常仍从 Plugins 页面操作；CLI TUI 中可用 `/plugins` 浏览。v0.151.0 起，插件目录也会合并项目级配置，并单独报告无效的项目 marketplace，避免一个坏来源挡住其他有效插件。某个项目找不到插件时，先核对该项目的来源和报错。依据见 [v0.151.0](https://github.com/openai/codex/releases/tag/rust-v0.151.0)、[v0.153.0](https://github.com/openai/codex/releases/tag/rust-v0.153.0) 及 [v0.154.0 插件命令定义](https://github.com/openai/codex/blob/rust-v0.154.0/codex-rs/cli/src/plugin_cmd.rs)。
 
 ### 16.3 Repo 级 marketplace 的课堂示例
 
@@ -698,7 +715,7 @@ Workflow:
 5. Keep the final response concise and actionable.
 ```
 
-这个 Skill 的核心不是“让 Codex 更像审查员”，而是把团队认可的 review 顺序写下来。
+这个 Skill 的核心不是"让 Codex 更像审查员"，而是把团队认可的 review 顺序写下来。
 
 ### 17.3 插件使用 prompt
 
@@ -798,7 +815,7 @@ Expected use: before PR update and after reviewer comments arrive
 Human decision points: commit, push, external comment replies
 ```
 
-这份记录回答的不是“插件好不好”，而是“它服务哪个具体工作流”。如果说不清工作流，先不要推广。
+这份记录回答的不是"插件好不好"，而是“它服务哪个具体工作流”。如果说不清工作流，先不要推广。
 
 第二步，把工程边界写清楚。
 
@@ -840,7 +857,7 @@ Not for:
 enabled = false
 ```
 
-这不是“永远不让用”，而是在某些项目、账号或阶段暂时收窄能力面。团队真正需要的是一条可逆路径：先个人试用，再小团队试点，最后共享给 workspace；一旦发现权限、输出质量或责任边界不合适，可以退回上一层。
+这不是"永远不让用"，而是在某些项目、账号或阶段暂时收窄能力面。团队真正需要的是一条可逆路径：先个人试用，再小团队试点，最后共享给 workspace；一旦发现权限、输出质量或责任边界不合适，可以退回上一层。
 
 ## 20. 插件排障：按生命周期定位问题
 
@@ -850,7 +867,7 @@ enabled = false
 |------|----------|------|
 | 插件目录看不到 | marketplace 是否添加、App 是否重启 | Codex 可能还没发现来源 |
 | 插件能看到但不能安装 | 权限、workspace sharing、网络 | 目录可见不等于可安装 |
-| 安装后 `@` 找不到 | 新线程、插件是否启用 | 旧线程可能没有刷新能力 |
+| 安装后 `@` 找不到 | 插件是否启用、当前版本、工具刷新状态 | 先查看插件详情和 `/mcp`；刷新仍失败时再试新线程 |
 | 调用后无法读外部数据 | 外部 App 是否登录 | 插件安装不等于账号授权 |
 | MCP 工具不可用 | bundled MCP 是否还需配置 | 插件可带 MCP，但认证仍可能独立 |
 | 输出很泛 | prompt 没说明来源和范围 | Codex 不知道该用哪个插件 |
@@ -936,6 +953,8 @@ repo-root/
 
 ### 22.3 Plugin manifest
 
+先创建目录结构，把下方 JSON 保存为 `plugins/course-authoring-pack/.codex-plugin/plugin.json`。
+
 ```json
 {
   "name": "course-authoring-pack",
@@ -946,6 +965,8 @@ repo-root/
 ```
 
 ### 22.4 Marketplace
+
+把下方 JSON 保存为仓库根目录下的 `.agents/plugins/marketplace.json`。这里的本地插件路径相对于仓库根目录，不是 marketplace 文件所在的子目录。
 
 ```json
 {
@@ -967,15 +988,35 @@ repo-root/
 }
 ```
 
-### 22.5 安装和使用
+### 22.5 补齐 Skill 正文
 
-```text
-1. 重启 Codex。
-2. 打开 App Plugins 页面或 CLI `/plugins`。
-3. 找到 course-team marketplace。
-4. 安装 course-authoring-pack。
-5. 新开线程显式调用 bundled skill。
+目录树里的 `SKILL.md` 也必须实际创建。把下面内容保存为 `plugins/course-authoring-pack/skills/zh-course-review/SKILL.md`：
+
+```markdown
+---
+name: zh-course-review
+description: 只读审查中文技术教程的步骤完整性、事实依据和上下文边界。
+---
+
+# 中文课程审查
+
+先确定用户给出的文件和审查范围；没有文件或无法读取时先说明缺失信息。
+
+1. 阅读指定全文，核对每一步的前置条件、输入、操作和可观察结果。
+2. 对版本、配置和功能断言核对用户提供的一手来源；无法确认时标为待核实，不编造结论。
+3. 检查前后矛盾、缺主语或背景、以及容易误执行的示例。正确且清楚的段落保留。
+4. 只报告会影响理解或执行的问题，给出文件位置、依据与必要修订建议。
+5. 默认不修改文件；需要修改时先按用户授权范围继续，工具执行仍遵守当前权限与审批。
+
+输出按问题严重程度排序；没有确认问题时，说明实际读取范围及未核实的边界。
 ```
+
+### 22.6 安装和使用
+
+从仓库根目录进入 Codex，打开 App Plugins 页面或 CLI `/plugins`，确认发现 `course-team` marketplace，再安装 `course-authoring-pack` 并核对启用状态。若未发现本地来源，可先用当前 CLI 的 `codex plugin marketplace add .` 添加这个仓库根目录，再查看 `codex plugin marketplace list` 和 `codex plugin list`。
+
+安装后显式调用并检查是否识别这份 Skill；如果当前客户端没有刷新，再新开线程或重启排查。不要把“重启”当作缺少 `SKILL.md` 的修复方法。
+
 
 使用：
 
@@ -1023,7 +1064,7 @@ repo-root/
 
 ### Q1：安装 Plugin 后为什么旧线程没变化？
 
-旧线程可能没有刷新能力列表。安装、启用或禁用插件后，建议新开线程或重启 Codex。
+先确认插件已启用，再查看当前线程的工具列表。CLI v0.154.0 已支持既有会话获取新装插件工具，并在外部升级或回滚插件后刷新 Skills 和 Hooks。只有当前客户端仍未刷新、版本较旧或连接报错时，再尝试新线程或重启。这个修复不代替插件所需的外部账号授权。依据见 [v0.154.0 官方发布记录](https://github.com/openai/codex/releases/tag/rust-v0.154.0)。
 
 ### Q2：Plugin 可以只包含 Skill 吗？
 
@@ -1200,7 +1241,7 @@ Engineering Productivity
 每类最多 3 条。
 ```
 
-只有当试点证明它能缩短真实流程，再考虑组织共享。Plugin 的目标不是“把能力装满”，而是让团队少手抄、少走偏、少在权限上猜。
+只有当试点证明它能缩短真实流程，再考虑组织共享。Plugin 的目标不是"把能力装满"，而是让团队少手抄、少走偏、少在权限上猜。
 
 ## 28. Plugin 下线和回滚：会安装，也要会撤掉
 
@@ -1257,7 +1298,7 @@ Next:
 - Engineering Productivity will revise the bundled skill and run a small trial again.
 ```
 
-课程里讲下线很重要，因为它会改变读者对插件的心理模型：插件不是装上就永远存在的“功能”，而是一组可维护、可暂停、可替换的工作流资产。
+课程里讲下线很重要，因为它会改变读者对插件的心理模型：插件不是装上就永远存在的"功能"，而是一组可维护、可暂停、可替换的工作流资产。
 
 ## 29. Plugin 与 MCP 的组合风险：不要把工具链打包成黑箱
 
@@ -1322,7 +1363,7 @@ Connector 层：
 - [ ] 知道如何在App中禁用/卸载连接器或插件
 - [ ] 理解Plugin可以包含Skills、MCP、Connectors
 
-**如果以上全部勾选，恭喜你掌握Codex连接器与插件！**
+**全部勾选后即掌握 Codex 连接器与插件。**
 
 ---
 
@@ -1356,7 +1397,7 @@ Connector 层：
 ---
 
 **课程制作**：老金
-**最后更新**：2026年5月30日
+**最后更新**：2026年9月14日
 **许可**：本课程采用 MIT License；转载、复制或二次分发时必须保留版权声明与许可声明
 
 ---

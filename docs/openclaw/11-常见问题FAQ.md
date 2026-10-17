@@ -24,6 +24,10 @@
 
 这份 FAQ 是老金按真实卡点整理的，不是为了凑问题数；能定位问题，比背答案更重要。
 
+> **2026-09-14 当前基线（v2026.9.4）**：排障前先确认版本口径已经变了——`latest` 为 2026.9.4，`extended-stable` 为 2026.6.35（核查日：2026-09-14）。两条最容易踩的：从 2026.8.2 升级、机器上没有 service manager 的，先手动跑一次 `openclaw update --no-restart`；失败后只有数据库结构未变、旧包兼容且配置校验通过时才可能自动回滚，迁移后的恢复需要已验证的升级前备份和匹配版本。v2026.9.1 起升级失败会提供 triage 排障入口，并保留配置和 secret 引用；v2026.9.3 起核心和插件改动会先在隔离 candidate 状态预演。启动类问题也少了：畸形的旧 cron 行会被隔离而不是卡住启动，迁移告警会降级而不是拒绝启动，Windows Gateway 在 agent 重启后能保持在线。
+
+> **2026-06-18 排障口径**：当前稳定基线为 v2026.6.8。升级优先用 `openclaw update`，再用 `openclaw doctor` 和 channel / gateway 日志定位问题；`repair` 可修复插件、payload、registry 和部分本地状态，但不会替你重新安装 core 或重启 Gateway。
+
 > 📌 **本节包含 15 个问题：**
 > [Q1: 命令找不到](#q1-openclaw-命令找不到command-not-found) | [Q2: Node.js 版本不兼容](#q2-nodejs-版本不兼容) | [Q3: npm 权限错误](#q3-npm-install-报权限错误eacces) | [Q4: 中国网络安装慢](#q4-中国网络环境安装慢或失败) | [Q5: node-gyp 编译错误](#q5-安装时报-node-gyp-编译错误) | [Q6: onboard 报错](#q6-openclaw-onboard-引导向导报错) | [Q7: 配置文件位置](#q7-配置文件在哪里怎么手动编辑) | [Q8: 多 API Key 配置](#q8-多个-api-key-怎么配置) | [Q9: 配置优先级](#q9-环境变量和配置文件哪个优先) | [Q10: 升级后配置丢失](#q10-升级-openclaw-后配置丢失了) | [Q11: 版本回滚](#q11-升级后功能异常怎么回滚) | [Q12: Windows Gateway 失败](#q12-windows-上安装后-gateway-启动失败) | [Q13: macOS 安全提示](#q13-macos-上安装提示无法验证开发者) | [Q14: 端口被占用](#q14-安装完成但-openclaw-gateway-start-提示端口被占用) | [Q15: 完全卸载](#q15-怎么完全卸载-openclaw)
 
@@ -65,7 +69,7 @@ pnpm config get global-bin-dir
 
 **现象：** 安装时报错 `engine "node" is incompatible` 或运行时出现语法错误。
 
-**原因：** OpenClaw 当前官方建议使用 Node.js 24.x；22.19+ 仍然兼容。低于兼容线时，常见报错就是 `engine incompatible`、运行时语法错误或部分 API 不可用。
+**原因：** OpenClaw v2026.9.4 要求 `>=24.16.0 <25 || >=26.1.0`：24.x 至少 24.16.0，或 26.1.0 及以上；新装推荐 26.x。Node 22、25.x 和 26.0.x 不在这个范围内。来源：[官方快速开始](https://docs.openclaw.ai/start/getting-started)、[指定版本的运行时要求](https://github.com/openclaw/openclaw/blob/v2026.9.4/package.json)（核查日：2026-09-14）。
 
 **解决方案：**
 
@@ -73,24 +77,24 @@ pnpm config get global-bin-dir
 # 检查当前版本
 node --version
 
-# 如果低于 v22，用 nvm 升级
+# 仅在当前版本不符合上述范围时升级
 # 安装 nvm（如果还没装）
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
 
 # 重新打开终端，然后：
-nvm install 24
-nvm use 24
-nvm alias default 24  # 设为默认版本
+nvm install 26
+nvm use 26
+nvm alias default 26  # 设为默认版本
 
 # 验证
-node --version  # 应该显示 v24.x.x
+node --version  # 确认 v26.x.x，且不低于 v26.1.0
 ```
 
 Windows 用户推荐用 [nvm-windows](https://github.com/coreybutler/nvm-windows)：
 
 ```powershell
-nvm install 24
-nvm use 24
+nvm install 26
+nvm use 26
 ```
 
 ### Q3: npm install 报权限错误（EACCES）
@@ -105,7 +109,7 @@ nvm use 24
 # 方案一：修改 npm 全局目录（推荐）
 mkdir -p ~/.npm-global
 npm config set prefix '~/.npm-global'
-echo 'export PATH="~/.npm-global/bin:$PATH"' >> ~/.bashrc
+echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 npm install -g openclaw
 
@@ -208,7 +212,7 @@ ls -la ~/.openclaw/
 # ~/.openclaw/gateway/        — Gateway 运行时数据
 
 # 用命令查看当前配置
-openclaw config get
+openclaw config get agents.defaults.model
 
 # 用命令修改配置（推荐，会自动验证格式）
 openclaw config set <key> <value>
@@ -254,26 +258,28 @@ openclaw config set agents.defaults.model "openai/gpt-5.2"
 **解决方案：**
 
 ```bash
-# 升级前先备份
-cp -r ~/.openclaw ~/.openclaw.backup
+# 升级前先创建并校验备份（使用支持 backup 子命令的版本）
+openclaw backup create --output ~/Backups/openclaw --verify
 
-# npm 升级（配置不会丢）
-npm update -g openclaw
+# 升级（优先内置升级；自动回滚须通过状态兼容检查）
+openclaw update
+# 内置升级不可用时再退回：npm update -g openclaw
 
 # Docker 升级（确保挂载了数据卷）
 # docker-compose.yml 中必须有：
 # volumes:
-#   - ./data:/root/.openclaw
-
-# 如果配置真的丢了，从备份恢复
-cp -r ~/.openclaw.backup ~/.openclaw
+#   - ./data:/home/node/.openclaw
 ```
+
+旧版没有 `backup` 子命令时，先停止 Gateway 和其他写入者，再做覆盖配置、数据库和工作区的文件系统或卷快照。配置确实丢失时，先保存当前状态，再按[官方备份恢复说明](https://docs.openclaw.ai/install/backups#restore-a-full-archive)离线恢复；不要直接把旧目录叠加到正在运行的数据目录上。
 
 ### Q11: 升级后功能异常怎么回滚？
 
-**现象：** 执行 `npm update -g openclaw` 升级到新版本后，之前正常的功能出现报错、崩溃或行为异常，需要退回旧版本。
+**现象：** 执行 `openclaw update` 升级到新版本后，之前正常的功能出现报错、崩溃或行为异常，需要退回旧版本。
 
 **解决方案：**
+
+> v2026.9.4 的自动回滚有条件：数据库结构未变、旧包仍能读取当前状态，且配置校验通过。数据库迁移或激活后的人工配置修改会阻止回滚；不能因为它没有回滚，就直接用 npm 覆盖成旧包。回滚成功也仍表示本次升级失败，命令会保留非零退出码。先看 `openclaw update status` 和错误里的恢复指引。
 
 ```bash
 # 查看当前版本
@@ -282,13 +288,18 @@ openclaw --version
 # 查看所有可用版本
 npm view openclaw versions --json
 
-# 回滚到指定版本
-npm install -g openclaw@2026.3.28
+# 查看最近的升级结果和恢复提示
+openclaw update status
 
-# Docker 回滚
-docker pull openclaw/openclaw:v2026.3.28
-# 修改 docker-compose.yml 中的 image tag 后重启
+# 先把 <known-good-version> 替换为你升级前验证过的具体版本
+# 兼容检查通过后，才执行第二条，并按提示确认降级
+openclaw update --tag <known-good-version> --dry-run
+openclaw update --tag <known-good-version>
 ```
+
+如果当前保存的通道是 `extended-stable`，指定一次性精确版本时按官方指引加 `--channel stable`。`extended-stable` 当日指向的版本不一定能读取你的当前数据，不能把通道名当成通用回滚答案。遇到 newer-schema 或 newer-config 拒绝时不要绕过；需要用已验证的升级前备份和匹配版本恢复，并在恢复期间停止 Gateway 和所有写入者。
+
+Docker 换回旧镜像也不会撤销数据迁移。先确认备份与目标镜像匹配，再按 [09 章恢复流程](09-Docker部署指南.md#恢复流程)处理数据；官方固定镜像标签不带 `v`，例如 `openclaw/openclaw:2026.6.35`（仅示范标签格式，不是统一降级目标）。完整规则见[官方回滚与恢复说明](https://docs.openclaw.ai/install/updating/rollback-and-recovery)。
 
 ### Q12: Windows 上安装后 Gateway 启动失败
 
@@ -303,7 +314,7 @@ docker pull openclaw/openclaw:v2026.3.28
 netstat -an | findstr 18789
 
 # 如果被占用，换一个端口
-openclaw config set gateway.port 18790
+openclaw config set gateway.port 19789  # 不要用 18790-18899，那一段是 Bridge / Browser Control / Canvas / CDP 端口池（见 09 章端口表）
 
 # 检查防火墙是否放行
 # Windows Defender 防火墙 → 高级设置 → 入站规则 → 新建规则 → 端口 18789
@@ -340,14 +351,16 @@ xattr -d com.apple.quarantine $(which openclaw)
 # Linux / macOS
 lsof -i :18789
 # 记下 PID，然后 kill
-kill -9 <PID>
+# 先核对 PID 的程序、账号和实例；不要结束不认识的进程
+# 若是当前 OpenClaw 后台服务，先运行 openclaw gateway stop
+# 手动前台 Gateway 在原终端按 Ctrl+C；其他服务按自己的管理方式停止
 
 # Windows
 netstat -ano | findstr 18789
 taskkill /PID <PID> /F
 
 # 或者换一个端口
-openclaw config set gateway.port 18790
+openclaw config set gateway.port 19789  # 不要用 18790-18899，那一段是 Bridge / Browser Control / Canvas / CDP 端口池（见 09 章端口表）
 openclaw gateway start
 ```
 
@@ -379,35 +392,19 @@ docker rmi openclaw/openclaw:latest
 > 📌 **本节包含 10 个问题：**
 > [Q16: WhatsApp 频繁断开](#q16-whatsapp-扫码后频繁断开) | [Q17: Telegram Bot 不响应](#q17-telegram-bot-不响应消息) | [Q18: Telegram 群组不回复](#q18-telegram-bot-在群组中不回复) | [Q19: Discord Bot 无法加入](#q19-discord-bot-无法加入服务器) | [Q20: 消息延迟严重](#q20-消息延迟严重发了好久才回复) | [Q21: rate limited](#q21-消息发送失败提示-rate-limited) | [Q22: 飞书收不到消息](#q22-飞书feishulark接入后收不到消息) | [Q23: 控制面板打不开](#q23-控制面板dashboard打不开) | [Q24: 多账号接入](#q24-同一个平台能接入多个账号吗) | [Q25: 图片文件处理](#q25-消息中的图片文件-ai-能处理吗)
 
-### Q1: WhatsApp 扫码后频繁断开
+### Q16: WhatsApp 扫码后频繁断开
 
-**现象：** 扫码配对成功，但过一会儿就断开，需要反复扫码。
-
-**原因：** WhatsApp Web 协议要求手机端保持在线。如果手机网络不稳定或 WhatsApp 应用被系统杀后台，连接就会断。
-
-**解决方案：**
+先查看 WhatsApp 通道状态和日志，区分连接网络、linked device 授权失效与 Gateway 退出：
 
 ```bash
-# 第一步：把 Gateway 安装为系统服务，保持持续运行
-openclaw daemon
-
-# 第二步：检查连接状态
-openclaw channels status whatsapp
-
-# 第三步：如果断开了，重新连接
-openclaw channels logout whatsapp
-openclaw channels login whatsapp
-
-# 第四步：查看断开原因
-openclaw logs --limit 50 | grep whatsapp
+openclaw gateway status
+openclaw channels status
+openclaw channels logs --channel whatsapp
 ```
 
-其他注意事项：
-- 确保手机上的 WhatsApp 没有被省电模式限制后台运行
-- 一个 WhatsApp 账号只能同时连接一个 Web 客户端，如果你在浏览器里也开了 WhatsApp Web，会冲突
-- 建议用一个专门的手机号来跑 OpenClaw
+需要重新配对时，按实际 account 执行 logout/login；不要删除整个 credentials。WhatsApp linked-device 模式不要求手机与 Gateway 在同一 Wi-Fi，也不是只能绑定一个 Web 客户端。手机需按 WhatsApp 当前 linked-device 规则定期使用主账号；具体上限和失效条件以平台说明及实际日志为准。
 
-### Q2: Telegram Bot 不响应消息
+### Q17: Telegram Bot 不响应消息
 
 **现象：** 给 Telegram Bot 发消息，没有任何回复。
 
@@ -431,12 +428,12 @@ openclaw config get channels.telegram.botToken
 # 第四步：检查日志
 openclaw logs --limit 50 | grep telegram
 
-# 第五步：重新连接
-openclaw channels logout telegram
-openclaw channels login telegram
+# 第五步：探测已配置的 Telegram Bot 认证与连接
+openclaw channels status --channel telegram --probe
+# Token 有误时，按 Telegram 接入章重新配置 Bot Token；不是扫码登录
 ```
 
-### Q3: Telegram Bot 在群组中不回复
+### Q18: Telegram Bot 在群组中不回复
 
 **现象：** Bot 在私聊中正常回复，但在群组中不响应。
 
@@ -448,7 +445,7 @@ openclaw channels login telegram
 2. 或者在群组中 @提及 Bot 来触发回复
 3. 在群组配置中设置激活模式（通过聊天命令 `/activation mention` 或 `/activation always` 切换）
 
-### Q4: Discord Bot 无法加入服务器
+### Q19: Discord Bot 无法加入服务器
 
 **现象：** 用邀请链接添加 Bot 时报错 `Missing Permissions`。
 
@@ -470,11 +467,11 @@ openclaw channels login telegram
 ```bash
 # 配置 Discord Bot Token（注意：Discord 用的字段是 token，不是 botToken）
 openclaw config set channels.discord.token "your-discord-bot-token"
-openclaw channels logout discord
-openclaw channels login discord
+openclaw channels status --channel discord --probe
+# Discord 使用 Bot Token；按 Discord 接入章核对 token 与应用权限
 ```
 
-### Q5: 消息延迟严重（发了好久才回复）
+### Q20: 消息延迟严重（发了好久才回复）
 
 **现象：** 发消息后要等 10 秒甚至更久才收到回复。
 
@@ -487,21 +484,21 @@ openclaw channels login discord
 openclaw logs --limit 20
 # 看日志中的时间戳，判断延迟发生在哪里
 
-# 第二步：测试模型 API 延迟
-openclaw health
-# 如果 API 延迟高，考虑换模型或换提供商
+# 第二步：观察实际模型调用的请求时间、首 token 和总耗时
+openclaw logs --follow
+# health 只用于 Gateway 健康检查；模型延迟要从已授权的实际请求或 provider 记录判断
 
 # 第三步：检查是否有消息积压
 openclaw sessions list
 
 # 第四步：优化措施
 # 使用更快的模型
-openclaw config set agents.defaults.model "openai/gpt-5.2-mini"
+openclaw config set agents.defaults.model "openai/gpt-5.6-luna"
 # 减少系统提示词长度（Token 越少，响应越快）
 # 精简 ~/.openclaw/workspace/SOUL.md 的内容
 ```
 
-### Q6: 消息发送失败，提示 "rate limited"
+### Q21: 消息发送失败，提示 "rate limited"
 
 **现象：** 发消息时报错 `429 Too Many Requests` 或 `rate limited`。
 
@@ -517,32 +514,18 @@ openclaw config set agents.defaults.model "openai/gpt-5.2-mini"
 # 3. 如果是 API 限流（429），参考 Q27 配置模型故障转移
 ```
 
-### Q7: 飞书（Feishu/Lark）接入后收不到消息
+### Q22: 飞书（Feishu/Lark）接入后收不到消息
 
-**现象：** 飞书 Bot 配置完成，但收不到用户消息。
-
-**原因：** 飞书的事件订阅配置不完整，或者回调地址不可达。
-
-**解决方案：**
+先确认已安装和启用官方 Feishu 插件，App ID/Secret、Bot 能力、权限及消息事件正确。默认连接方式是 WebSocket：在飞书开放平台选择长连接接收事件，不需要为了它开放 Gateway 公网端口。
 
 ```bash
-# 第一步：确认 Gateway 的公网地址可达
-curl https://your-domain.com:18789/health
-
-# 第二步：在飞书开放平台配置事件订阅
-# 事件订阅 URL：https://your-domain.com:18789/webhook/feishu
-# 需要订阅的事件：im.message.receive_v1
-
-# 第三步：检查日志
-openclaw logs --limit 50 | grep feishu
-
-# 第四步：确认 Bot 权限
-# 飞书开放平台 → 应用权限 → 确保开启了：
-# - 获取与发送单聊、群组消息
-# - 读取用户信息
+openclaw channels status
+openclaw channels logs --channel feishu
 ```
 
-### Q8: 控制面板（Dashboard）打不开
+只有显式选择 webhook 模式时，才按所用插件版本配置回调。新配置默认路径为 `/feishu/events`，同时配置对应验证和签名凭据；不要照抄 `/webhook/feishu`。完整流程见 [官方 Feishu 指南](https://docs.openclaw.ai/channels/feishu)。
+
+### Q23: 控制面板（Dashboard）打不开
 
 **现象：** 浏览器访问 `http://localhost:18789` 显示无法连接。
 
@@ -574,14 +557,14 @@ sudo firewall-cmd --reload
 openclaw gateway --port 18789
 ```
 
-### Q9: 同一个平台能接入多个账号吗？
+### Q24: 同一个平台能接入多个账号吗？
 
 **说明：** 可以。OpenClaw 支持同一平台的多个 Channel 实例。
 
 ```bash
 # 添加第二个 WhatsApp 账号
-openclaw channels add whatsapp --name "work-whatsapp"
-openclaw channels add whatsapp --name "personal-whatsapp"
+openclaw channels add --channel whatsapp --account work --name "Work"
+openclaw channels add --channel whatsapp --account personal --name "Personal"
 
 # 查看所有 Channel
 openclaw channels list
@@ -589,7 +572,7 @@ openclaw channels list
 
 每个 Channel 独立运行，有自己的配对状态和消息队列。
 
-### Q10: 消息中的图片/文件 AI 能处理吗？
+### Q25: 消息中的图片/文件 AI 能处理吗？
 
 **说明：** 取决于你使用的模型和当前 provider 目录。支持多模态的模型可以处理图片；具体型号不要背教程，以 `openclaw` 当前 models / onboarding 显示为准。
 
@@ -608,7 +591,7 @@ openclaw channels list
 > 📌 **本节包含 10 个问题：**
 > [Q26: API 401 报错](#q26-api-调用报错-401-unauthorized) | [Q27: API 429 限流](#q27-报错-429-too-many-requestsapi-限流) | [Q28: 模型回复慢](#q28-模型回复很慢) | [Q29: Token 超限](#q29-token-超限报错context-length-exceeded) | [Q30: Ollama 连不上](#q30-ollama-本地模型连不上) | [Q31: 本地模型质量差](#q31-本地模型回复质量差) | [Q32: 国产模型配置](#q32-怎么使用国产模型通义千问kimi智谱等) | [Q33: 模型故障转移](#q33-怎么配置模型故障转移fallback) | [Q34: 控制 API 费用](#q34-api-费用太高怎么控制成本) | [Q35: 不同对话用不同模型](#q35-怎么让不同的对话用不同的模型)
 
-### Q1: API 调用报错 401 Unauthorized
+### Q26: API 调用报错 401 Unauthorized
 
 **现象：** 发消息后 AI 不回复，日志中出现 `401 Unauthorized` 或 `Invalid API Key`。
 
@@ -619,12 +602,14 @@ openclaw channels list
 ```bash
 # 第一步：检查 Key 是否配置正确
 # 推荐通过环境变量设置：
-echo $OPENAI_API_KEY
+[ -n "${OPENAI_API_KEY:-}" ] && echo "OPENAI_API_KEY 已设置" || echo "OPENAI_API_KEY 未设置"
 # 确认 Key 没有多余的空格或换行
 
-# 第二步：测试 Key 是否有效
+# 第二步：区分 Gateway 健康与模型认证
 openclaw health
-# 如果报错，说明 Key 有问题
+openclaw models status
+# health 检查 Gateway/通道，status 展示模型与认证元数据；两者不证明模型请求成功
+# 核对 provider 日志；需要真实探测时按 models status --probe 文档操作，先停止运行中的 Gateway，探测会发出请求并可能计费
 
 # 第三步：去提供商后台检查
 # OpenAI: https://platform.openai.com/account/api-keys
@@ -636,7 +621,7 @@ export OPENAI_API_KEY="sk-proj-new-key-here"
 # 然后重启 Gateway
 ```
 
-### Q2: 报错 429 Too Many Requests（API 限流）
+### Q27: 报错 429 Too Many Requests（API 限流）
 
 **现象：** 高频使用时出现 `429` 错误，AI 间歇性不回复。
 
@@ -652,7 +637,7 @@ export OPENAI_API_KEY="sk-proj-new-key-here"
 #     "defaults": {
 #       "model": {
 #         "primary": "openai/gpt-5.2",
-#         "fallbacks": ["anthropic/claude-sonnet-4-6", "openai/gpt-5.2-mini"]
+#         "fallbacks": ["anthropic/claude-sonnet-5", "openai/gpt-5.6-luna"]
 #       }
 #     }
 #   }
@@ -666,7 +651,7 @@ openclaw config set agents.defaults.model "openrouter/openai/gpt-5.2"
 # 去各提供商控制台升级
 ```
 
-### Q3: 模型回复很慢
+### Q28: 模型回复很慢
 
 **现象：** 发送消息后，AI 要等 10-30 秒甚至更久才开始回复。在终端日志中可以看到请求已发出，但响应迟迟不返回。
 
@@ -676,8 +661,8 @@ openclaw config set agents.defaults.model "openrouter/openai/gpt-5.2"
 
 ```bash
 # 方案一：换用更快的小模型
-openclaw config set agents.defaults.model "openai/gpt-5.2-mini"
-# gpt-5.2-mini 速度是 gpt-5.2 的 3-5 倍，日常对话足够用
+openclaw config set agents.defaults.model "openai/gpt-5.6-luna"
+# 选择当前目录里可用的低成本模型；延迟以自己的代表性任务实测为准
 
 # 方案二：流式响应默认已启用
 # OpenClaw 默认使用流式输出（边生成边发送），无需额外配置
@@ -697,7 +682,7 @@ ping api.openai.com
 # 如果延迟高，考虑使用代理或换区域更近的提供商
 ```
 
-### Q4: Token 超限报错（context length exceeded）
+### Q29: Token 超限报错（context length exceeded）
 
 **现象：** 对话到一定长度后报错 `maximum context length exceeded` 或 `token limit`。
 
@@ -711,18 +696,18 @@ openclaw sessions list
 
 # 方案一：使用 /compact 命令手动压缩上下文
 # 在聊天界面中发送 /compact，OpenClaw 会自动压缩旧消息
-# 也可以配置自动压缩阈值：
+# 自动压缩默认启用。若要调整压缩时保留的近期对话预算：
 # 在 ~/.openclaw/openclaw.json 中设置：
 # {
 #   "agents": {
 #     "defaults": {
 #       "compaction": {
-#         "reserveTokensFloor": 20000
+#         "keepRecentTokens": 20000
 #       }
 #     }
 #   }
 # }
-# reserveTokensFloor 越大，压缩越激进
+# 这是近期对话保留预算，不是触发阈值；自动压缩还受输入、输出与工具预算约束。
 
 # 方案二：使用上下文窗口更大的模型
 # 不同 provider 的上下文窗口会随版本变化，先查当前 models 目录再设置
@@ -733,7 +718,7 @@ openclaw sessions cleanup
 # 或让 AI 总结后开新会话（在聊天界面发送 /new）
 ```
 
-### Q5: Ollama 本地模型连不上
+### Q30: Ollama 本地模型连不上
 
 **现象：** 配置了 Ollama 但 OpenClaw 报错 `ECONNREFUSED` 或 `connection refused`。
 
@@ -763,7 +748,7 @@ OLLAMA_HOST=0.0.0.0 ollama serve
 openclaw config set models.providers.ollama.baseUrl "http://192.168.1.100:11434"
 ```
 
-### Q6: 本地模型回复质量差
+### Q31: 本地模型回复质量差
 
 **现象：** 用 Ollama 跑本地模型，回复经常答非所问或质量很低。
 
@@ -803,7 +788,7 @@ ollama pull qwen2.5:14b     # 中文能力更好
 # }
 ```
 
-### Q7: 怎么使用国产模型（通义千问、Kimi、智谱等）？
+### Q32: 怎么使用国产模型（通义千问、Kimi、智谱等）？
 
 **解决方案：**
 
@@ -831,14 +816,14 @@ ollama pull qwen2.5:14b     # 中文能力更好
 # baseUrl: "https://api.deepseek.com/v1"
 # 具体 DeepSeek 模型名以当前 OpenClaw models / provider 目录为准
 
-# 最简单的方式：通过 OpenRouter 一站式接入所有国产模型
+# 最简单的方式：通过 OpenRouter 统一接入各类国产模型
 export OPENROUTER_API_KEY="sk-or-xxxxx"
 openclaw config set agents.defaults.model "openrouter/deepseek/deepseek-chat"
 ```
 
 国产模型的优势：不需要代理、中文能力强、价格便宜。推荐中国用户优先考虑。
 
-### Q8: 怎么配置模型故障转移（Fallback）？
+### Q33: 怎么配置模型故障转移（Fallback）？
 
 **说明：** 当主模型不可用时，自动切换到备用模型，保证服务不中断。
 
@@ -850,8 +835,8 @@ openclaw config set agents.defaults.model "openrouter/deepseek/deepseek-chat"
 #       "model": {
 #         "primary": "openai/gpt-5.2",
 #         "fallbacks": [
-#           "anthropic/claude-sonnet-4-6",
-#           "openai/gpt-5.2-mini"
+#           "anthropic/claude-sonnet-5",
+#           "openai/gpt-5.6-luna"
 #         ]
 #       }
 #     }
@@ -864,7 +849,7 @@ openclaw models fallbacks list
 openclaw models status
 ```
 
-### Q9: API 费用太高怎么控制成本？
+### Q34: API 费用太高怎么控制成本？
 
 **解决方案：**
 
@@ -876,8 +861,8 @@ openclaw models status
 # OpenClaw 本身没有内置预算控制配置
 
 # 方案二：使用更便宜的模型
-# gpt-5.2-mini 价格是 gpt-5.2 的 1/10
-openclaw config set agents.defaults.model "openai/gpt-5.2-mini"
+# 费用按所用账号、提供商当前价目与实际Token用量核算，不承诺固定比例
+openclaw config set agents.defaults.model "openai/gpt-5.6-luna"
 
 # 方案三：精简记忆文件减少 Token 消耗
 # MEMORY.md 建议控制在 500 行以内
@@ -891,7 +876,7 @@ ollama pull llama3.1:8b
 openclaw config set agents.defaults.model "ollama/llama3.1:8b"
 ```
 
-### Q10: 怎么让不同的对话用不同的模型？
+### Q35: 怎么让不同的对话用不同的模型？
 
 **说明：** 可以为不同的 Agent 配置不同的模型，通过在配置文件中为每个 Agent 指定独立的模型。
 
@@ -901,18 +886,18 @@ openclaw config set agents.defaults.model "ollama/llama3.1:8b"
 # {
 #   "agents": {
 #     "defaults": {
-#       "model": "openai/gpt-5.2-mini"
+#       "model": "openai/gpt-5.6-luna"
 #     },
-#     "list": [
-#       { "id": "coding", "model": "anthropic/claude-sonnet-4-6" },
-#       { "id": "casual", "model": "openai/gpt-5.2-mini" }
-#     ]
+#     "entries": {
+#       "coding": { "default": true, "model": "anthropic/claude-sonnet-5" },
+#       "casual": { "model": "openai/gpt-5.6-luna" }
+#     }
 #   }
 # }
 
 # 方案二：使用模型别名快速切换
-openclaw models aliases add code-review "anthropic/claude-opus-4-6"
-openclaw models aliases add quick-chat "openai/gpt-5.2-mini"
+openclaw models aliases add code-review "anthropic/claude-opus-4-8"
+openclaw models aliases add quick-chat "openai/gpt-5.6-luna"
 
 # 方案三：通过 bindings 将不同 Channel 路由到不同 Agent
 # 每个 Agent 使用各自配置的模型
@@ -927,75 +912,40 @@ openclaw models aliases add quick-chat "openai/gpt-5.2-mini"
 > 📌 **本节包含 10 个问题：**
 > [Q36: 技能不生效](#q36-技能skill不生效ai-不执行) | [Q37: 自定义技能报错](#q37-自定义技能报错) | [Q38: 工具执行失败](#q38-工具tool执行失败) | [Q39: 禁用工具](#q39-怎么禁用某个工具) | [Q40: 添加新工具](#q40-怎么给-ai-添加新工具) | [Q41: 技能中途中断](#q41-技能执行到一半中断了) | [Q42: 查看工具调用](#q42-怎么查看-ai-调用了哪些工具) | [Q43: 内置技能列表](#q43-内置技能列表在哪里看) | [Q44: 技能冲突](#q44-技能之间会冲突吗) | [Q45: 分享技能](#q45-怎么分享自定义技能给别人)
 
-### Q1: 技能（Skill）不生效，AI 不执行
+### Q36: 技能（Skill）不生效，AI 不执行
 
-**现象：** 你发消息让 AI 执行某个技能（比如「帮我搜索 xxx」），但 AI 只是用文字回复了一段话，并没有真正调用工具去执行操作。日志中也看不到工具调用记录。
+先查看 `openclaw skills list`、`openclaw skills info <skill-name>` 和 `openclaw skills check`，确认技能可见、依赖满足且未被禁用。模型根据技能的 description 决定是否读取正文；`triggers` 不是强制关键词匹配字段，`skills check` 也不会执行一个测试输入。
 
-**原因：** 技能没有正确加载，或者触发条件不匹配。
+在新对话中明确说要使用该技能，并观察实际工具调用。模型只回复文字，不能证明它执行了工具。
 
-**解决方案：**
+### Q37: 自定义技能报错
 
-```bash
-# 第一步：检查技能是否已加载
-openclaw skills list
-# 确认目标技能在列表中且状态为 enabled
-
-# 第二步：检查技能的触发关键词
-openclaw skills info <skill-name>
-# 看 triggers 字段，确认你的消息包含触发词
-
-# 第三步：手动触发技能测试
-openclaw skills check <skill-name> --input "测试消息"
-
-# 第四步：重新加载技能
-openclaw skills list
-```
-
-### Q2: 自定义技能报错
-
-**现象：** 在 `~/.openclaw/workspace/skills/` 目录下创建了自定义技能的 `.md` 文件，但执行 `openclaw skills list` 时该技能未出现，或者出现 `skill parse error`、`invalid skill format` 等报错信息。
-
-**原因：** 技能文件格式不对，或者引用了不存在的工具。
-
-**解决方案：**
+每个技能使用一个目录，核心文件叫 `SKILL.md`：
 
 ```bash
-# 第一步：检查技能文件格式
-openclaw skills check ~/.openclaw/workspace/skills/my-skill.md
-
-# 第二步：确认引用的工具都存在
+mkdir -p ~/.openclaw/workspace/skills/my-custom-skill
+nano ~/.openclaw/workspace/skills/my-custom-skill/SKILL.md
 openclaw skills list
-# 对照技能文件中引用的工具名称
-
-# 技能文件的基本格式：
-cat ~/.openclaw/workspace/skills/my-skill.md
+openclaw skills info my-custom-skill
+openclaw skills check
 ```
 
-正确的技能文件结构：
+最小内容：
 
 ```markdown
 ---
 name: my-custom-skill
-description: 我的自定义技能
-triggers:
-  - "帮我做xxx"
-  - "执行xxx"
-tools:
-  - file_read
-  - file_write
-  - web_search
+description: 用户要求整理一段记录为结构化草稿时使用。
 ---
 
-## 指令
+## 步骤
 
-当用户要求做 xxx 时，按以下步骤执行：
-
-1. 先搜索相关信息
-2. 读取必要的文件
-3. 生成结果并写入文件
+只按用户给出的材料整理草稿，缺信息先指出，不创建定时任务或发送外部消息。
 ```
 
-### Q3: 工具（Tool）执行失败
+工具由 OpenClaw 或已安装插件提供；`tools/` 里放文件不会自动注册工具，Skill 中列权限也不会产生运行时授权。
+
+### Q38: 工具（Tool）执行失败
 
 **现象：** AI 回复中显示「正在调用 xxx 工具」，但随后报错 `tool execution failed`、`permission denied` 或 `tool not found`，操作没有完成。
 
@@ -1008,8 +958,8 @@ tools:
 openclaw doctor
 # 诊断安全和配置问题
 
-# 第二步：测试单个工具
-openclaw skills check <skill-name>
+# 第二步：检查技能依赖就绪状态（不执行工具）
+openclaw skills check
 
 # 第三步：检查工具依赖
 openclaw skills info <skill-name>
@@ -1017,51 +967,25 @@ openclaw skills info <skill-name>
 
 # 第四步：常见工具问题
 # web_search 需要网络连接
-# file_write 需要目标目录有写权限
-# shell_exec 需要在配置中启用（默认禁用，出于安全考虑）
+# write/edit 需要实际文件权限与 tools 策略允许
+# exec 能否执行取决于工具策略、审批和目标环境；sandbox 默认关闭，不等于 exec 默认禁用
 ```
 
-### Q4: 怎么禁用某个工具？
+### Q39: 怎么禁用某个工具？
 
-**说明：** 出于安全考虑，你可能想禁用某些危险工具。
+使用 `tools.deny` 或按 Agent 配置工具允许列表，例如禁止文件写入和执行：
 
-```bash
-# 工具权限通过沙箱模式控制
-# 在 ~/.openclaw/openclaw.json 中配置沙箱：
-# {
-#   "agents": {
-#     "defaults": {
-#       "sandbox": { "mode": "all" }
-#     }
-#   }
-# }
-# sandbox.mode: "off"（默认，不限制）| "non-main"（限制非主 Agent）| "all"（限制所有 Agent）
-# 沙箱模式会限制文件系统访问和命令执行
-
-# 也可以在 SOUL.md 中明确告诉 AI 不要使用某些工具
-# 例如："永远不要执行 shell 命令，不要删除文件"
-
-# 查看当前工具权限配置
-openclaw doctor
+```json5
+{ tools: { deny: ["write", "edit", "exec"] } }
 ```
 
-### Q5: 怎么给 AI 添加新工具？
+还要核查已安装插件和外部服务的写入工具。Sandbox 改执行环境，不等于禁用某工具；`non-main` 指非主会话。SOUL.md 是辅助行为提示。
 
-**说明：** OpenClaw 支持通过 MCP（Model Context Protocol）协议接入外部工具。
+### Q40: 怎么给 AI 添加新工具？
 
-```bash
-# 方案一：使用内置的 MCP 服务器
-openclaw plugins
+按 [官方工具插件说明](https://docs.openclaw.ai/plugins/agent-tools)注册插件工具，或通过 [MCP](https://docs.openclaw.ai/tools/mcp)连接实际服务。把 TypeScript 文件放进 workspace/tools 不会自动注册工具。安装或连接以后核对工具列表、凭据和权限，再测试。
 
-# 方案二：接入第三方 MCP 服务器
-# 在 ~/.openclaw/openclaw.json 中配置 MCP 服务器连接
-
-# 方案三：自己写工具（TypeScript）
-# 在 ~/.openclaw/workspace/tools/ 下创建工具文件
-# 参考文档：https://docs.openclaw.ai/tools/custom
-```
-
-### Q6: 技能执行到一半中断了
+### Q41: 技能执行到一半中断了
 
 **现象：** AI 在执行一个多步骤技能时（比如「搜索 → 读取文件 → 生成报告」），执行到中间某一步后突然停下来，不再继续后续步骤，也没有给出完成提示。
 
@@ -1082,11 +1006,11 @@ openclaw gateway --port 18789 --verbose
 # 直接发消息 "继续" 或 "请继续执行"
 
 # 第四步：如果是工具执行失败导致的中断
-openclaw skills check <failed-tool-name>
+openclaw skills check
 # 修复工具问题后重试
 ```
 
-### Q7: 怎么查看 AI 调用了哪些工具？
+### Q42: 怎么查看 AI 调用了哪些工具？
 
 **解决方案：**
 
@@ -1102,7 +1026,7 @@ openclaw logs --follow
 openclaw status
 ```
 
-### Q8: 内置技能列表在哪里看？
+### Q43: 内置技能列表在哪里看？
 
 **解决方案：**
 
@@ -1114,9 +1038,9 @@ openclaw skills list
 openclaw skills info <skill-name>
 ```
 
-### Q9: 技能之间会冲突吗？
+### Q44: 技能之间会冲突吗？
 
-**说明：** 如果多个技能的触发条件重叠，可能会出现冲突。OpenClaw 会按优先级选择。
+**说明：** 同名技能按目录来源优先级覆盖；不同名字的技能由模型根据 description 和任务选择，描述重叠可能使选择不稳定，但不是引擎按关键词优先级抢占。先核查来源与可见性，再用显式 `$skill-name` 测试。
 
 ```bash
 # 查看技能列表
@@ -1126,7 +1050,7 @@ openclaw skills list
 openclaw skills info <skill-name>
 ```
 
-### Q10: 怎么分享自定义技能给别人？
+### Q45: 怎么分享自定义技能给别人？
 
 **解决方案：**
 
@@ -1148,7 +1072,7 @@ openclaw skills list
 > 📌 **本节包含 10 个问题：**
 > [Q46: Docker 容器立即退出](#q46-docker-容器启动后立即退出) | [Q47: 容器内存过高](#q47-docker-容器内存占用过高) | [Q48: 数据卷备份](#q48-docker-数据卷怎么备份) | [Q49: 自动重启](#q49-gateway-进程崩溃后怎么自动重启) | [Q50: 查看日志](#q50-日志在哪里看怎么排查问题) | [Q51: 监控运行状态](#q51-怎么监控-openclaw-的运行状态) | [Q52: 磁盘空间清理](#q52-磁盘空间不足怎么清理) | [Q53: 多服务器部署](#q53-怎么在多台服务器上部署) | [Q54: 设置 HTTPS](#q54-怎么设置-https) | [Q55: 自动更新](#q55-怎么配置自动更新)
 
-### Q1: Docker 容器启动后立即退出
+### Q46: Docker 容器启动后立即退出
 
 **现象：** 执行 `docker compose up -d` 后，运行 `docker ps` 看不到 OpenClaw 容器，用 `docker ps -a` 查看发现容器状态为 `Exited (1)` 或其他非零退出码。
 
@@ -1158,7 +1082,7 @@ openclaw skills list
 
 ```bash
 # 第一步：查看容器退出日志
-docker compose logs openclaw
+docker compose logs openclaw-gateway
 
 # 第二步：常见原因排查
 # 原因 1：配置文件不存在
@@ -1170,13 +1094,13 @@ lsof -i :18789
 
 # 原因 3：环境变量缺失
 # 确认 .env 文件存在且包含必要变量
-cat .env
+ls -l .env  # 确认存在与权限；只在本地编辑，别把凭据打印到可分享输出
 
 # 第三步：用前台模式启动，方便看日志
 docker compose up  # 不加 -d
 ```
 
-### Q2: Docker 容器内存占用过高
+### Q47: Docker 容器内存占用过高
 
 **现象：** 运行 `docker stats` 发现 OpenClaw 容器的内存使用量持续增长，从几百 MB 涨到好几 GB，甚至导致宿主机变卡或 OOM（Out of Memory）被系统杀掉。
 
@@ -1188,7 +1112,7 @@ docker compose up  # 不加 -d
 
 ```bash
 # 查看容器资源使用
-docker stats openclaw
+docker stats openclaw-gateway
 
 # 方案一：限制容器内存
 # 在 docker-compose.yml 中添加：
@@ -1198,7 +1122,7 @@ docker stats openclaw
 #       memory: 1G
 
 # 方案二：清理会话数据
-docker exec openclaw openclaw sessions cleanup
+docker compose exec openclaw-gateway node dist/index.js sessions cleanup --dry-run --all-agents
 
 # 方案三：减少同时连接的平台数量
 
@@ -1207,36 +1131,24 @@ docker exec openclaw openclaw sessions cleanup
 # 0 4 * * * docker compose restart openclaw
 ```
 
-### Q3: Docker 数据卷怎么备份？
+### Q48: Docker 数据卷怎么备份？
 
-**解决方案：**
+先识别当前 Compose 实际挂载的数据、workspace 和凭据密钥位置。SQLite 数据库不能靠运行中的 tar 保证一致；应使用支持的 `openclaw backup create --verify`，或停止 Gateway 和全部写入者后做完整卷快照。不要只备份示例中的 `./data` 或猜测名为 `openclaw_data` 的卷。
 
-```bash
-# 方案一：直接备份挂载目录
-tar -czf openclaw-backup-$(date +%Y%m%d).tar.gz ./data/
+完整脚本和恢复约束见 [09 章备份与恢复](09-Docker部署指南.md)。备份要连同匹配镜像版本保存，并在隔离环境实际恢复验证；校验归档可读不等于恢复成功。
 
-# 方案二：备份 Docker volume
-docker run --rm \
-  -v openclaw_data:/source \
-  -v $(pwd):/backup \
-  alpine tar -czf /backup/openclaw-data.tar.gz -C /source .
-
-# 方案三：自动化备份脚本
-# 建议配合 crontab 每天自动备份
-# 0 3 * * * /path/to/backup-script.sh
-```
-
-### Q4: Gateway 进程崩溃后怎么自动重启？
+### Q49: Gateway 进程崩溃后怎么自动重启？
 
 **解决方案：**
 
 ```bash
 # 方案一：安装为 systemd 服务（Linux 推荐）
-openclaw daemon
+openclaw onboard --install-daemon
 # 这会创建 systemd service，崩溃后自动重启
 
 # 查看服务状态
-systemctl status openclaw-gateway
+openclaw gateway status
+# Linux 用户服务也可用 systemctl --user status openclaw-gateway
 
 # 方案二：Docker 自动重启
 # 在 docker-compose.yml 中设置：
@@ -1249,7 +1161,7 @@ pm2 save
 pm2 startup  # 开机自启
 ```
 
-### Q5: 日志在哪里看？怎么排查问题？
+### Q50: 日志在哪里看？怎么排查问题？
 
 **解决方案：**
 
@@ -1262,8 +1174,8 @@ openclaw gateway --port 18789 --verbose
 # openclaw gateway --port 18789 --verbose 2>&1 | grep "error"
 
 # Docker 环境
-docker compose logs -f openclaw
-docker compose logs --tail 100 openclaw
+docker compose logs -f openclaw-gateway
+docker compose logs --tail 100 openclaw-gateway
 
 # 日志文件位置（取决于 logging 配置）
 # 默认日志输出到 stdout/stderr
@@ -1275,7 +1187,7 @@ openclaw config set logging.level "debug"
 openclaw config set logging.level "info"
 ```
 
-### Q6: 怎么监控 OpenClaw 的运行状态？
+### Q51: 怎么监控 OpenClaw 的运行状态？
 
 **解决方案：**
 
@@ -1298,7 +1210,7 @@ openclaw status
 # 检查间隔: 5 分钟
 ```
 
-### Q7: 磁盘空间不足怎么清理？
+### Q52: 磁盘空间不足怎么清理？
 
 **解决方案：**
 
@@ -1321,27 +1233,13 @@ docker volume prune -f          # 清理无用数据卷（谨慎）
 du -sh ~/.openclaw/
 ```
 
-### Q8: 怎么在多台服务器上部署？
+### Q53: 怎么在多台服务器上部署？
 
-**说明：** OpenClaw 目前是单实例架构，不支持原生集群部署。但你可以通过以下方式实现多节点：
+多台服务器可以各自运行独立 Gateway，使用各自的状态目录和通道账号，也可以让节点连接一个 Gateway。不要让两个 Gateway 同时写同一个 `~/.openclaw`、SQLite 数据库或同一通道账户，再靠普通负载均衡冒充集群。故障接管需要明确单写入者、凭据接管和一致性备份流程。
 
-```bash
-# 方案一：每台服务器独立部署，连接不同的平台
-# 服务器 A：负责 WhatsApp
-# 服务器 B：负责 Telegram + Discord
+参见 [官方多 Gateway 指南](https://docs.openclaw.ai/gateway/multiple-gateways)。
 
-# 方案二：用反向代理做负载均衡（实验性）
-# Nginx 配置示例：
-# upstream openclaw {
-#     server 192.168.1.10:18789;
-#     server 192.168.1.11:18789 backup;
-# }
-
-# 方案三：共享配置和记忆（通过 NFS 或对象存储）
-# 把 ~/.openclaw/ 挂载到共享存储
-```
-
-### Q9: 怎么设置 HTTPS？
+### Q54: 怎么设置 HTTPS？
 
 **解决方案：**
 
@@ -1364,34 +1262,24 @@ sudo certbot --nginx -d openclaw.yourdomain.com
 # }
 
 # 方案二：OpenClaw 内置 TLS
-# GatewayTlsConfig 只有 certPath 和 keyPath 两个字段，没有 enabled 开关
-# 配置了证书路径即视为启用 TLS
+# 显式启用 Gateway TLS，并设置证书和私钥路径
+openclaw config set gateway.tls.enabled true
 openclaw config set gateway.tls.certPath "/path/to/cert.pem"
 openclaw config set gateway.tls.keyPath "/path/to/key.pem"
 # 重启 Gateway 使配置生效
 openclaw gateway --port 18789
 ```
 
-### Q10: 怎么配置自动更新？
+### Q55: 怎么配置自动更新？
 
-**解决方案：**
+生产环境先自动检查更新，再按备份、版本选择和兼容检查决定何时升级：
 
 ```bash
-# npm 方式：用 crontab 定期检查更新（更新后需要重启 Gateway）
-# 0 2 * * 0 npm update -g openclaw && pkill -f "openclaw gateway" && openclaw gateway --port 18789 &
-
-# Docker 方式：用 Watchtower 自动更新
-docker run -d \
-  --name watchtower \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  containrrr/watchtower \
-  --interval 86400 \
-  openclaw
-
-# 手动检查是否有新版本
+openclaw update status
 openclaw --version
-npm view openclaw version
 ```
+
+可以定时提醒自己检查 release；不要直接把无条件 `openclaw update` 或 Watchtower 重建放进生产 cron，绕过备份和状态迁移。Docker 固定 9.4 tag 时 pull 仍是 9.4，需要显式切到已验证的目标 tag。完整步骤见 [09 章更新与回滚工坊](09-Docker部署指南.md#更新与回滚工坊)。Windows 从 9.4 升到 9.8 的特殊恢复路径见 [02 章](02-安装部署指南.md)，新 updater 的重试不能替代停止旧数据库驱动。
 
 ---
 
@@ -1400,7 +1288,7 @@ npm view openclaw version
 > 📌 **本节包含 3 个问题：**
 > [Q56: AI 不记得之前说的话](#q56-ai-不记得之前说的话) | [Q57: 记忆文件太大](#q57-记忆文件太大导致-token-超限) | [Q58: 多 Agent 共享记忆](#q58-怎么在多个-agent-之间共享记忆)
 
-### Q1: AI 不记得之前说的话
+### Q56: AI 不记得之前说的话
 
 **现象：** 你之前告诉 AI「我叫小明」或「我喜欢用 Python」，但下次对话时 AI 完全不记得这些信息，像是第一次跟你聊天一样。
 
@@ -1425,12 +1313,12 @@ openclaw config get agents.defaults.compaction.memoryFlush
 nano ~/.openclaw/workspace/MEMORY.md
 # 把重要信息直接写进去
 
-# 第五步（v2026.4.12+）：启用 Active Memory 插件
-# Active Memory 插件可自动召回、提升和整理记忆
+# 第五步（v2026.4.10+）：启用 Active Memory 插件
+# Active Memory 提供按条件的主动召回；记忆整理和提升要区分Dreaming与实际启用的流程
 # 通过 openclaw plugins 查看是否已启用
 ```
 
-### Q2: 记忆文件太大导致 Token 超限
+### Q57: 记忆文件太大导致 Token 超限
 
 **现象：** 使用一段时间后，每次新对话刚开始就报错 `token limit exceeded`，或者发现 API 费用突然增加。检查发现 `~/.openclaw/workspace/MEMORY.md` 文件已经有几百甚至上千行。
 
@@ -1445,9 +1333,9 @@ du -sh ~/.openclaw/workspace/memory/
 # 删除过时的、不再需要的信息
 nano ~/.openclaw/workspace/MEMORY.md
 
-# 方案二：手动归档旧日志（OpenClaw 没有内置自动清理配置）
-mkdir -p ~/.openclaw/workspace/memory/archive
-mv ~/.openclaw/workspace/memory/2025-*.md ~/.openclaw/workspace/memory/archive/
+# 方案二：把不再检索的旧日志移到 memory 根目录及 extraPaths 之外
+mkdir -p ~/openclaw-memory-archive
+find ~/.openclaw/workspace/memory -maxdepth 1 -name "20*.md" -mtime +30 -exec mv {} ~/openclaw-memory-archive/ \;
 # 归档后运行 openclaw memory index 重建索引
 
 # 方案三：控制 MEMORY.md 大小（建议 500 行 / 3000 tokens 以内）
@@ -1455,25 +1343,24 @@ mv ~/.openclaw/workspace/memory/2025-*.md ~/.openclaw/workspace/memory/archive/
 wc -l ~/.openclaw/workspace/MEMORY.md
 ```
 
-### Q3: 怎么在多个 Agent 之间共享记忆？
+### Q58: 怎么在多个 Agent 之间共享记忆？
 
-**说明：** 默认情况下，所有 Agent 共享同一个 workspace 和记忆目录。如果你想隔离，在配置文件中为不同 Agent 指定独立的 workspace：
+**说明：** 用 `openclaw agents add` 创建 Agent 时，应核对各自的 workspace；多 Agent 可以分别拥有记忆，也可以被你显式配置为同一目录。共享 workspace 会共享该目录下的记忆，独立 workspace 则分开保存。下面演示明确指定独立目录：
 
 ```jsonc
 // ~/.openclaw/openclaw.json
 {
   "agents": {
-    "list": [
-      {
-        "id": "my-agent",
+    "entries": {
+      "my-agent": {
         "workspace": "~/.openclaw/workspace-my-agent"
       }
-    ]
+    }
   }
 }
 ```
 
-每个 Agent 的 workspace 下有独立的 `MEMORY.md` 和 `memory/` 目录，实现完全隔离。如果需要共享部分记忆，可以用符号链接指向同一个 `MEMORY.md` 文件。
+每个 workspace 可以保存自己的 `MEMORY.md` 和 `memory/`。这是内容分离，不是操作系统权限隔离。共享内容宜用受控只读目录并配置检索路径；若有多个写入者，要另行安排同步和冲突处理。
 
 ---
 
@@ -1482,7 +1369,7 @@ wc -l ~/.openclaw/workspace/MEMORY.md
 > 📌 **本节包含 6 个问题：**
 > [Q59: API Key 泄露风险](#q59-api-key-会不会泄露) | [Q60: 聊天记录存储](#q60-聊天记录存在哪里会被发送到第三方吗) | [Q61: Gateway Token](#q61-gateway-token-是什么必须设置吗) | [Q62: 限制对话权限](#q62-怎么限制谁能跟-ai-对话) | [Q63: 防止危险操作](#q63-怎么防止-ai-执行危险操作) | [Q64: 安全漏洞](#q64-openclaw-有已知的安全漏洞吗)
 
-### Q1: API Key 会不会泄露？
+### Q59: API Key 会不会泄露？
 
 **说明：** OpenClaw 把 API Key 存储在本地配置文件中（`~/.openclaw/openclaw.json`）或环境变量里，不会集中保存到某个 OpenClaw 云端；但调用云端模型时，Key 会作为认证凭证发给你配置的 provider。
 
@@ -1502,7 +1389,7 @@ export OPENAI_API_KEY="sk-proj-xxxxx"
 # 不要把 Key 写入任何会被 git 追踪的文件
 ```
 
-### Q2: 聊天记录存在哪里？会被发送到第三方吗？
+### Q60: 聊天记录存在哪里？会被发送到第三方吗？
 
 **说明：** 聊天记录存储在本地 `~/.openclaw/` 目录中。消息内容只会发送到你配置的 AI 模型提供商（如 OpenAI、Anthropic）。
 
@@ -1511,7 +1398,7 @@ OpenClaw 本身不收集任何用户数据。但要注意：
 - 如果你用 OpenRouter 等聚合服务，消息会经过中间层
 - 本地模型（Ollama）的推理内容可以不出本机；外部插件、远程 channel 和更新检查要另行审查
 
-### Q3: Gateway Token 是什么？必须设置吗？
+### Q61: Gateway Token 是什么？必须设置吗？
 
 **说明：** Gateway Token 是访问 OpenClaw Gateway 的认证凭证。如果不设置，任何知道你 Gateway 地址的人都能连接并发送消息。
 
@@ -1526,7 +1413,7 @@ openclaw config set gateway.auth.token "your-strong-random-token-here"
 export OPENCLAW_GATEWAY_TOKEN="your-strong-random-token-here"
 ```
 
-### Q4: 怎么限制谁能跟 AI 对话？
+### Q62: 怎么限制谁能跟 AI 对话？
 
 **解决方案：**
 
@@ -1534,7 +1421,7 @@ export OPENCLAW_GATEWAY_TOKEN="your-strong-random-token-here"
 # 方案一：配对系统（默认开启）
 # 陌生人发消息需要你手动批准
 openclaw pairing list          # 查看待批准的联系人
-openclaw pairing approve user1 # 批准
+openclaw pairing approve whatsapp <code>  # 使用已核对身份的实际待审配对码 # 批准
 # 不批准的联系人会保持在待审列表中
 
 # 方案二：白名单模式（通过 channels 配置 allowFrom）
@@ -1547,16 +1434,16 @@ openclaw pairing approve user1 # 批准
 # }
 
 # 方案三：查看和管理配对状态
-openclaw pairing list --approved
+openclaw pairing list --channel whatsapp  # 仅列待审批请求；已授权身份查看该通道的 allowFrom 配置
 ```
 
-### Q5: 怎么防止 AI 执行危险操作？
+### Q63: 怎么防止 AI 执行危险操作？
 
 **解决方案：**
 
 ```bash
 # 第一步：启用沙箱模式限制工具执行
-# sandbox.mode 可选值："off"（关闭）| "non-main"（非主 Agent 隔离）| "all"（全部隔离）
+# sandbox.mode 可选值："off"（关闭）| "non-main"（非主会话 隔离）| "all"（全部隔离）
 openclaw config set agents.defaults.sandbox.mode "all"
 
 # 第二步：通过 SOUL.md 明确告诉 AI 哪些操作不能做
@@ -1575,21 +1462,22 @@ cd ~/.openclaw/workspace && git init && git add . && git commit -m "snapshot"
 # 记录了所有工具调用，包括参数和结果
 ```
 
-### Q6: OpenClaw 有已知的安全漏洞吗？
+### Q64: OpenClaw 有已知的安全漏洞吗？
 
 **说明：** OpenClaw 在 2026 年初曾披露过 CVE 安全漏洞，社区已经修复。v2026.4.x 系列持续加强了安全防护，主要包括：
 
-- **SSRF 防护**（v2026.4.2+）：集中化的请求传输策略，阻止对私有网络的导航重定向
+- **SSRF 防护**（v2026.1.20 起持续加固）：v2026.4.1 集中化请求传输策略（auth/proxy/TLS/header），v2026.4.10 起浏览器 SSRF 策略默认严格模式，未配置的安装也会阻止私有网络导航
 - **环境变量清理**（v2026.4.7+）：自动拦截危险的环境变量覆盖
 - **Owner-Enforced Commands**（v2026.4.5+）：白名单修改需要所有者身份验证
-- **Shell Wrapper 检测**（v2026.4.1+）：扩展了对 shell 包装命令的识别和 env-argv 注入拦截
+- **Shell Wrapper 检测**（v2026.2.22 起，v2026.4.12 扩展）：v2026.4.12 扩大了 shell 包装命令的识别范围并拦截 env-argv 赋值注入
 - **Hook 失败模式**（v2026.4.5+）：Hook 崩溃时采用 fail-closed 策略，不会默认放行
 
 建议：
 
 ```bash
-# 始终保持最新版本
-npm update -g openclaw
+# 始终保持最新版本（优先内置升级）
+openclaw update
+# 内置升级不可用时再退回：npm update -g openclaw
 
 # 查看安全公告
 # https://github.com/openclaw/openclaw/security/advisories
@@ -1610,7 +1498,7 @@ openclaw --version
 > 📌 **本节包含 3 个问题：**
 > [Q65: API 访问不了](#q65-api-访问不了怎么办) | [Q66: WhatsApp 能否使用](#q66-whatsapp-在中国能用吗) | [Q67: npm 镜像问题](#q67-npm-镜像配置后还是装不上)
 
-### Q1: API 访问不了怎么办？
+### Q65: API 访问不了怎么办？
 
 **说明：** OpenAI、Anthropic、Google 的 API 在中国大陆无法直接访问。
 
@@ -1638,14 +1526,14 @@ ollama pull qwen2.5:7b
 openclaw config set agents.defaults.model "ollama/qwen2.5:7b"
 ```
 
-### Q2: WhatsApp 在中国能用吗？
+### Q66: WhatsApp 在中国能用吗？
 
 **说明：** WhatsApp 在中国大陆需要代理才能使用。
 
 **替代方案：**
 - Telegram（需要代理，但 Bot API 可以通过代理访问）
 - 飞书 / Lark（国内原生支持，OpenClaw 通过扩展支持飞书 Channel）
-- 注意：钉钉、微信公众号、个人微信均不受官方支持
+- 微信存在官方文档收录的腾讯外部插件路径 `@tencent-weixin/openclaw-weixin`，见 [05 章微信说明](05-消息平台接入指南.md)；它不等于微信群或微信公众号能力，也不能套用标准 pairing。钉钉等其他集成按各自插件文档核对。
 
 ```bash
 # 配置飞书（推荐中国用户）
@@ -1653,7 +1541,7 @@ openclaw channels add feishu
 # 按提示配置飞书开放平台的 App ID 和 App Secret
 ```
 
-### Q3: npm 镜像配置后还是装不上
+### Q67: npm 镜像配置后还是装不上
 
 **解决方案：**
 
@@ -1680,7 +1568,7 @@ docker pull openclaw/openclaw:latest
 > 📌 **本节包含 5 个问题：**
 > [Q68: 报告 Bug](#q68-怎么报告-bug) | [Q69: 贡献代码](#q69-怎么贡献代码) | [Q70: 分享自定义技能](#q70-怎么创建和分享自定义技能) | [Q71: 中文社区](#q71-有中文社区吗) | [Q72: 文档反馈](#q72-文档有错误怎么反馈)
 
-### Q1: 怎么报告 Bug？
+### Q68: 怎么报告 Bug？
 
 **解决方案：**
 
@@ -1714,7 +1602,7 @@ docker pull openclaw/openclaw:latest
 （openclaw logs --limit 50）
 ```
 
-### Q2: 怎么贡献代码？
+### Q69: 怎么贡献代码？
 
 **流程：**
 
@@ -1729,12 +1617,14 @@ cd openclaw
 # 3. 创建功能分支
 git checkout -b feat/my-new-feature
 
-# 4. 安装依赖
-npm install
+# 4. 安装依赖并构建
+pnpm install
+pnpm ui:build
+pnpm build
 
 # 5. 开发和测试
-npm run dev
-npm test
+pnpm gateway:watch
+pnpm test
 
 # 6. 提交代码
 git add .
@@ -1745,33 +1635,19 @@ git push origin feat/my-new-feature
 # 在 GitHub 上创建 Pull Request
 ```
 
-### Q3: 怎么创建和分享自定义技能？
+### Q70: 怎么创建和分享自定义技能？
 
-**解决方案：**
+建立 `<workspace>/skills/my-awesome-skill/SKILL.md`，写 name、description frontmatter 和操作步骤，再用 `skills list`、`skills info my-awesome-skill`、`skills check` 核查加载。在新对话中实际测试，确认结果和工具行为。分享时复制整个技能目录，保留所需脚本和示例，排除凭据及个人文件；社区发布按 [ClawHub 官方指南](https://docs.openclaw.ai/tools/clawhub)进行。
 
-```bash
-# 1. 创建技能文件
-mkdir -p ~/.openclaw/workspace/skills
-nano ~/.openclaw/workspace/skills/my-awesome-skill.md
-
-# 2. 测试技能
-openclaw skills list
-openclaw skills check my-awesome-skill --input "测试"
-
-# 3. 分享到社区
-# 在 GitHub 上创建一个仓库，或者提交到 OpenClaw 的技能市场
-# https://github.com/openclaw/openclaw-skills
-```
-
-### Q4: 有中文社区吗？
+### Q71: 有中文社区吗？
 
 **说明：** 有的。
 
-- GitHub Discussions（中英文都可以）：[github.com/openclaw/openclaw/discussions](https://github.com/openclaw/openclaw/discussions)
+- GitHub Issues（中英文都可以）：[github.com/openclaw/openclaw/issues](https://github.com/openclaw/openclaw/issues)
 - Discord 社区（有中文频道）
 - 微信群：关注 OpenClaw 公众号获取入群二维码
 
-### Q5: 文档有错误怎么反馈？
+### Q72: 文档有错误怎么反馈？
 
 **解决方案：**
 
@@ -1786,7 +1662,7 @@ openclaw skills check my-awesome-skill --input "测试"
 > 📌 **本节包含 7 个问题：**
 > [Q73: 和 ChatGPT 的区别](#q73-openclaw-和-chatgpt-有什么区别) | [Q74: 支持哪些语言](#q74-openclaw-支持哪些语言) | [Q75: 多实例运行](#q75-一台机器能跑多个-openclaw-实例吗) | [Q76: 是否收费](#q76-openclaw-会收费吗) | [Q77: 查看所有配置](#q77-怎么查看当前的所有配置) | [Q78: Gateway 和 Agent 关系](#q78-gateway-和-agent-是什么关系) | [Q79: 获取帮助](#q79-遇到问题怎么获取帮助)
 
-### Q1: OpenClaw 和 ChatGPT 有什么区别？
+### Q73: OpenClaw 和 ChatGPT 有什么区别？
 
 **说明：** 它们是完全不同的东西：
 
@@ -1802,7 +1678,7 @@ openclaw skills check my-awesome-skill --input "测试"
 
 简单说：ChatGPT 是一个产品，OpenClaw 是一个让你构建自己 AI 助手的工具。
 
-### Q2: OpenClaw 支持哪些语言？
+### Q74: OpenClaw 支持哪些语言？
 
 **说明：** OpenClaw 本身是英文项目，但 AI 的回复语言取决于你使用的模型和系统提示词。
 
@@ -1816,38 +1692,35 @@ openclaw skills check my-awesome-skill --input "测试"
 
 大多数主流云端模型都支持中文；本地模型里 Qwen（通义千问）系列通常是中文优先选择之一。具体效果要用你当前安装的模型实际测试，不要只看名字。
 
-### Q3: 一台机器能跑多个 OpenClaw 实例吗？
+### Q75: 一台机器能跑多个 OpenClaw 实例吗？
 
-**解决方案：**
+可以，但每个实例需要独立状态、workspace 和端口。推荐用 profile 创建并分别初始化：
 
 ```bash
-# 可以，但需要用不同的端口和数据目录
+openclaw --profile personal onboard
+openclaw --profile personal gateway --port 18789
 
-# 实例 1
-OPENCLAW_HOME=~/.openclaw-1 openclaw config set gateway.port 18789
-OPENCLAW_HOME=~/.openclaw-1 openclaw gateway --port 18789
-
-# 实例 2
-OPENCLAW_HOME=~/.openclaw-2 openclaw config set gateway.port 18790
-OPENCLAW_HOME=~/.openclaw-2 openclaw gateway --port 18790
-
-# Docker 方式更简单：跑多个容器，映射不同端口
+# 在另一终端或另一服务中启动，勿复用同一通道账号
+openclaw --profile work onboard
+openclaw --profile work gateway --port 19789
 ```
 
-### Q4: OpenClaw 会收费吗？
+`OPENCLAW_HOME` 是 home 根目录，不能直接等同于状态目录。自定义状态路径使用 `OPENCLAW_STATE_DIR`。不要仅映射不同宿主端口却让容器共享写入同一组卷。
+
+### Q76: OpenClaw 会收费吗？
 
 **说明：** OpenClaw 是开源项目（MIT 协议），工具本身免费。你需要付费的通常是云端 AI 模型 API 调用费用；本地模型（Ollama）没有按 token 计费，但仍有机器、电费、显存、下载和维护成本。
 
-### Q5: 怎么查看当前的所有配置？
+### Q77: 怎么查看当前的所有配置？
 
 **解决方案：**
 
 ```bash
-# 查看所有配置
-openclaw config get
+# 查看默认模型配置（这里只返回这个配置项）
+openclaw config get agents.defaults.model
 
 # 查看特定配置项
-openclaw config get providers
+openclaw config get models.providers
 openclaw config get channels
 openclaw config get agents.defaults.model
 
@@ -1859,7 +1732,7 @@ cp ~/.openclaw/openclaw.json my-config-backup.json
 cp my-config-backup.json ~/.openclaw/openclaw.json
 ```
 
-### Q6: Gateway 和 Agent 是什么关系？
+### Q78: Gateway 和 Agent 是什么关系？
 
 **说明：**
 
@@ -1870,14 +1743,14 @@ cp my-config-backup.json ~/.openclaw/openclaw.json
 
 Gateway 是基础设施层，Agent 是业务逻辑层。一个 Gateway 可以服务多个 Agent。
 
-### Q7: 遇到问题怎么获取帮助？
+### Q79: 遇到问题怎么获取帮助？
 
 **获取帮助的渠道（按推荐顺序）：**
 
 1. 查看本 FAQ 文档
 2. 查看[官方文档](https://docs.openclaw.ai)
 3. 搜索 [GitHub Issues](https://github.com/openclaw/openclaw/issues)（可能别人遇到过同样的问题）
-4. 在 [GitHub Discussions](https://github.com/openclaw/openclaw/discussions) 提问
+4. 在 [GitHub Issues](https://github.com/openclaw/openclaw/issues) 提问
 5. 加入 Discord 社区实时交流
 
 提问时请附上：
@@ -1888,32 +1761,38 @@ Gateway 是基础设施层，Agent 是业务逻辑层。一个 Gateway 可以服
 
 ---
 
-## 十一、版本升级与迁移（v2026.3.28 → v2026.6.1）
+## 十一、版本升级与迁移（v2026.3.28 → v2026.9.4）
 
 
 > 📌 **本节包含 4 个问题：**
-> [Q80: 升级要点](#q1-从-v202632x-升级到-v202661-有哪些注意事项) | [Q81: 反向代理配置变更](#q81-升级后反向代理配置需要改吗) | [Q82: 插件白名单变更](#q82-升级后-allowlist-相关操作报权限错误) | [Q83: 性能提升](#q83-升级后启动变快了是正常的吗)
+> [Q80: 升级要点](#q80-从-v202632x-升级到当前版本v202694有哪些注意事项) | [Q81: 反向代理配置变更](#q81-升级后反向代理配置需要改吗) | [Q82: 插件白名单变更](#q82-升级后-allowlist-相关操作报权限错误) | [Q83: 性能提升](#q83-升级后启动变快了是正常的吗)
 
-### Q1: 从 v2026.3.2x 升级到 v2026.6.1 有哪些注意事项？
+### Q80: 从 v2026.3.2x 升级到当前版本（v2026.9.4）有哪些注意事项？
 
-> **v2026.6.1 新增关注点**：除了 v2026.4.x 和 v2026.5.x 的安全、通道、Transcript、模型目录、Docker 和 release integrity 改动之外，v2026.6.1 还重点改进 Agents / CLI runtime 恢复、消息通道稳定性、Skill Workshop、插件安装索引、Workboard、provider/model 覆盖、Control UI 和 release / diagnostics 证据链。升级后如果发现模型、通道、插件、技能或多 Agent 行为变化，先运行 `openclaw doctor`，再对照当前 release notes。
+> **v2026.9.4 升级口径（核查日：2026-09-14）**：升级命令优先用 `openclaw update`；只有数据库结构未变、旧包兼容且配置校验通过时，失败后才可能自动恢复旧包、配置和服务（v2026.9.1 起提供 triage 排障入口，保留配置和 secret 引用；v2026.9.3 起核心和插件改动先在隔离 candidate 状态预演）。两条硬约束：从 2026.8.2 升上来、机器上没有 service manager 的，先手动跑一次 `openclaw update --no-restart`；自动回滚不能撤销数据库迁移，升级前的备份仍然要做，并且要验证能恢复。下面 v2026.6.8 的关注点保留作历史，跨版本升级时仍然适用。
 
-**说明：** 从 v2026.4.x 到 v2026.6.1 的升级包含多项安全加固、性能优化、通道能力、插件/技能和多 Agent 更新。大部分配置向后兼容，但以下几点需要注意：
+> **v2026.6.8 新增关注点**：除了 v2026.4.x 和 v2026.5.x 的安全、通道、Transcript、模型目录、Docker 和 release integrity 改动之外，v2026.6.x 还重点改进 Agents / CLI runtime 恢复、消息通道稳定性、Skill Workshop、插件安装索引、Workboard、provider/model 覆盖、Control UI、fail-closed 边界、agent run recovery、SecretRef、`/usage` 和 release / diagnostics 证据链。升级后如果发现模型、通道、插件、技能或多 Agent 行为变化，先运行 `openclaw doctor`，再对照当前 release notes。
+
+**说明：** 从 v2026.4.x 到 v2026.6.8 的升级包含多项安全加固、性能优化、通道能力、插件/技能和多 Agent 更新。大部分配置向后兼容，但以下几点需要注意：
 
 1. **Owner-Enforced Commands（v2026.4.5+）**：`/allowlist add` 和 `/allowlist remove` 现在需要 Owner 身份验证。如果你之前在自动化脚本中使用了这些命令，需要确保调用者具有 Owner 权限
 2. **转发头安全检查（v2026.4.x+）**：如果你使用反向代理，Gateway 现在会检查转发头的一致性（详见 Q81）
 3. **环境变量过滤（v2026.4.7+）**：Gateway 会自动拦截危险的环境变量覆盖，如果你的部署脚本依赖特定的环境变量传递，建议测试确认
 4. **Hook 失败模式变更（v2026.4.5+）**：Hook 崩溃时从 fail-open 改为 fail-closed，如果你有自定义 Hook，升级后请确认它们运行正常
-5. **Cron 状态拆分（v2026.4.20+）**：定时任务运行时状态拆分到独立的 `jobs-state.json` 文件，升级后首次启动会自动迁移
+5. **自动化状态（9.4 参考）**：任务、运行状态和历史已存入共享 SQLite 状态数据库。旧 jobs.json、*-state.json 和 runs/*.jsonl 只作为一次性迁移来源；迁移后用 automations 命令管理，不直接编辑旧 JSON。
 
 **升级步骤：**
 
-```bash
-# 1. 备份
-cp -r ~/.openclaw ~/.openclaw.backup-$(date +%Y%m%d)
+如果你仍在 v2026.3.x，先检查本机是否支持 `openclaw backup`。不支持时，停止 Gateway 和其他写入者，制作包含配置、数据库和工作区的文件系统或卷快照，并做恢复演练；不要跳过备份直接运行下面的升级命令。当前支持备份命令的版本可以这样做：
 
-# 2. 升级
-npm update -g openclaw
+```bash
+# 1. 备份（自动回滚不覆盖数据库迁移，这一步不能省，备份完试着恢复一次）
+openclaw backup create --output ~/Backups/openclaw --verify
+
+# 2. 升级（优先内置升级，失败后的回滚受状态兼容条件限制）
+openclaw update
+# 从 2026.8.2 升上来且没有 service manager：先跑 openclaw update --no-restart
+# 内置升级不可用时再退回：npm update -g openclaw
 
 # 3. 验证
 openclaw --version
@@ -1923,7 +1802,7 @@ openclaw security audit
 # 4. 如果使用反向代理，检查转发头配置（见 Q81）
 ```
 
-### Q2: 升级后反向代理配置需要改吗？
+### Q81: 升级后反向代理配置需要改吗？
 
 **说明：** 如果你通过 Nginx 等反向代理暴露 Gateway，v2026.4.x 的转发头安全检查可能影响你的配置。
 
@@ -1942,7 +1821,7 @@ proxy_set_header X-Forwarded-For $remote_addr;
 2. 如果使用 trusted-proxy 认证模式，`trustedProxies` 中不能填 loopback 地址（`127.0.0.1`、`::1`）
 3. 如果 Gateway 和代理在同一台机器上通过 loopback 通信，改用 token/password 认证模式
 
-### Q3: 升级后 /allowlist 相关操作报权限错误
+### Q82: 升级后 /allowlist 相关操作报权限错误
 
 **现象：** 升级到 v2026.4.5+ 后，执行 `/allowlist add` 或 `/allowlist remove` 时提示权限不足。
 
@@ -1956,15 +1835,15 @@ proxy_set_header X-Forwarded-For $remote_addr;
 # 2. 如果使用配对系统，确保你是已配对的 Owner 用户
 # 3. 通过 CLI 直接管理白名单
 openclaw approvals get
-openclaw approvals set <tool-name> --allow
+openclaw approvals set --file ./exec-approvals.json  # 先按官方格式准备并审查；命令allowlist也可用 approvals allowlist add
 ```
 
-### Q4: 升级后启动变快了，是正常的吗？
+### Q83: 升级后启动变快了，是正常的吗？
 
-**说明：** 是的，这是正常现象。v2026.4.20+ 包含了显著的启动性能优化：
+**说明：** 是的，这是正常现象。v2026.4.22 包含了显著的启动性能优化：
 
-- **插件启动**：通过延迟加载和 manifest-backed 模型行，bundled 依赖加载时间降低 82-90%
-- **Doctor 诊断**：插件延迟加载使冷启动时间降低约 74%
+- **插件启动**：原生 Jiti 加载捆绑插件的 `dist` 模块，捆绑插件加载时间降低 82-90%
+- **Doctor 诊断**：延迟加载 doctor 插件路径，`doctor --non-interactive` 运行时间降低约 74%
 - **模型目录**：静态模型目录替代运行时加载，减少启动时的网络请求
 
 这些优化在 v2026.4.24 中进一步改善（通过 provider 依赖的延迟加载和 manifest-backed model rows）。

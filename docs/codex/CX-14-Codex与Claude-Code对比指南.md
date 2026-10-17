@@ -1,6 +1,6 @@
 # CX-14 Codex 与 Claude Code 对比：从 App 主线出发做工具选择
 
-主要来源：OpenAI Codex App / CLI / Web 官方文档，以及 Claude Code 官方命令、插件、MCP、Hooks、Skills 文档。模型、价格和开放范围变化快，本篇不写固定数值结论。
+本篇于 2026-09-14 对照 OpenAI 的导入、App 命令、worktree 与定时任务文档，以及 Claude Code Desktop 文档复核。沿用本系列 Codex App 26.908 / CLI 0.154.0、Claude Code 2.1.270 基线；模型、价格和开放范围不作固定数值比较。下面的主辅分工是本课程的建议，不是两款产品的功能限制或性能排名。
 
 ---
 
@@ -13,7 +13,7 @@
 > - **个人博客**：https://aiking.dev
 > - **预计学时**：1-2小时
 > - **难度等级**：⭐⭐ 入门级
-> - **更新日期**：2026年5月30日
+> - **更新日期**：2026年9月14日
 > - **信息来源**：OpenAI Codex App/CLI/Web 官方文档、Claude Code 官方命令/插件/MCP/Hooks/Skills 文档
 > - **前置要求**：已完成CX-01至CX-13，或已熟悉Claude Code基本使用
 
@@ -23,8 +23,10 @@
 
 完成本课学习后，你将能够：
 
+> **本次复核重点**：桌面端通过 Settings → Import 导入其他工具的受支持配置、项目和近期任务，再核对语义与授权；CLI `/import` 的来源和使用条件不同。Codex 与 Claude Desktop 都提供可视化 diff、并行工作区及云端能力，选型要比较你实际使用的入口与工程流程。
+
 1. **理解两个工具的定位差异**：Codex App是桌面开发主控台，Claude Code是覆盖 terminal、IDE、desktop app 和 browser 的多端 coding agent
-2. **判断何时优先Codex**：桌面多线程、Review面板、Automations、连接器、Cloud handoff
+2. **判断何时优先Codex**：桌面多线程、Review面板、Automations、连接器、Cloud 任务接续
 3. **判断何时优先Claude Code**：CLI 深度协作、Hooks、Skills、MCP、Agent Teams、IDE / Desktop / Browser 多端接力
 4. **设计双工具共存策略**：按任务类型分工，不让他们同时改同一批文件
 5. **管理双工具配置**：AGENTS.md服务Codex，CLAUDE.md服务Claude Code，两边写相同项目事实
@@ -76,7 +78,7 @@
 
 ## 0. 正确对比方法
 
-老金我写 Codex 与 Claude Code 对比，不是为了站队，而是帮读者按任务、团队和风险选择主工具。
+我写 Codex 与 Claude Code 对比，不是为了站队，而是帮读者按任务、团队和风险选择主工具。
 
 不要按“模型名、跑分、价格、谁更新快”来做长期选型。更稳的比较顺序是：
 
@@ -94,11 +96,11 @@
 
 ### 0.1 两个工具的“重心”不同
 
-| 维度 | Codex App 更强的学习重心 | Claude Code 更强的学习重心 |
+| 维度 | 本系列的 Codex 学习重点 | 本系列的 Claude Code 学习重点 |
 |---|---|---|
 | 第一入口 | 桌面 App、线程、Review、Settings | 终端、命令、项目上下文、shell |
-| 可视化收口 | Review 面板、diff、inline feedback | 终端 diff、Git 命令、PR / hooks |
-| 后台体验 | App Automations、Triage、Cloud handoff | 计划任务、hooks、CLI / SDK 自动化 |
+| 审查入口 | Review 面板、diff、inline feedback | 本系列先讲终端 diff / Git；Desktop 也有可视化 diff 与评论 |
+| 后台体验 | 定时任务、Scheduled 运行记录、Cloud 任务接续 | Desktop 定时任务、云端会话，以及 CLI / SDK 自动化 |
 | 扩展方式 | Skills、Plugins、Connectors、MCP | Skills、commands、hooks、MCP、agents |
 | 团队培训 | 先教 App 工作流和 Review | 先教终端习惯和项目规则 |
 | 风险控制 | Settings、sandbox、approval、Rules、Review | permissions、hooks、settings、shell discipline |
@@ -109,8 +111,8 @@
 
 | Claude Code 习惯 | 迁移到 Codex 时怎么处理 |
 |---|---|
-| `CLAUDE.md` 项目规则 | 写成 `AGENTS.md`，保留项目事实和安全边界 |
-| 自定义 commands | 优先评估是否应改成 Codex Skill |
+| `CLAUDE.md` 项目规则 | 导入或手动整理为 `AGENTS.md`，再核对项目事实和安全边界 |
+| 自定义 commands | 导入器可转换为 Skill，也可手动适配；检查参数与依赖 |
 | Hooks 深度治理 | Codex 也有 Hooks，但事件、信任和配置口径按 Codex 官方文档 |
 | MCP server | 可复用思路，但配置和权限分别验证 |
 | Subagent / Agent Teams | 按 Codex 当前 Subagents / multi-agent 能力重设边界 |
@@ -118,12 +120,26 @@
 
 不要把 `.claude/commands`、Claude hooks 配置或 Claude 专属命令直接贴进 Codex 教程。迁移的核心是“意图迁移”，不是“文件结构照搬”。
 
+### 0.3 当前功能边界：先分清界面，再比较流程
+
+| 能力 | Codex | Claude Code |
+|---|---|---|
+| 可视化审查 | App Review 面板与 `/review`，可看未提交改动或相对基础分支的差异 | Desktop 有文件 diff 与行内评论；CLI 也可配合 Git 和审查命令 |
+| 并行代码任务 | App 托管 Git worktree；默认可处于 detached HEAD，确认后再创建分支或 Hand off 到 Local | Desktop 提供 Git worktree 隔离的并行会话；CLI 也有自己的 worktree 工作流 |
+| 后台定时任务 | 桌面任务可在 local 或 worktree 执行，依赖本地文件时电脑与 App 须运行 | Desktop 提供定时任务；CLI 的循环与外部调度是另外的机制 |
+| 云端执行 | 有对应环境时可创建 Cloud 任务，本地上下文与文件要按云端流程提供 | Desktop 可选择 Cloud 会话，也有 Web 入口；可用条件按账号与环境核对 |
+| 配置迁移 | 桌面导入器支持多种资产，并可选择自动更新 | 原有 Claude 配置可继续使用；迁移后不应假定两套配置行为完全等价 |
+
+Codex 的 **Hand off 在 Local 与 Worktree 间搬移任务和 Git 状态**，不等于自动把整台电脑的文件、依赖和凭据送到云端。创建 Codex worktree 时，还要留意是否选择了包含本地改动的起点；不能套用 WorkBuddy“只从基础分支 HEAD 开始”的固定假设。
+
+已经有成熟 Claude Desktop 工作流的团队，不需要仅为了可视化 Review 或并行 worktree 就切工具。用同一个代表性任务比较结果、审查成本与协作方式更有帮助。
+
 ## 1. 一句话对比
 
 
 | 工具 | 更像什么 | 适合 |
 |---|---|---|
-| Codex App | 桌面开发主控台 | 本地多线程、Review、Automations、连接器、Cloud handoff |
+| Codex App | 桌面开发主控台 | 本地多线程、Review、Automations、连接器、Cloud 任务接续 |
 | Claude Code | 多端 coding agent 工具链，CLI 仍是强主线 | CLI 深度协作、Hooks、Skills、MCP、Agent Teams、IDE / Desktop / Browser 接力 |
 
 这不是谁替代谁的问题，而是工作流重心不同。
@@ -136,7 +152,7 @@
 - 你希望用桌面线程管理多个任务。
 - 你重视 Review 面板和可视化 diff。
 - 你想把 Commands、Skills、Plugins、Connectors、Automations 放在一个 App 里。
-- 你需要从本地 App 接力到 Cloud / GitHub。
+- 你希望把本地任务、可用的 Cloud 环境和 GitHub 上下文组织在同一套工作流里。
 - 团队成员不想先学终端。
 
 ## 3. 什么时候优先 Claude Code
@@ -159,8 +175,8 @@
 | 本地 Review | 主力 | 辅助 |
 | 终端自动化 | 辅助 | 主力 |
 | Hooks 深度定制 | 辅助 | 主力 |
-| App Automations | 主力 | 另建计划任务 |
-| Cloud / GitHub handoff | 主力 | 视插件能力 |
+| 桌面定时任务 | 本系列重点教学 | Desktop 同样支持，按使用入口单独配置 |
+| Cloud / GitHub 工作流 | 可按项目环境使用 | Desktop / Web 也有云端与 PR 工作流，按现有团队流程选择 |
 | 复杂 Agent Teams | 视当前 App 能力 | 主力 |
 
 ## 5. 配置共存
@@ -174,13 +190,13 @@ CLAUDE.md
 .claude/
 ```
 
-规则：
+采用两份指令文件时，先核对共同的项目事实：
 
-- `AGENTS.md` 服务 Codex。
-- `CLAUDE.md` 服务 Claude Code。
-- 两边都要写相同项目事实，但不要互相假设。
-- 敏感规则要同步。
+- `AGENTS.md` 写 Codex 要遵守的项目指令，`CLAUDE.md` 可以另写 Claude Code 专属说明。
+- 安装命令、测试命令和安全边界要保持一致，工具专属配置分别维护。
 - 不要让两个工具同时改同一批文件。
+
+也可以共享 `AGENTS.md`。当前 Claude Code 支持直接发现它：默认在当前目录及父目录没有 `CLAUDE.md`、`.claude/CLAUDE.md` 或 `CLAUDE.local.md` 时读取，也可在 `/config` 的 Project instructions 中选择加载方式。这个能力从 v2.1.277 开始提供，旧版、内置插件设置或某些早期认证路径会影响可用性；先核对安装版本和设置。若需要保留 Claude 专属指令，也可在 `CLAUDE.md` 中用 `@AGENTS.md` 导入共同内容。最后用 `/context` 核对 Claude Code 实际加载的文件，不要只凭文件存在就判定两边已同步。参见[官方共享说明](https://code.claude.com/docs/en/memory#share-one-file-with-other-coding-tools)。
 
 ## 6. MCP 共享
 
@@ -209,11 +225,11 @@ MCP server 可以在两个工具中复用，但配置方式不同。
 | 问题 | Codex App 倾向 | Claude Code 倾向 |
 |---|---|---|
 | 团队成员是否熟终端？ | 不熟，App 更易培训 | 熟，终端效率更高 |
-| 是否高度依赖可视化 Review？ | 是 | 一般 |
+| 是否高度依赖可视化 Review？ | 有 Review 面板和评论流程 | Desktop 也有 diff view、行内反馈与 Review code |
 | 是否已有大量 `.claude/` 资产？ | 需要迁移成本 | 可继续复用 |
-| 是否需要桌面多项目并行？ | 是 | 取决于终端和工作区管理 |
+| 是否需要桌面多项目并行？ | 可用多线程和 worktree | Desktop 可并行会话，并用 worktree 隔离 |
 | 是否需要深度 shell / SSH / tmux？ | 一般 | 是 |
-| 是否需要 App Automations / Triage？ | 是 | 需另建自动化方式 |
+| 是否需要桌面周期任务？ | 有 Automations / Scheduled 入口，按当前入口配置 | Desktop 有 Scheduled tasks，按该入口的运行条件配置 |
 | 是否要企业统一权限配置？ | 两边都要评估 | 两边都要评估 |
 
 ### 7.2 单人、创业团队、企业的默认建议
@@ -231,21 +247,21 @@ MCP server 可以在两个工具中复用，但配置方式不同。
 | 错误 | 修正 |
 |---|---|
 | 按模型名判断工具 | 看工作流 |
-| 两个工具同时改同文件 | 分支 / worktree 隔离 |
+| 两个工具同时改同文件 | 独立 worktree / 检出目录，且使用不同分支 |
 | 配置只写一边 | AGENTS.md 和 CLAUDE.md 分别维护 |
 | MCP 权限复制粘贴 | 分别验证 |
 | 用固定价格和跑分下结论 | 写成会变化的信息 |
 
 ## 8.1 共存的工作区纪律
 
-双工具共存时，最大的风险不是“两个工具冲突”，而是人让它们同时改同一批文件。
+双工具共存时，最大的风险不是"两个工具冲突"，而是人让它们同时改同一批文件。
 
 推荐规则：
 
 ```text
 同一任务只指定一个主力工具。
 同一文件同一时间只归一个工具处理。
-不同工具用不同分支或 worktree。
+并行修改时，不同工具用独立 worktree 或独立检出目录，并使用不同分支。
 AGENTS.md 和 CLAUDE.md 保持项目事实一致。
 提交前统一用 Git diff / PR Review 收口。
 ```
@@ -282,7 +298,7 @@ Claude Code 路线：
 
 ### 案例二：配置共存检查
 
-目标：让 `AGENTS.md` 和 `CLAUDE.md` 讲同一个项目事实，但不互相替代。
+目标：采用两份指令文件时，核对共同的项目事实，并保留各自的工具专属说明。
 
 ```text
 阅读 AGENTS.md 和 CLAUDE.md，只输出二者关于安装命令、测试命令、安全边界是否一致。不要修改文件。
@@ -348,7 +364,7 @@ Claude Code 路线：
 2. 配置一个文档类 MCP，只读核对 README。
 3. 安装一个可信插件，先读能力和权限。
 4. 写插件 / MCP 登记表。
-5. 用 Skill 沉淀一次 code review SOP。
+5. 用 Skill 固化一次 code review SOP。
 6. 让 Automation 调用只读 Skill 生成一次报告。
 
 本周仍然不自动评论、不自动推送、不自动合并。先让外部上下文进入工作流，再决定哪些写操作值得开放。
@@ -380,7 +396,7 @@ Claude Code 路线：
 | PR 描述模板 | Summary / Verification / Risk 稳定 |
 | 双工具分工规则 | Codex 与 Claude Code 不抢同一批文件 |
 
-这才是一套工具真正落地的样子：不是人人会喊“帮我优化”，而是团队有共同的上下文、边界、工具、审查和复盘方式。
+这才是一套工具真正落地的样子：不是人人会喊"帮我优化"，而是团队有共同的上下文、边界、工具、审查和复盘方式。
 
 ## 11. 课程内容地图：从功能到能力
 
@@ -391,7 +407,7 @@ Claude Code 路线：
 | 基础环境 | CX-01、CX-02 | 安装、线程、任务描述、Review 主线 |
 | 工作流控制 | CX-03、CX-04、CX-10、CX-12 | Commands、权限、配置、PR、CLI 排障 |
 | 能力扩展 | CX-05、CX-06、CX-07、CX-08、CX-09 | MCP、Skills、Plugins、Subagents、Automations |
-| 团队治理 | CX-11、CX-13、CX-14 | Cloud handoff、安全企业、工具选型和共存 |
+| 团队治理 | CX-11、CX-13、CX-14 | Cloud 任务接续、安全企业、工具选型和共存 |
 
 学习顺序也可以按角色调整：
 
@@ -411,7 +427,7 @@ Claude Code 路线：
 
 ### Q2：两个工具能一起用吗？
 
-能，但不要让它们同时改同一工作区。用分支、worktree 或明确文件范围隔离。
+能，但不要让它们同时改同一工作区。并行修改时用独立 worktree 或独立检出目录，并使用不同分支；同目录只读协作要明确文件责任。
 
 ### Q3：团队怎么落地？
 
@@ -423,11 +439,11 @@ Claude Code 路线：
 
 ### Q5：两个工具的配置文件要不要内容完全一样？
 
-项目事实、安全边界、测试命令应该一致；工具专属配置不要互相复制。`AGENTS.md` 服务 Codex，`CLAUDE.md` 服务 Claude Code。
+项目事实、安全边界、测试命令应该一致；工具专属配置不要互相复制。可以分别维护两份文件，也可以按第 5 节共享 `AGENTS.md`，再核对两个工具实际加载的指令。
 
 ### Q6：什么时候应该从 Claude Code 迁到 Codex？
 
-当团队更需要桌面 App、Review 面板、App Automations、连接器和 Cloud handoff，且愿意维护 `AGENTS.md` 和 Codex 配置时，可以逐步迁移。已有成熟 Claude Code hooks / commands 的团队应先做小范围试点。
+当团队更需要桌面 App、Review 面板、App Automations、连接器和 Cloud 任务接续，且愿意维护 `AGENTS.md` 和 Codex 配置时，可以逐步迁移。已有成熟 Claude Code hooks / commands 的团队应先做小范围试点。
 
 ### Q7：什么时候不该强推 Codex？
 
@@ -462,7 +478,7 @@ Codex App 和 Claude Code 的差异不是简单的模型差异，也不是“一
 |------|-----------|-------------|
 | 主交互 | 桌面 App、线程、Review、Automations | CLI、IDE、Desktop、Browser、commands、hooks、subagents |
 | 学习入口 | 项目 + App 工作台 | CLI 会话 + 配置文件；也可从 Desktop / IDE / Web 进入 |
-| 强项 | 桌面可视化、Review 面板、App automations、Cloud handoff | CLI 深度、hooks、commands、自定义自动化、多端接力 |
+| 强项 | 桌面可视化、Review 面板、App automations、Cloud 任务接续 | CLI 深度、hooks、commands、自定义自动化、多端接力 |
 | 适合人群 | 想把 AI 编程纳入桌面工作流的人 | 习惯终端和脚本化，或需要 Claude Code 多端接力的人 |
 | 团队落地 | App 培训、项目说明、权限配置 | CLI 规范、hooks、commands、agent teams |
 | 风险 | 误以为 App 能自动处理所有流程 | 误以为脚本化越多越好 |
@@ -481,7 +497,7 @@ Claude Code 课程厚，不只是因为字多。它厚在几个方面：
 5. 每个高风险功能都有安全提醒。
 6. 每个功能都有案例、命令、模板和 FAQ。
 7. 企业场景有单独章节。
-8. 排障不是一句“重启试试”，而是按症状拆。
+8. 排障按症状拆，而不是简单一句“重启试试”。
 ```
 
 Codex 课程要对齐的是这种“教学密度”，不是把 Claude Code 的命令照搬。
@@ -504,8 +520,8 @@ Codex 课程要对齐的是这种“教学密度”，不是把 Claude Code 的�
 | Claude Code 习惯 | Codex 里的对应思路 |
 |------------------|-------------------|
 | `CLAUDE.md` | `AGENTS.md` |
-| `.claude/commands` | App/CLI commands + Skills，不是等价目录照搬 |
-| Hooks 自动化 | Codex Hooks + Rules + Automations 分工 |
+| `.claude/commands` | 可通过导入转换为 Skills；检查参数、Shell 插值和路径，不把目录直接改名 |
+| Hooks 自动化 | 可导入后再核对 Codex 事件与信任；由 Hooks、Rules、定时任务分别承担职责 |
 | Claude subagents | Codex 显式 subagent workflows |
 | Terminal-first review | App Review pane + `/review` |
 | CLI scheduled tasks | Codex App Automations |
@@ -517,69 +533,74 @@ Codex 课程要对齐的是这种“教学密度”，不是把 Claude Code 的�
 
 ## 15. 从 Claude Code 迁到 Codex 的 5 步
 
-### 第 1 步：盘点 Claude Code 资产
+当前桌面 App 提供正式导入流程，可以导入 Claude Code、Claude Cowork 或 Cursor 的受支持内容。Codex CLI 的 `/import` 只列 Claude Code 与 Cursor。下面优先走桌面入口，再检查导入结果。
+
+### 第 1 步：保存现状，选一个小项目
+
+先查看原项目的 Git 状态，记录未提交改动，并备份需要保留的配置。导入不会删除或修改原有 agent 设置，但会在 Codex 一侧建立配置与任务；导入的项目仍使用原来的文件夹，不是自动复制出的隔离项目。
+
+第一次选择一个非生产的小项目，只迁一份项目说明和一个简单 Skill。先不要迁入部署脚本、自动推送或需要生产凭据的工具链。
+
+### 第 2 步：从设置进入导入
+
+1. 打开 **Settings → Import**。若当前版本尚未单列 Import，进入 **General**，找到 **Import other agent setup**。
+2. 选择 **Import**，勾选 Claude Code，再点击 **Continue**。
+3. 在 **Select items to import** 中挑选要导入的设置、项目和近期任务，不必第一轮全选。
+4. 确认后继续，完成时打开导入的项目或任务。
+
+桌面导入器当前支持的映射包括：
+
+| 原内容 | Codex 侧目标 | 导入后重点检查 |
+|---|---|---|
+| 项目指令文件 | `AGENTS.md` | 安装、测试命令和边界是否保留 |
+| `settings.json` | `config.toml` | 字段是否受支持，权限是否符合原意 |
+| Skills、Plugins | 相应技能与插件 | 是否启用，依赖和安装是否完整 |
+| Slash commands | Skills | 参数、Shell 插值和路径占位是否仍然有效 |
+| Hooks、Subagents | Codex Hooks、子代理配置 | 事件、权限与角色边界是否等价 |
+| MCP 配置 | Codex MCP 配置 | 传输方式、认证和环境变量需要分别核对 |
+| 原项目文件夹、近期任务 | 使用同一文件夹的项目与任务记录 | 当前目录、原有改动和接续目标是否正确 |
+| Claude Code 项目记忆 | Memories | 哪些上下文被带入，是否仍适用于当前任务 |
+
+自动导入减少了搬运工作，仍需检查语义；尤其不能把“字段成功导入”当成原 Hooks 与权限行为已经验证一致。
+
+### 第 3 步：处理需要补充设置的项目
+
+导入完成后，左下角的状态卡会提示插件或连接器是否需要后续设置。选择 **Finish** 可以查看具体要求。若需要重新登录或新增授权，先核对目标账号与权限范围；尚未准备授权的内容留待后续处理，不把旧票据直接复制进配置。
+
+在 **Settings → Import** 可查看导入历史，也可选择是否开启自动更新以跟随源工具。若两个工具还在分别维护规则，先明确谁负责源配置，再决定是否启用同步。
+
+### 第 4 步：用本地任务验证导入结果
+
+在导入的项目里发起只读检查：
 
 ```text
-- CLAUDE.md
-- commands
-- hooks
-- skills
-- MCP config
-- subagent templates
-- CI scripts
-- team docs
+请阅读 AGENTS.md、CLAUDE.md 和当前项目的运行说明。
+只比较：工作目录、安装命令、测试命令、可改文件范围与对外操作边界。
+区分一致项、冲突项和找不到来源的命令。
+不要读取密钥，不连接外部账号，不修改文件。
 ```
 
-### 第 2 步：按用途分类
+确认项目事实一致后，选择一个只改 README 的小任务，运行相关检查，并在 Review 面板核对 diff。再试用刚导入的 Skill，检查它是否正确读取材料和遵守文件范围。
 
-| 资产 | 迁移方向 |
-|------|----------|
-| 项目说明 | `AGENTS.md` |
-| 可复用流程 | Codex Skill |
-| 命令入口 | App command / prompt template / Skill |
-| 命令拦截 | Rules |
-| 事件脚本 | Hooks |
-| 外部工具 | MCP 或 Plugin |
-| 周期任务 | Automations |
-| 并行角色 | Subagents / `.codex/agents` |
+如果 Skill 依赖原工具的命令参数、Shell 插值或路径占位，先把这些依赖改成 Codex 支持的形式再运行。MCP、Hooks 和子代理分别参照 CX-05、CX-04、CX-08 验证，不一次全部打开。
 
-### 第 3 步：先迁低风险流程
+### 第 5 步：明确下一次由谁继续
+
+保留下面这份接续说明，避免两个工具同时写同一工作目录：
 
 ```text
-1. 文档审查。
-2. PR 摘要。
-3. README 更新。
-4. 只读 MCP 文档查询。
-5. Review prompt。
+原目标：修正 README 中的启动命令。
+当前工作目录：填写本次实际项目目录。
+已改文件：列出文件，以及哪些改动尚未提交。
+已运行检查：写实际命令与结果，不写预计结果。
+后续任务：只处理尚未完成的具体项。
+文件责任：本轮由 Codex 修改，Claude Code 如参与则只读审查。
+对外边界：推送、部署与新增授权需要单独确认。
 ```
 
-不要第一天就迁移发布、生产配置、密钥轮换或自动推送流程。
+只有需要同时修改时，才另建独立 worktree 或独立检出目录，并使用不同分支。仅在同一目录换一个分支，不能隔离两个正在运行的工具。
 
-### 第 4 步：在 App 中重建工作流
-
-```text
-打开项目
-  ↓
-写 AGENTS.md
-  ↓
-验证 Review 面板
-  ↓
-迁移一个 Skill
-  ↓
-接一个只读 MCP
-  ↓
-做一个只读 Automation
-  ↓
-再考虑 Plugin 和 Cloud
-```
-
-### 第 5 步：逐步替换，而不是一次切断
-
-```text
-Claude Code 保留终端重自动化流程。
-Codex App 承担可视化 Review、桌面多线程、Cloud handoff 和 Automations。
-等 Codex 流程稳定后，再决定是否迁移更多。
-```
+**CLI 补充**：交互会话可输入 `/import`。CLI v0.157.0 的 [官方发布记录](https://github.com/openai/codex/releases/tag/rust-v0.157.0) 已加入远程会话和本地后台服务会话的导入支持；Learn 的 Import 页面仍保留这两类会话不可用的旧限制。用教程 v0.154.0 基线时遵循旧边界，使用本机 0.157.1 或更新版本时先看实际列表和报错，不再一概排除远程与后台服务会话。任务运行期间的限制和最近 30 天最多 50 个任务的发现范围仍按当前帮助核对；这两个数字不直接套给桌面导入器。这里没有进行登录或导入实测。
 
 ## 16. 双工具共存的工程纪律
 
@@ -602,7 +623,7 @@ Codex App 承担可视化 Review、桌面多线程、Cloud handoff 和 Automatio
 
 ```text
 - 同一时间同一文件最好只让一个工具写。
-- 大任务用分支或 worktree 隔离。
+- 并行大任务用独立 worktree 或独立检出目录，分别使用自己的分支。
 - 提交前统一看 Git diff。
 - 不要让两个工具同时跑自动写入。
 - PR 描述里说明主要由哪个工具辅助。
@@ -690,7 +711,7 @@ AGENTS.md、permissions、Rules、Hooks
   ↓
 MCP 接外部上下文
   ↓
-Skills 沉淀流程
+Skills 固化流程
   ↓
 Plugins 分发能力
   ↓
@@ -700,7 +721,7 @@ Automations 后台
   ↓
 Review + GitHub + PR
   ↓
-Cloud handoff
+Cloud 任务接续
   ↓
 CLI 辅助
   ↓
@@ -751,7 +772,7 @@ CLI 辅助
 | 处理一个真实 PR | CX-02、CX-10、CX-14 | CX-05、CX-08、CX-12 |
 | 拆复杂任务给多个 agent | CX-02、CX-08、CX-10 | CX-04、CX-13 |
 | 把会议、评论或需求变成可执行改动 | CX-02、CX-10、CX-14 | CX-09 |
-| 沉淀团队可复用流程 | CX-06、CX-09、CX-14 | CX-05、CX-07 |
+| 固化团队可复用流程 | CX-06、CX-09、CX-14 | CX-05、CX-07 |
 | 接外部工具但控制风险 | CX-04、CX-05、CX-13 | CX-07、CX-09、CX-11 |
 | 做团队推广和企业基线 | CX-01、CX-04、CX-13 | CX-07、CX-11 |
 
@@ -792,7 +813,7 @@ CLI 辅助
 
 ## 22. 怎么使用这套 Codex 课程
 
-不要把 14 篇当成必须顺序读完的书。更实用的方式是先按当前任务查对应章节，再把高频流程沉淀成团队自己的 prompt、Skill、Automation 或配置基线。
+不要把 14 篇当成必须顺序读完的书。更实用的方式是先按当前任务查对应章节，再把高频流程整理成团队自己的 prompt、Skill、Automation 或配置基线。
 
 如果你今天只是想把 Codex 用起来，读法是：
 
@@ -821,7 +842,7 @@ CLI 辅助
 4. 用 Codex 自己的 App-first 逻辑重新设计任务入口。
 ```
 
-这样用课，读者不是“看完很多文章”，而是能在安装、改代码、审 PR、接工具、做治理时马上找到可复制的流程。
+这样用课，读者不是"看完很多文章"，而是能在安装、改代码、审 PR、接工具、做治理时马上找到可复制的流程。
 
 ## 23. 最终建议：把 Codex 作为 App-first AI 编程课来设计
 
@@ -858,7 +879,7 @@ Claude Code 里有：
 |--------|------------|
 | `CLAUDE.md` 项目事实 | `AGENTS.md` |
 | PR 审查命令 | Skill + `/review` prompt |
-| git push hook | Rules prompt 或 Hook |
+| git push hook | 按 Codex 规则语法配置 Rules，或适配支持的 Hook 事件；普通提示不等于执行拦截 |
 | 发布说明 Skill | `.agents/skills/release-notes` |
 | GitHub MCP | Codex MCP 或 GitHub connector |
 | 文档 MCP | Codex MCP config |
@@ -943,7 +964,7 @@ What are we trying to improve?
 
 ### Q5：Codex 最应该打出的差异化是什么？
 
-App-first。用桌面线程、Review 面板、Automations、Cloud handoff、Plugins/Skills 形成可视化、可培训、可治理的 AI 编程工作台。
+App-first。用桌面线程、Review 面板、Automations、Cloud 任务接续、Plugins/Skills 形成可视化、可培训、可治理的 AI 编程工作台。
 
 ## 27. 对比作业：给团队写一页选型建议
 
@@ -1034,7 +1055,7 @@ Revisit after 60 days with PR cycle time, review quality, and developer feedback
 4. 修改完成后在 Review 面板看 last turn 和 full diff。
 5. 用 `/review` 或 Review prompt 找风险。
 6. 需要远端并行时再用 Cloud。
-7. 稳定重复任务再沉淀成 Skill 或 Automation。
+7. 稳定重复任务再整理成 Skill 或 Automation。
 ```
 
 迁移 prompt：
@@ -1310,7 +1331,7 @@ Use Codex App for:
 - local diff review
 - PR context
 - App Review workflows
-- automations and cloud handoff
+- automations and cloud task workflows
 
 Use Claude Code for:
 - existing terminal-heavy workflows
@@ -1368,12 +1389,12 @@ Do not touch:
 
 - [ ] 理解Codex App和Claude Code的定位差异
 - [ ] 能根据团队工作方式选择主力工具
-- [ ] 知道双工具共存时如何隔离（分支/worktree/文件范围）
+- [ ] 知道双工具共存时如何隔离（独立 worktree / 检出目录，以及文件责任）
 - [ ] AGENTS.md和CLAUDE.md分别维护，不互相假设
 - [ ] MCP配置分别验证，不复制粘贴
 - [ ] 不用模型名、价格、跑分做硬结论
 
-**如果以上全部勾选，恭喜你完成Codex全系列学习！**
+**全部勾选后即完成 Codex 全系列学习。**
 
 ---
 
@@ -1387,20 +1408,23 @@ Do not touch:
 | 本地Review | 主力 | 辅助 |
 | 终端自动化 | 辅助 | 主力 |
 | Hooks深度定制 | 辅助 | 主力 |
-| App Automations | 主力 | 另建计划任务 |
+| 桌面定时任务 | 本系列重点教学 | Desktop 同样支持，按使用入口单独配置 |
 | 复杂Agent Teams | 视当前App能力 | 主力 |
 
 ### B. 推荐学习资源
 
-- **Codex 官方文档**：https://developers.openai.com/codex
-- **Claude Code 官方文档**：https://docs.anthropic.com/en/docs/claude-code
+- **Codex 导入流程**：https://learn.chatgpt.com/docs/import
+- **Codex App 命令**：https://learn.chatgpt.com/docs/reference/slash-commands
+- **Codex Git worktrees**：https://learn.chatgpt.com/docs/environments/git-worktrees
+- **Codex 定时任务**：https://learn.chatgpt.com/docs/automations
+- **Claude Code Desktop**：https://code.claude.com/docs/en/desktop
 - **本系列第一篇**：[CX-01 Codex App 安装与认证](./CX-01-Codex-App安装与认证完整指南.md)
 - **本系列上一篇**：[CX-13 安全与企业](./CX-13-Codex安全企业完整指南.md)
 
 ---
 
 **课程制作**：老金
-**最后更新**：2026年5月30日
+**最后更新**：2026年9月14日
 **许可**：本课程采用 MIT License；转载、复制或二次分发时必须保留版权声明与许可声明
 
 ---

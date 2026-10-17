@@ -1,4 +1,4 @@
-# Subagent 子代理完整指南：官方 Subagents、Task 委派与社区代理资源
+# Subagent 子代理完整指南：官方 Subagents、Agent 委派与社区代理资源
 
 > **课程信息**
 >
@@ -9,19 +9,21 @@
 > - **个人博客**：https://aiking.dev
 > - **预计学时**：1-2小时
 > - **难度等级**：⭐⭐⭐ 中级
-> - **更新日期**：2026年6月9日
-> - **适用版本**：Claude Code v2.1.169（验证于 2026-06-09；v2.1.158 以前差量保留为历史基线）
+> - **更新日期**：2026年10月3日
+> - **适用版本**：Claude Code v2.1.270 为 2026-09-14 的历史参考；截至 2026-10-03 的新增行为按正文标注版本与官方文档
 
 ---
 
 ## 📚 本课学习目标
 
-老金我把子代理当成分工工具，不当成神奇按钮；多开一个 agent 之前，先问清它到底负责什么。
+我把子代理当成分工工具，不当成神奇按钮；多开一个 agent 之前，先问清它到底负责什么。
+
+> **2026-08-06 操作口径**：v2.1.198 起 subagent **默认在后台运行**（Explore agent 现继承主会话模型而非 haiku）；v2.1.219 起嵌套深度默认提升到 **3 层**（v2.1.217 曾临时回退到 0，v2.1.219 恢复到 3）；同时引入防失控上限——当时每会话 subagent 生成数默认 **200**、并发默认 **20**（累计生成数上限已在 v2.1.224 移除，见下文补录）（`--max-budget-usd` 达上限时会中止后台 subagent）。安全侧：v2.1.210 修复了 worktree 隔离 subagent 对主 checkout 做破坏性 git 操作的问题。v2.1.218 曾将 `/code-review` 和 `/deep-research` 改为后台子代理形态；后续 `/code-review` 又调整了实现，v2.1.274 起对没有专用调参的模型使用精简的内联审查提示词。不要据此假定每次代码审查都会启动多个子代理。演示时仍先讲「边界清晰的一层委派」，再讲多层；多层不要当成默认做法。
 
 完成本课学习后，你将能够：
 
 1. **理解子代理的概念**：知道 Subagent 是什么、怎么工作的
-2. **掌握官方子代理入口**：知道 `.claude/agents/`、`/agents`、Task 委派各自负责什么
+2. **掌握官方子代理入口**：知道 `.claude/agents/`、`/agents`、Agent 委派各自负责什么
 3. **分清官方能力与社区资源**：明确 VoltAgent 之类的第三方代理包不是 Claude Code 官方内置
 4. **提升开发效率**：在实际项目中合理使用多代理并行协作
 
@@ -52,7 +54,7 @@
 ## 🎯 官方主路径：先理解，再扩展
 
 
-官方 Subagents 的最小闭环不是“先去装一个第三方代理包”，而是：
+官方 Subagents 的最小闭环不是"先去装一个第三方代理包"，而是：
 
 1. **知道 Claude Code 可以用 Agent 工具委派子任务**
 2. **知道项目级 / 用户级子代理定义文件放在哪里**
@@ -66,22 +68,42 @@
 | **`.claude/agents/`** | 项目级子代理定义目录 | 当前仓库专用代理 |
 | **`~/.claude/agents/`** | 用户级子代理定义目录 | 跨项目复用代理 |
 
-### 官方最小示例
+### 官方最小示例：创建并验证一位只读 reviewer
 
-```text
-请开一个 reviewer 子代理，检查这次改动的回归风险和缺失测试。
+先在项目根目录启动已登录的 Claude Code。用编辑器创建 `.claude/agents/course-reviewer.md`，写入这份教学定义：
+
+```markdown
+---
+name: course-reviewer
+description: 检查指定文件的回归风险并建议测试；用户要求审查时使用。
+tools: Read, Grep, Glob
+model: inherit
+---
+
+你负责只读审查。先按主代理给出的文件和问题范围阅读材料，
+报告具体文件位置、问题原因和建议的验证方式。不要改文件，
+没有运行测试就明确说明；没有证据的问题写成待确认项。
 ```
 
+在会话里输入：
+
 ```text
-并行开两个子代理：
-1. 一个检查后端接口变更
-2. 一个检查前端样式回归
+请使用 course-reviewer 子代理，只读检查我指定的这两个文件：
+progress.cjs 和 progress.test.cjs。
+它们来自第二章的小 Bug 练习。报告空列表问题、正常分支风险和缺少的检查，
+不修改文件、不执行命令。最后告诉我实际委派的是哪个代理。
 ```
+
+先把第二章两份样例文件放进当前项目，再运行这个请求；这是课程练习，不是已有业务项目事实。检查会话中的代理调用名称和返回内容，确认报告对应实际文件；这位 reviewer 没有命令执行工具，不能把它的分析写成“测试已通过”。
+
+想并行审查时，再给两位代理分别明确文件范围和输出要求；不要让它们同时修改同一份源码。
 
 ### 查看与管理
 
-- 在 Claude Code 里用 `/agents` 查看当前已启用的子代理
-- 项目级定义优先于用户级定义
+- 当前 `/agents` 打印创建或管理定义的提示，不再保证弹出代理列表；v2.1.197 及更早版本才有旧交互管理界面。
+- 用 `/tasks` 查看当前运行的 shell 与子代理；独立后台会话用 shell 中的 `claude agents` 管理。
+- 项目级同名定义优先于用户级；更高层还有组织托管和 `--agents`，详见[官方作用域](https://code.claude.com/docs/en/sub-agents#choose-the-subagent-scope)。
+- 新建定义通常会被发现；如果 `agents` 目录是在当前会话开始后首次创建的，找不到新代理时退出并重启。嵌套项目同名定义以离当前工作目录最近的一份为准。
 - 子代理最适合做**边界清晰、可独立完成**的任务，不适合把主流程完全拆碎
 
 ---
@@ -91,6 +113,8 @@
 > 这一部分讲的是**第三方社区资源**，不是 Claude Code 官方内置目录。
 
 ## 方法一：交互式脚本安装（社区方案）
+
+下面的 `.sh` 脚本需要 Bash；Windows 原生 PowerShell 不能直接运行 `./install-agents.sh`，需使用已准备好的 Git Bash / WSL，或改用方法三手动复制。克隆方式还需要 Git。先阅读脚本和选中的代理定义，确认安装作用域后再执行。
 
 ```bash
 git clone https://github.com/VoltAgent/awesome-claude-code-subagents.git
@@ -115,7 +139,7 @@ chmod +x install-agents.sh
 
 ## 💡 使用小贴士
 
-- **如何查看**：安装完成后，在 Claude Code 中输入 `/agents`
+- **如何核对**：让 Claude 列出当前可用定义并打开对应文件检查；当前 `/agents` 只给管理提示，运行中任务用 `/tasks`
 - **如何调用**：优先用自然语言描述任务边界，再让 Claude 选择是否委派
 - **优先级规则**：项目特定代理优先于全局代理
 
@@ -134,17 +158,17 @@ chmod +x install-agents.sh
 
 | 代理 | 说明 |
 |------|------|
-| [api-designer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-dev/api-designer.md) | REST 和 GraphQL API 架构师 |
-| [backend-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-dev/backend-developer.md) | 可扩展 API 的服务器端专家 |
-| [electron-pro](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-dev/electron-pro.md) | 桌面应用程序专家 |
-| [frontend-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-dev/frontend-developer.md) | React、Vue 和 Angular 的 UI/UX 专家 |
-| [fullstack-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-dev/fullstack-developer.md) | 端到端功能开发 |
-| [graphql-architect](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-dev/graphql-architect.md) | GraphQL Schema 和 Federation 专家 |
-| [microservices-architect](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-dev/microservices-architect.md) | 分布式系统设计师 |
-| [mobile-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-dev/mobile-developer.md) | 跨平台移动专家 |
-| [ui-designer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-dev/ui-designer.md) | 视觉设计和交互专家 |
-| [websocket-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-dev/websocket-engineer.md) | 实时通信专家 |
-| [wordpress-master](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-dev/wordpress-master.md) | WordPress 开发和优化专家 |
+| [api-designer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-development/api-designer.md) | REST 和 GraphQL API 架构师 |
+| [backend-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-development/backend-developer.md) | 可扩展 API 的服务器端专家 |
+| [electron-pro](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-development/electron-pro.md) | 桌面应用程序专家 |
+| [frontend-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-development/frontend-developer.md) | React、Vue 和 Angular 的 UI/UX 专家 |
+| [fullstack-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-development/fullstack-developer.md) | 完整功能开发（前后端） |
+| [graphql-architect](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-development/graphql-architect.md) | GraphQL Schema 和 Federation 专家 |
+| [microservices-architect](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-development/microservices-architect.md) | 分布式系统设计师 |
+| [mobile-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-development/mobile-developer.md) | 跨平台移动专家 |
+| [ui-designer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-development/ui-designer.md) | 视觉设计和交互专家 |
+| [websocket-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/01-core-development/websocket-engineer.md) | 实时通信专家 |
+| [wordpress-master](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/08-business-product/wordpress-master.md) | WordPress 开发和优化专家 |
 
 ---
 
@@ -154,32 +178,32 @@ chmod +x install-agents.sh
 
 | 代理 | 说明 |
 |------|------|
-| [typescript-pro](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/typescript-pro.md) | TypeScript 专家 |
-| [python-pro](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/python-pro.md) | Python 生态系统大师 |
-| [rust-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/rust-engineer.md) | 系统编程专家 |
-| [golang-pro](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/golang-pro.md) | Go 并发专家 |
-| [java-architect](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/java-architect.md) | 企业级 Java 专家 |
-| [javascript-pro](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/javascript-pro.md) | JavaScript 开发专家 |
-| [react-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/react-expert.md) | React 18+ 现代模式专家 |
-| [vue-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/vue-expert.md) | Vue 3 Composition API 专家 |
-| [angular-architect](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/angular-architect.md) | Angular 15+ 企业模式专家 |
-| [nextjs-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/nextjs-developer.md) | Next.js 14+ 全栈专家 |
-| [swift-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/swift-expert.md) | iOS 和 macOS 专家 |
-| [kotlin-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/kotlin-expert.md) | 现代 JVM 语言专家 |
-| [cpp-pro](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/cpp-pro.md) | C++ 性能专家 |
-| [csharp-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/csharp-developer.md) | .NET 生态系统专家 |
-| [php-pro](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/php-pro.md) | PHP Web 开发专家 |
-| [sql-pro](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/sql-pro.md) | 数据库查询专家 |
-| [django-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/django-developer.md) | Django 4+ Web 开发专家 |
-| [laravel-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/laravel-expert.md) | Laravel 10+ PHP 框架专家 |
-| [rails-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/rails-expert.md) | Rails 8.1 快速开发专家 |
-| [spring-boot-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/spring-boot-engineer.md) | Spring Boot 3+ 微服务专家 |
-| [flutter-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/flutter-expert.md) | Flutter 3+ 跨平台移动开发专家 |
-| [elixir-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/elixir-expert.md) | Elixir 和 OTP 容错系统专家 |
-| [dotnet-core-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/dotnet-core-expert.md) | .NET 8 跨平台专家 |
-| [dotnet-framework-4.8-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/dotnet-framework-4.8-expert.md) | .NET Framework 传统企业专家 |
-| [powershell-5.1-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/powershell-5.1-expert.md) | Windows PowerShell 5.1 自动化专家 |
-| [powershell-7-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-languages/powershell-7-expert.md) | 跨平台 PowerShell 7+ 自动化专家 |
+| [typescript-pro](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/typescript-pro.md) | TypeScript 专家 |
+| [python-pro](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/python-pro.md) | Python 生态系统大师 |
+| [rust-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/rust-engineer.md) | 系统编程专家 |
+| [golang-pro](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/golang-pro.md) | Go 并发专家 |
+| [java-architect](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/java-architect.md) | 企业级 Java 专家 |
+| [javascript-pro](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/javascript-pro.md) | JavaScript 开发专家 |
+| [react-specialist](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/react-specialist.md) | React 18+ 现代模式专家 |
+| [vue-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/vue-expert.md) | Vue 3 Composition API 专家 |
+| [angular-architect](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/angular-architect.md) | Angular 15+ 企业模式专家 |
+| [nextjs-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/nextjs-developer.md) | Next.js 14+ 全栈专家 |
+| [swift-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/swift-expert.md) | iOS 和 macOS 专家 |
+| [kotlin-specialist](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/kotlin-specialist.md) | 现代 JVM 语言专家 |
+| [cpp-pro](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/cpp-pro.md) | C++ 性能专家 |
+| [csharp-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/csharp-developer.md) | .NET 生态系统专家 |
+| [php-pro](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/php-pro.md) | PHP Web 开发专家 |
+| [sql-pro](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/sql-pro.md) | 数据库查询专家 |
+| [django-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/django-developer.md) | Django 4+ Web 开发专家 |
+| [laravel-specialist](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/laravel-specialist.md) | Laravel 10+ PHP 框架专家 |
+| [rails-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/rails-expert.md) | Rails 8.1 快速开发专家 |
+| [spring-boot-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/spring-boot-engineer.md) | Spring Boot 3+ 微服务专家 |
+| [flutter-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/flutter-expert.md) | Flutter 3+ 跨平台移动开发专家 |
+| [elixir-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/elixir-expert.md) | Elixir 和 OTP 容错系统专家 |
+| [dotnet-core-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/dotnet-core-expert.md) | .NET 8 跨平台专家 |
+| [dotnet-framework-4.8-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/dotnet-framework-4.8-expert.md) | .NET Framework 传统企业专家 |
+| [powershell-5.1-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/powershell-5.1-expert.md) | Windows PowerShell 5.1 自动化专家 |
+| [powershell-7-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/02-language-specialists/powershell-7-expert.md) | 跨平台 PowerShell 7+ 自动化专家 |
 
 ---
 
@@ -191,10 +215,10 @@ chmod +x install-agents.sh
 |------|------|
 | [cloud-architect](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/03-infrastructure/cloud-architect.md) | AWS/GCP/Azure 专家 |
 | [devops-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/03-infrastructure/devops-engineer.md) | CI/CD 和自动化专家 |
-| [kubernetes-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/03-infrastructure/kubernetes-expert.md) | 容器编排大师 |
+| [kubernetes-specialist](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/03-infrastructure/kubernetes-specialist.md) | 容器编排大师 |
 | [terraform-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/03-infrastructure/terraform-engineer.md) | 基础设施即代码专家 |
-| [database-admin](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/03-infrastructure/database-admin.md) | 数据库管理专家 |
-| [sre](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/03-infrastructure/sre.md) | 站点可靠性工程专家 |
+| [database-administrator](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/03-infrastructure/database-administrator.md) | 数据库管理专家 |
+| [sre-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/03-infrastructure/sre-engineer.md) | 站点可靠性工程专家 |
 | [deployment-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/03-infrastructure/deployment-engineer.md) | 部署自动化专家 |
 | [azure-infra-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/03-infrastructure/azure-infra-engineer.md) | Azure 基础架构专家 |
 | [network-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/03-infrastructure/network-engineer.md) | 网络基础设施专家 |
@@ -212,20 +236,20 @@ chmod +x install-agents.sh
 
 | 代理 | 说明 |
 |------|------|
-| [code-reviewer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-qa-security/code-reviewer.md) | 代码质量守护者 |
-| [security-auditor](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-qa-security/security-auditor.md) | 安全漏洞专家 |
-| [qa-automation-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-qa-security/qa-automation-engineer.md) | 测试自动化专家 |
-| [performance-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-qa-security/performance-engineer.md) | 性能优化专家 |
-| [debugging-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-qa-security/debugging-expert.md) | 高级调试专家 |
-| [error-detective](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-qa-security/error-detective.md) | 错误分析和解决专家 |
-| [penetration-tester](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-qa-security/penetration-tester.md) | 道德黑客专家 |
-| [architecture-reviewer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-qa-security/architecture-reviewer.md) | 架构评审专家 |
-| [accessibility-tester](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-qa-security/accessibility-tester.md) | A11y 合规专家 |
-| [chaos-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-qa-security/chaos-engineer.md) | 系统弹性测试专家 |
-| [compliance-auditor](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-qa-security/compliance-auditor.md) | 监管合规专家 |
-| [testing-automation-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-qa-security/testing-automation-expert.md) | 测试自动化框架专家 |
-| [ad-security-auditor](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-qa-security/ad-security-auditor.md) | Active Directory 安全审核专家 |
-| [powershell-security-hardener](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-qa-security/powershell-security-hardener.md) | PowerShell 安全加固专家 |
+| [code-reviewer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-quality-security/code-reviewer.md) | 代码质量守护者 |
+| [security-auditor](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-quality-security/security-auditor.md) | 安全漏洞专家 |
+| [qa-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-quality-security/qa-expert.md) | 质量保证策略与测试计划 |
+| [performance-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-quality-security/performance-engineer.md) | 性能优化专家 |
+| [debugger](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-quality-security/debugger.md) | 高级调试专家 |
+| [error-detective](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-quality-security/error-detective.md) | 错误分析和解决专家 |
+| [penetration-tester](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-quality-security/penetration-tester.md) | 道德黑客专家 |
+| [architect-reviewer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-quality-security/architect-reviewer.md) | 架构评审专家 |
+| [accessibility-tester](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-quality-security/accessibility-tester.md) | A11y 合规专家 |
+| [chaos-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-quality-security/chaos-engineer.md) | 系统弹性测试专家 |
+| [compliance-auditor](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-quality-security/compliance-auditor.md) | 监管合规专家 |
+| [test-automator](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-quality-security/test-automator.md) | 测试自动化框架专家 |
+| [ad-security-reviewer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-quality-security/ad-security-reviewer.md) | Active Directory 安全审核专家 |
+| [powershell-security-hardening](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/04-quality-security/powershell-security-hardening.md) | PowerShell 安全加固专家 |
 
 ---
 
@@ -256,19 +280,19 @@ chmod +x install-agents.sh
 
 | 代理 | 说明 |
 |------|------|
-| [refactoring-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-dev-experience/refactoring-expert.md) | 代码重构专家 |
-| [documentation-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-dev-experience/documentation-engineer.md) | 技术文档专家 |
-| [git-workflow-manager](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-dev-experience/git-workflow-manager.md) | Git 工作流和分支专家 |
-| [legacy-code-modernizer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-dev-experience/legacy-code-modernizer.md) | 遗留代码现代化专家 |
-| [mcp-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-dev-experience/mcp-developer.md) | 模型上下文协议专家 |
-| [build-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-dev-experience/build-engineer.md) | 构建系统专家 |
-| [cli-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-dev-experience/cli-developer.md) | 命令行工具创建器 |
-| [dependency-manager](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-dev-experience/dependency-manager.md) | 软件包和依赖项专家 |
-| [dx-optimizer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-dev-experience/dx-optimizer.md) | 开发者体验优化专家 |
-| [tooling-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-dev-experience/tooling-engineer.md) | 开发工具专家 |
-| [slack-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-dev-experience/slack-expert.md) | Slack 平台和 @slack/bolt 专家 |
-| [powershell-ui-architect](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-dev-experience/powershell-ui-architect.md) | PowerShell UI/UX 专家 |
-| [powershell-module-architect](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-dev-experience/powershell-module-architect.md) | PowerShell 模块架构专家 |
+| [refactoring-specialist](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-developer-experience/refactoring-specialist.md) | 代码重构专家 |
+| [documentation-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-developer-experience/documentation-engineer.md) | 技术文档专家 |
+| [git-workflow-manager](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-developer-experience/git-workflow-manager.md) | Git 工作流和分支专家 |
+| [legacy-modernizer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-developer-experience/legacy-modernizer.md) | 遗留代码现代化专家 |
+| [mcp-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-developer-experience/mcp-developer.md) | 模型上下文协议专家 |
+| [build-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-developer-experience/build-engineer.md) | 构建系统专家 |
+| [cli-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-developer-experience/cli-developer.md) | 命令行工具创建器 |
+| [dependency-manager](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-developer-experience/dependency-manager.md) | 软件包和依赖项专家 |
+| [dx-optimizer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-developer-experience/dx-optimizer.md) | 开发者体验优化专家 |
+| [tooling-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-developer-experience/tooling-engineer.md) | 开发工具专家 |
+| [slack-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-developer-experience/slack-expert.md) | Slack 平台和 @slack/bolt 专家 |
+| [powershell-ui-architect](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-developer-experience/powershell-ui-architect.md) | PowerShell UI/UX 专家 |
+| [powershell-module-architect](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/06-developer-experience/powershell-module-architect.md) | PowerShell 模块架构专家 |
 
 ---
 
@@ -282,12 +306,12 @@ chmod +x install-agents.sh
 | [game-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/07-specialized-domains/game-developer.md) | 游戏开发专家 |
 | [fintech-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/07-specialized-domains/fintech-engineer.md) | 金融科技专家 |
 | [iot-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/07-specialized-domains/iot-engineer.md) | 物联网系统开发人员 |
-| [embedded-systems-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/07-specialized-domains/embedded-systems-engineer.md) | 嵌入式和实时系统专家 |
+| [embedded-systems](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/07-specialized-domains/embedded-systems.md) | 嵌入式和实时系统专家 |
 | [api-documenter](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/07-specialized-domains/api-documenter.md) | API 文档专家 |
 | [seo-specialist](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/07-specialized-domains/seo-specialist.md) | 搜索引擎优化专家 |
 | [mobile-app-developer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/07-specialized-domains/mobile-app-developer.md) | 移动应用专家 |
-| [payment-integration-specialist](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/07-specialized-domains/payment-integration-specialist.md) | 支付系统专家 |
-| [quantitative-analyst](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/07-specialized-domains/quantitative-analyst.md) | 量化分析专家 |
+| [payment-integration](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/07-specialized-domains/payment-integration.md) | 支付系统专家 |
+| [quant-analyst](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/07-specialized-domains/quant-analyst.md) | 量化分析专家 |
 | [risk-manager](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/07-specialized-domains/risk-manager.md) | 风险评估和管理专家 |
 | [m365-admin](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/07-specialized-domains/m365-admin.md) | Microsoft 365 管理专家 |
 
@@ -308,7 +332,7 @@ chmod +x install-agents.sh
 | [customer-success-manager](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/08-business-product/customer-success-manager.md) | 客户成功专家 |
 | [sales-engineer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/08-business-product/sales-engineer.md) | 技术销售专家 |
 | [legal-advisor](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/08-business-product/legal-advisor.md) | 法律和合规专家 |
-| [content-marketing-specialist](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/08-business-product/content-marketing-specialist.md) | 内容营销专家 |
+| [content-marketer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/08-business-product/content-marketer.md) | 内容营销专家 |
 
 ---
 
@@ -323,12 +347,12 @@ chmod +x install-agents.sh
 | [agent-organizer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/09-meta-orchestration/agent-organizer.md) | 多代理协调器 |
 | [agent-installer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/09-meta-orchestration/agent-installer.md) | 通过 GitHub 浏览并安装代理程序 |
 | [context-manager](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/09-meta-orchestration/context-manager.md) | 上下文优化专家 |
-| [task-dispatcher](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/09-meta-orchestration/task-dispatcher.md) | 任务分配专家 |
+| [task-distributor](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/09-meta-orchestration/task-distributor.md) | 任务分配专家 |
 | [error-coordinator](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/09-meta-orchestration/error-coordinator.md) | 错误处理和恢复专家 |
 | [performance-monitor](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/09-meta-orchestration/performance-monitor.md) | 代理性能优化 |
 | [knowledge-synthesizer](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/09-meta-orchestration/knowledge-synthesizer.md) | 知识聚合专家 |
 | [it-ops-orchestrator](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/09-meta-orchestration/it-ops-orchestrator.md) | IT 运维工作流编排专家 |
-| [pied-piper](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/09-meta-orchestration/pied-piper.md) | SDLC 工作流 AI 子代理团队协调 |
+| pied-piper（历史名称） | 当前目录已无该文件；到[编排类别](https://github.com/VoltAgent/awesome-claude-code-subagents/tree/main/categories/09-meta-orchestration)选择现有角色，不按旧名称下载 |
 
 ---
 
@@ -341,7 +365,7 @@ chmod +x install-agents.sh
 | [research-analyst](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/10-research-analysis/research-analyst.md) | 综合研究专家 |
 | [competitive-analyst](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/10-research-analysis/competitive-analyst.md) | 竞争情报专家 |
 | [market-researcher](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/10-research-analysis/market-researcher.md) | 市场分析和消费者洞察 |
-| [search-expert](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/10-research-analysis/search-expert.md) | 高级信息检索专家 |
+| [search-specialist](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/10-research-analysis/search-specialist.md) | 高级信息检索专家 |
 | [trend-analyst](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/10-research-analysis/trend-analyst.md) | 新兴趋势和预测专家 |
 | [data-researcher](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/10-research-analysis/data-researcher.md) | 数据发现与分析专家 |
 
@@ -357,6 +381,10 @@ chmod +x install-agents.sh
 
 ## 核心概念
 
+> **2026-09-14 当前基线（v2.1.270）**：并发上限现在可调：`CLAUDE_CODE_WORKFLOW_MAX_CONCURRENT_AGENTS`（取值 1–256）能提高 Workflow 工具单次运行的并发 agent 数；`CLAUDE_CODE_SUBAGENT_MODEL_FORCE` 可以让 `CLAUDE_CODE_SUBAGENT_MODEL`（或主模型）覆盖所有 subagent，忽略每次派生和 agent 定义里的 `model:`。稳定性上修了几个直接影响长任务的问题：响应在流式传输中断（休眠、掉线、服务端错误）时 subagent 会自动续跑而不是停住；转录超过 5 MB 的 subagent 恢复不再报 "No transcript found"；停掉后台 subagent 时它的监控也会一并停。远程会话里前台 subagent 的工具调用现在可以实时流式显示（后台 subagent 仍只显示状态）；后台 agent 运行期间，远程和无头会话不再误报"等待你输入"。
+
+> **中间版本补录（核查日：2026-09-14）**：v2.1.224 移除了每会话累计派生 200 个 subagent 的上限，并发和深度限制仍保留。v2.1.232 起默认支持 fork：`subagent_type: "fork"` 继承完整对话与提示缓存；交互会话里，非 teammate 的 subagent 默认在后台运行。共享上下文不等于隔离文件，派发前仍要明确文件职责；需要独立工作树时另行配置隔离。来源：[官方 changelog](https://code.claude.com/docs/en/changelog)。
+
 > **v2.1.139→v2.1.158 关键更新**：`claude agents` Agent View 已成为管理运行中、等待输入和已完成会话的重要入口；`claude agents --json` 可用于脚本化查看后台会话；`--cwd`、`--add-dir`、`--settings`、`--mcp-config`、`--plugin-dir`、`--permission-mode`、`--model`、`--effort` 等参数让后台会话更容易复用当前项目配置。v2.1.154 起还可以在 Agent View 输入 `! <command>` 或用 `claude --bg --exec '<command>'` 跑可附着的后台 shell。v2.1.157 起 `claude agents` 会尊重 `settings.json` 里的 `agent` 字段，并可用 `--agent <name>` 覆盖；`EnterWorktree` 可以在会话中切换 Claude 管理的 worktree，完成后的 Claude worktree 也会保持解锁，方便 `git worktree remove` / `prune` 清理。Windows、worktree、stale daemon、pinned session、resume 后台子代理和 subagent 隔离场景也有多轮修复，团队教程里不要再默认把后台 agent 当成会写共享 checkout 的普通子进程。
 
 | 概念 | 说明 | 类比 |
@@ -366,14 +394,14 @@ chmod +x install-agents.sh
 | **TaskList** | 共享任务列表，所有成员可见进度和状态 | 看板 / Trello |
 | **SendMessage** | 代理间通信机制，支持直接消息和广播 | 团队群聊 |
 
-## 与普通 Subagent/Task 的区别
+## 与普通 Subagent（Agent 工具） 的区别
 
-| 特性 | 普通 Subagent/Task | Agent Teams |
+| 特性 | 普通 Subagent（Agent 工具） | Agent Teams |
 |------|-------------------|-------------|
 | 协作模式 | 一对一（主代理 → 子代理） | 多对多（团队协作） |
-| 任务管理 | 各自独立，互不感知 | 共享任务列表，实时同步 |
-| 通信方式 | 子代理返回结果给主代理 | 团队成员间可互相通信 |
-| 生命周期 | 任务完成即退出 | 持续运行直到团队解散 |
+| 任务管理 | 在主会话内委派；不是 Teams 的共享任务看板 | 共享任务列表，成员可协调 |
+| 通信方式 | 通常向启动者返回；当前也可通过 SendMessage 继续或转交任务 | 直接消息与结构化团队协议 |
+| 生命周期 | 一次委派完成后返回，可按条件继续；被用户停止的代理不会因普通消息自动恢复 | 成员独立运行，需协调关闭与清理 |
 | 适用场景 | 独立子任务 | 复杂项目分工 |
 
 ## 典型使用场景
@@ -392,10 +420,10 @@ You: 帮我组建一个团队，并行处理以下任务：
      3. 更新相关文档
 ```
 
-Team Lead 会自动将任务分配给不同的 Teammate，各成员独立工作并通过 SendMessage 同步关键信息。
+这是任务分工示意。创建后检查实际成员、任务范围和共享看板；明确同一文件由谁修改、谁汇总结果，再核对每位成员的产物和验证记录。会话恢复、协调与关闭仍有实验性限制，不能保证一次请求就顺利完成整个重构。
 
 > 💡 **何时用哪个？**
-> - **简单独立任务**（翻译文件、生成测试）→ 普通 Subagent/Task，更轻量
+> - **简单独立任务**（翻译文件、生成测试）→ 普通 Subagent（Agent 工具），更轻量
 > - **复杂协作项目**（多模块重构、全栈开发）→ Agent Teams，但前提是你愿意接受实验性行为和额外编排成本
 
 ---
@@ -414,11 +442,17 @@ Team Lead 会自动将任务分配给不同的 Teammate，各成员独立工作�
 ```json
 // .claude/settings.json
 {
-  "worktree.baseRef": "head"
+  "worktree": {
+    "baseRef": "head"
+  }
 }
 ```
 
-**注意**：默认值从旧行为（head）变更为 `fresh`。如果你发现新 worktree 丢失了本地未推送的更改，将 `baseRef` 设为 `head`。
+**注意**：`fresh` 基于远程默认分支；`head` 基于本地当前提交，可以带上尚未推送的提交，但不会自动带上未提交的工作区改动。需要那些改动时，先明确是否提交或另外迁移，别把 `head` 当成工作区快照。
+
+### 让专用子代理不加载项目说明
+
+v2.1.271 起，自定义代理的 frontmatter 或 `--agents` 定义可以设置 `omitClaudeMd: true`，跳过用户、项目与本地 CLAUDE.md。适合需要独立角色说明的审稿或评测代理；组织托管说明仍会加载。只有明确需要时才设置，并把子任务的范围、验证方式和必要约束写进代理定义。详见[官方子代理字段](https://code.claude.com/docs/en/sub-agents)。
 
 ### `CLAUDE_CODE_FORK_SUBAGENT`（v2.1.132+）
 
@@ -430,4 +464,4 @@ v2.1.121 修复了子代理无法正确发现项目级 Skills 的问题。如果
 
 ---
 
-> **下一步学习**：想深入了解如何自定义代理定义文件？请参考 [07-Skills定制完整指南](./07-Skills定制完整指南.md) 中关于 Agent 配置的部分。
+> **下一步学习**：自定义代理文件的字段以[官方子代理文档](https://code.claude.com/docs/en/sub-agents#supported-frontmatter-fields)为准。需要给代理预载 Skill 或在 Skill 中委派任务，再继续 [Skills 定制指南](./07-Skills定制完整指南.md)。

@@ -2,7 +2,9 @@
 
 本篇只解决一件事：把 **Codex App** 正确装好、登上号、打开本地项目，并跑通第一个安全任务。
 
-官方来源：OpenAI Codex App 文档、Codex changelog、[Codex App Windows](https://developers.openai.com/codex/app/windows)、[Codex Quickstart](https://developers.openai.com/codex/quickstart)、Codex CLI 文档。本篇按 2026-06-09 可查官方文档、Codex App 26.602 与 Codex CLI 0.138.0 修订；CLI 只用于辅助安装、自动化和排查，入口、包名和版本会变化，以官方页面和当前 App 为准。
+官方来源：OpenAI Codex App 文档、Codex changelog、[Codex App Windows](https://developers.openai.com/codex/app/windows)、[Codex Quickstart](https://developers.openai.com/codex/quickstart)、Codex CLI 文档。本篇按 2026-09-13 可查官方文档、Codex App 26.908 与 Codex CLI 0.154.0 修订；CLI 只用于辅助安装、自动化和排查，入口、包名和版本会变化，以官方页面和当前 App 为准。 2026-10-03 又核对了当前官方安装、认证与迁移入口；下面注明 9 月日期的版本说明保留为历史快照，不代表当前最新版本。
+
+> **2026-09-13 安装口径**：自 **App 26.707（2026-07-09）** 起，**Codex 已并入 ChatGPT 桌面 App**——安装 ChatGPT 桌面后即可在其中使用 Codex，并可把 Codex 设为默认视图；原有项目、设置、线程保留。26.727 补强了内置浏览器、Chrome 扩展（提及打开标签页 / 高亮文本）、多仓库 diff 审查和 Activity view。**App 26.908（2026-09-11）** 又加了悬浮 Pets 控件上的快速对话（`@` 带上下文、`$` 选 skill）、Windows 上同时按下两个 Alt 键截 Appshot、从会话的 Sources 面板直接打开文件、Codex Micro 的 Insert text、宠物一键恢复默认尺寸、听写遵循已保存的主语言，以及关闭浏览器标签时宽度和滚动位置的稳定性修复。登录方面，设备码登录现在会显示防钓鱼提示，macOS 助手已签名+公证，企业版支持管理员通过 managed policies 控制 in-app 更新。社区有报告 App 更新后偶发线程/项目数据丢失，**更新前建议手动备份本地线程和项目目录**，以本机版本和官方公告为准。
 
 ---
 
@@ -15,7 +17,7 @@
 > - **个人博客**：https://aiking.dev
 > - **预计学时**：2-3小时
 > - **难度等级**：⭐ 零基础入门
-> - **更新日期**：2026年5月31日
+> - **更新日期**：2026年10月3日
 > - **信息来源**：[Codex App Windows](https://developers.openai.com/codex/app/windows) | [Codex Quickstart](https://developers.openai.com/codex/quickstart) | Codex changelog | Codex CLI 文档（辅助）
 > - **前置要求**：无（本系列第一篇）
 
@@ -103,7 +105,7 @@
 
 ## 安装课的心智模型
 
-你不是在安装一个“聊天软件”，而是在本机建立一条开发执行链路：
+你不是在安装一个"聊天软件"，而是在本机建立一条开发执行链路：
 
 ```text
 App 能打开
@@ -140,9 +142,9 @@ App 能打开
 
 ## 0. Critical：先把安装目标说清楚
 
-老金我把 Codex 第一课放在 App 安装和认证，是因为这条主线先解决“能不能安全打开本地项目”。
+我把 Codex 第一课放在 App 安装和认证，是因为这条主线先解决“能不能安全打开本地项目”。
 
-本系列不是从 CLI 开始，而是从 App 开始。你安装成功的标准不是“终端里有 `codex` 命令”，而是：
+本系列不是从 CLI 开始，而是从 App 开始。你安装成功的标准不是"终端里有 codex 命令"，而是：
 
 1. 桌面 Codex App 能打开。
 2. 能登录 ChatGPT / OpenAI 账号。
@@ -164,7 +166,7 @@ CLI、Web / Cloud、SDK 都是后续辅助。
 | 项目 | 建议 |
 |---|---|
 | Windows 版本 | Windows 11 是推荐基线；近期且 fully updated 的 Windows 10 属于 best effort，实操上至少需要 Windows 10 1809+ 的现代终端能力 |
-| 安装来源 | Microsoft Store，或 `winget install Codex -s msstore` |
+| 安装来源 | 官方 ChatGPT 桌面 App 页面进入 Microsoft Store，或 `winget install --id 9PLM9XGG6VKS -s msstore` |
 | 终端 | PowerShell 默认可用；也可在 App 设置里选 Command Prompt、Git Bash、WSL |
 | 项目位置 | 新手优先放在 Windows 文件系统，例如 `C:\Users\<你>\Projects\repo` |
 | Git | 必装，Review 面板和 diff 依赖 Git |
@@ -190,17 +192,17 @@ macOS 用户同样是一等主线，不是补充路径。安装后也要跑通�
 
 ### 1.3 Linux
 
-如果当前官方 App 没覆盖你的 Linux 桌面环境，Linux 用户先用 CLI / Web / Cloud。不要把 Windows / macOS App 步骤硬套到 Linux。
+官方已提供 [ChatGPT 桌面 App 的 Linux 预览版](https://learn.chatgpt.com/docs/linux/linux-app)，覆盖页面列出的 Ubuntu、Debian、Fedora 和 Arch Linux，并提供 x64 / ARM64 包。先按发行版选择官方安装方式；未覆盖的环境仍可使用 CLI / Web / Cloud。不要把 Windows / macOS 安装步骤硬套到 Linux。
 
 ## 2. Windows 安装：Microsoft Store 是主路径
 
 
 ### 2.1 图形界面安装
 
-1. 打开官方 Codex App 页面：[https://developers.openai.com/codex/app/windows](https://developers.openai.com/codex/app/windows)
-2. 点击页面里的 **Codex app for Windows / Microsoft Store** 链接。
+1. 打开官方 [ChatGPT 桌面 App Windows 页面](https://learn.chatgpt.com/docs/windows/windows-app)。
+2. 点击页面里的 **ChatGPT desktop app / Microsoft Store** 下载链接。
 3. 在 Microsoft Store 中点击获取 / 安装。
-4. 安装完成后，从开始菜单搜索 `Codex` 并打开。
+4. 安装完成后，从开始菜单搜索 `ChatGPT` 并打开，再进入 Codex 工作视图。
 
 注意：
 
@@ -213,7 +215,7 @@ macOS 用户同样是一等主线，不是补充路径。安装后也要跑通�
 如果你不想打开 Store 界面，或者企业环境允许 `winget`：
 
 ```powershell
-winget install Codex -s msstore
+winget install --id 9PLM9XGG6VKS -s msstore
 ```
 
 这仍然是从 Microsoft Store 源安装，不是独立安装包。
@@ -236,10 +238,10 @@ winget install Codex -s msstore
 从开始菜单启动：
 
 ```text
-开始菜单 → 搜索 Codex → 打开
+开始菜单 → 搜索 ChatGPT → 打开 → 进入 Codex 工作视图
 ```
 
-如果需要管理员权限运行某些命令，官方 Windows 页说明可以从开始菜单右键 Codex，选择 **Run as administrator**。新手不建议默认管理员运行，只有任务确实需要时再用。
+先按普通用户权限打开 ChatGPT 桌面 App。任务确实需要管理员权限时，先确认命令及影响范围，再按当前 Windows 和组织策略处理；本课的安装验证和 README 练习不需要管理员权限。
 
 ### 3.2 登录
 
@@ -352,6 +354,8 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned
 
 ## 8. macOS 安装：官方入口、系统权限和开发工具链
 
+本章提到的 App 26.908 是功能快照。官方 [2026-09-25 安全更新](https://learn.chatgpt.com/docs/changelog) 已说明 macOS 26.924.20706 修复 CVE-2026-100754；安装和更新请采用官方提供的受支持版本，不要为了复现本课界面停留在旧安全版本。这里只核对了公告，没有在 macOS 安装验证。
+
 > **2026-06-09 安装口径**：Codex App 主线按官方 App 入口、Microsoft Store / macOS 下载页与 App 内更新为准。CLI 安装只作为自动化、CI 和排查补充；官方 changelog 已确认 `install.sh` / `install.ps1` 支持 `CODEX_NON_INTERACTIVE=1` 非交互安装。App 登录适合桌面工作流，API key / CLI 路径适合自动化、CI 和排查。
 
 ### 8.1 从哪里下载
@@ -361,8 +365,8 @@ macOS 用户从官方 Codex App 页面进入下载：
 1. 打开官方 Codex App 页面：[https://developers.openai.com/codex/app/](https://developers.openai.com/codex/app/)
 2. 选择 macOS 下载入口。
 3. 按页面提示下载适合当前 Mac 的安装包。
-4. 打开安装包，把 Codex App 安装到 Applications / 应用程序。
-5. 从 Launchpad 或 Applications 打开 Codex。
+4. 按官方下载页提示，把 ChatGPT 桌面 App 安装到 Applications / 应用程序。
+5. 从 Launchpad 或 Applications 打开 ChatGPT，进入 Codex 工作视图。
 
 注意：
 
@@ -506,13 +510,13 @@ CLI 安装和深入使用放到 CX-12。安装篇只要求你知道它不是主�
 
 目标：确认 Windows 上的 App、登录、Git、Review 都能跑通。
 
-1. 用 Microsoft Store 安装 Codex，或在 PowerShell 里运行：
+1. 用 Microsoft Store 安装 ChatGPT 桌面 App，或在 PowerShell 里运行：
 
 ```powershell
-winget install Codex -s msstore
+winget install --id 9PLM9XGG6VKS -s msstore
 ```
 
-2. 启动 Codex，登录 ChatGPT / OpenAI 账号。
+2. 启动 ChatGPT 桌面 App，登录 ChatGPT / OpenAI 账号，再进入 Codex 工作视图。
 3. 如果弹出 Windows 防火墙提示，只在你信任的专用网络里放行。
 4. 打开一个测试 Git 仓库，创建 Local thread。
 5. 发送只读提示：
@@ -554,7 +558,7 @@ codex exec "Read this repo and report the test command. Do not modify files."
 
 ### Q1：Windows 一定要 Microsoft Store 吗？
 
-当前官方 Windows 页写的是从 Microsoft Store 下载；命令行路径也是 `winget install Codex -s msstore`。如果公司禁用 Store，让管理员通过企业管理工具分发。
+当前官方 Windows 页写的是从 Microsoft Store 下载；命令行路径也是 `winget install --id 9PLM9XGG6VKS -s msstore`。如果公司禁用 Store，让管理员通过企业管理工具分发。
 
 ### Q2：启动时防火墙必须允许吗？
 
@@ -580,7 +584,7 @@ codex exec "Read this repo and report the test command. Do not modify files."
 
 ## 15. 安装排障总表：按症状定位，不要乱重装
 
-安装课最怕学生遇到问题后反复卸载重装。Codex App 的安装问题通常不是“软件坏了”，而是系统、账号、Git、终端、权限或项目目录其中一环没对齐。排障时先定位症状，再选择动作。
+安装课最怕学生遇到问题后反复卸载重装。Codex App 的安装问题通常不是"软件坏了"，而是系统、账号、Git、终端、权限或项目目录其中一环没对齐。排障时先定位症状，再选择动作。
 
 | 症状 | 常见原因 | 第一反应 |
 |------|----------|----------|
@@ -681,6 +685,16 @@ App 学习主线是使用 Codex App 登录与桌面工作流。API Key 更常见
 请先帮我区分是浏览器登录态、账号选择、网络访问还是企业策略问题。
 不要让我粘贴任何密钥。
 ```
+
+### 16.3 CLI 自定义 provider 的认证和凭据存放
+
+如果组织让 CLI 连接模型网关，先确认 `model_provider` 选中了正确的 provider，再按网关说明设置认证。`env_key = "COMPANY_MODEL_API_KEY"` 中写的是保存 API Key 的环境变量名称，不是密钥本身；该变量要在启动 CLI 的环境中可用。不要把真实密钥放进示例配置、聊天或仓库。
+
+CLI v0.160.0 明确说明：`requires_openai_auth = true` 的 provider 使用 OpenAI 登录流程，缓存凭据按 `cli_auth_credentials_store` 选择后端，不一定写入 `auth.json`。`file` 使用 `CODEX_HOME/auth.json`，`keyring` 使用系统凭据库且不可用时失败，`auto` 在凭据库不可用时回退到文件，`ephemeral` 仅在当前进程内保存。排障时核对配置和认证方式，不因找不到 `auth.json` 就断定没有登录，也不要打印或分享缓存内容；管理员下发的认证要求仍然生效。依据：[认证与凭据存放](https://learn.chatgpt.com/docs/auth)、[v0.160.0 说明修正](https://github.com/openai/codex/pull/49118)。
+
+### 16.4 看到账号安全设置提醒时
+
+CLI v0.159.3 起，使用 OpenAI provider、以 ChatGPT 登录的符合条件的本地会话可能显示可关闭的账号安全设置横幅。需要处理时，通过横幅的浏览器动作打开 `https://chatgpt.com` 上的官方设置页面；也可以关闭提醒。是否出现由服务端资格和 rollout 决定，它不是 API Key 登录的必经步骤，没有横幅也不代表登录失败或安全设置已全部完成。依据：[v0.159.3](https://github.com/openai/codex/releases/tag/rust-v0.159.3)、[提醒的账号与链接校验](https://github.com/openai/codex/pull/49744)。
 
 ## 17. 第一个项目应该怎么选
 
@@ -880,7 +894,7 @@ Claude Code 的厚课程强在“学完能做事”。Codex App 安装课也要�
 
 ## 21. 大型综合工坊：从一台新电脑到可交付的 Codex 工作台
 
-这个工坊适合直播课最后 40 分钟，也适合企业新人入职当天完成。目标不是“把软件装上”，而是让学习者完成一条真实工作流：安装、登录、打开项目、只读分析、小改动、Review、复盘。
+这个工坊适合直播课最后 40 分钟，也适合企业新人入职当天完成。目标不是"把软件装上"，而是让学习者完成一条真实工作流：安装、登录、打开项目、只读分析、小改动、Review、复盘。
 
 ### 21.1 工坊准备
 
@@ -1496,7 +1510,7 @@ C 类：先退出写入练习
 - [ ] 完成第一个安全可写任务（小改动在Review中看到diff）
 - [ ] 没有默认开启 full access
 
-**如果以上全部勾选，恭喜你完成Codex App安装！**
+**全部勾选后即完成 Codex App 安装。**
 
 ---
 
@@ -1506,9 +1520,9 @@ C 类：先退出写入练习
 
 | 平台 | 安装方式 | 命令 |
 |------|---------|------|
-| Windows | Microsoft Store | `winget install Codex -s msstore` |
+| Windows | Microsoft Store | `winget install --id 9PLM9XGG6VKS -s msstore` |
 | macOS | 官方下载 | https://developers.openai.com/codex/app/ |
-| Linux | CLI / Web / Cloud | App暂无Linux桌面版 |
+| Linux | 官方 ChatGPT 桌面 App 预览版，或 CLI / Web / Cloud | [Linux 官方安装页](https://learn.chatgpt.com/docs/linux/linux-app)，先核对支持的发行版和架构 |
 
 ### B. 常用CLI辅助命令
 
@@ -1529,7 +1543,7 @@ codex exec "任务描述"   # 无头执行一次任务
 ---
 
 **课程制作**：老金
-**最后更新**：2026年5月30日
+**最后更新**：2026年9月13日
 **许可**：本课程采用 MIT License；转载、复制或二次分发时必须保留版权声明与许可声明
 
 ---

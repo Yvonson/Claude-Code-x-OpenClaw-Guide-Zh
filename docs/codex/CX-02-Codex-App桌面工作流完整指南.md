@@ -15,15 +15,83 @@
 > - **个人博客**：https://aiking.dev
 > - **预计学时**：3-4小时
 > - **难度等级**：⭐ 零基础入门
-> - **更新日期**：2026年5月30日
+> - **更新日期**：2026年10月3日
 > - **信息来源**：OpenAI Codex App Features、Settings、Review、Automations、MCP、Skills、Plugins 官方文档
 > - **前置要求**：已完成 [CX-01 Codex App 安装与认证](./CX-01-Codex-App安装与认证完整指南.md)
+
+---
+
+## 先用 App 修一个小 Bug
+
+先做一次能看见结果的任务，再认识整套工作台。本例要修复项目看板的进度计算：空列表显示 `NaN%`，应改为 `0%`。两条编程课程共用同一份原创材料，便于你比较操作习惯。
+
+### 把练习目录交给 App
+
+1. 在教程仓库和现有工作项目之外，新建 `course-progress-lab` 目录，将 [进度计算练习](../../examples/progress-lab/README.md) 中的 `progress.cjs` 和 `progress.test.cjs` 复制进去。只阅读在线课程时，也可以从 [Claude Code 02 的两份文件](../claude-code/02-基础使用完整指南.md#准备两份练习文件) 复制代码保存；后续操作在 Codex App 中完成。
+2. 在 App 的项目入口添加这个目录，核对显示的路径，创建一个 **Local** 任务。本例只用本地文件和 Git，不需要远程仓库或 GitHub 登录。
+3. 让 Codex 分别运行 `node --version` 和 `git --version`，确认工具可用。若命令不可用，先让它解释这两份文件，准备好环境再继续。
+
+**先保存一个本地起点。** [官方 Review 说明](https://learn.chatgpt.com/docs/code-review?surface=app)要求项目位于 Git 仓库中。确认当前目录只有这两份练习文件、尚未初始化 Git 后，可以让 App 在该目录执行：
+
+```bash
+git init
+git add progress.cjs progress.test.cjs
+git -c user.name="Course Learner" -c user.email="learner@example.invalid" commit -m "Start progress exercise"
+git status --short
+```
+
+这里用的是虚构的练习提交身份，`-c` 只对这条命令生效，不改全局配置。提交成功后，`git status --short` 应没有改动列表；这份初始提交让你稍后只看到修复差异。若初始化或提交失败，先处理这个错误，再进入修改步骤。
+
+### 第一轮：让它证明问题存在
+
+发送：
+
+```text
+先不要改文件。阅读 progress.cjs 和 progress.test.cjs，
+运行 node progress.test.cjs，告诉我哪条检查失败、实际值是什么、期望值是什么。
+这个样例的输入都是非负整数，已完成数不超过总数。
+```
+
+你应该看到空列表对应的检查失败：实际值 `NaN`，期望值 `0`。如果只是找不到文件或命令，先修正目录或运行环境，不能把这种错误当成已复现业务 Bug。
+
+### 第二轮：修改，并在 Review 里对照
+
+接着发送：
+
+```text
+现在只修改 progress.cjs，让空列表返回 0。
+保留其他百分比计算和四舍五入规则，测试文件保持原样，不加依赖。
+运行 node progress.test.cjs，报告实际输出，并解释改了哪里。
+```
+
+在 App 的 **Review / diff** 面板选择 **Unstaged**，找到 `progress.cjs`。检查这次改动是否处理了空列表，并确认测试文件没有被删改。若面板没有内容，先核对项目路径和本地初始提交，再看 `git status --short`；不要把看不到 diff 当成没有改动。最后看任务中的执行记录：同一条测试命令应正常结束，输出 `progress checks passed`。
+
+| 要确认的行为 | 正确结果 |
+|---|---|
+| 完成 2 项、共 4 项 | 50 |
+| 没有任何任务 | 0 |
+| 完成 4 项、共 4 项 | 100 |
+| 完成 1 项、共 3 项 | 33 |
+
+如果 Codex 把所有结果都改成 `0`，就在这次任务中指出“2 项 / 4 项应为 50”，让它继续修复；如果它修改了测试，先要求按原始材料恢复测试，再检查源码。这里练的是给出具体反馈，不必为了同一个问题另开任务。
+
+### 第三轮：换一个数字，自己提任务
+
+不复制前面的提示词，要求增加“完成 3 项、共 8 项”的检查，自己先算出结果 `38`。观察新增测试、运行结果和 diff 是否一致。
+
+这次先把结果保存在练习目录。之后用真实项目练习时，沿用“给出复现条件 → 说明正确行为 → 查看改动和运行结果”的顺序；涉及合并或发布，再进入 [CX-10 Review / GitHub / PR](./CX-10-Codex-Review-GitHub-PR完整指南.md)。
+
+这一节的方法参考 [OpenAI 官方最佳实践](https://learn.chatgpt.com/guides/best-practices)。后面的功能全景可以按需查，第一次不用把所有设置都配完。
 
 ---
 
 ## 📚 本课学习目标
 
 完成本课学习后，你将能够：
+
+> **2026-09-13 当前基线（App 26.908）**：本章主线（Thread、Worktree、Review、Terminal、Settings）没变，26.908 加的是几处入口：悬浮 **Pets** 控件上可以直接快速对话，`@` 带上下文、`$` 选 skill；Windows 上同时按下两个 Alt 键截 **Appshot**；会话的 **Sources** 面板里能直接打开文件，预览不了的可以下载；**Codex Micro** 可以绑一个键把常用文本插进当前提示而不发送；宠物能在设置里恢复默认尺寸，听写会遵循已保存的主语言偏好；关闭浏览器标签时标签宽度和滚动位置也更稳了。都是加法，先学完本章主线再按需打开。
+
+> **2026-06-18 App 口径**：本章按 Codex App 26.609 更新。新增重点补强主控台能力：Developer mode / CDP 浏览器调试、composer `/init`、Migrate to Codex、使用量重置 UI、Windows Computer Use per-app controls，以及 Automations 继承所选 approval mode。读者仍然先学 Thread、Workspace、Review、Settings，再按需打开这些能力。
 
 1. **理解App的核心模型**：掌握Thread、Worktree、Review、Terminal、Settings等核心概念
 2. **区分三种工作方式**：清楚Local thread、Worktree thread、Cloud handoff各自的适用场景
@@ -47,13 +115,12 @@
 **只看这些章节**（其他跳过）：
 
 ```
-✅ 第1部分：App的核心模型（5分钟）
-✅ 第2部分：三种工作方式（5分钟）
-✅ 第3部分：任务描述模板（5分钟）
-✅ 第6部分：Review工作流（5分钟）
+✅ 先用 App 修一个小 Bug：复现、修改、在 Review 中看结果
+✅ 第3部分：任务描述模板，换成你自己的项目任务
+✅ 第4部分：需要更细的审阅操作时再查
 ```
 
-**20分钟后你能达到**：能用App描述任务、看懂diff、做基本操作
+**这次练完能带走**：一个修好的进度计算样例，以及在 App 中复现、检查和纠错的完整过程。时间按已安装、已登录且 Node.js / Git 可用估计。
 
 ---
 
@@ -80,7 +147,7 @@
 
 ## 0. App 的核心模型
 
-老金在这篇里把 App 当主控台讲，因为 Codex 新手最需要先看见线程、终端、Review 和权限在哪里。
+我在这篇里把 App 当主控台讲，因为 Codex 新手最需要先看见线程、终端、Review 和权限在哪里。
 
 
 Codex App 可以理解为一个桌面开发主控台。它把这些能力放到同一个工作流里：
@@ -96,12 +163,13 @@ Codex App 可以理解为一个桌面开发主控台。它把这些能力放到�
 | Automations | 周期性或后台检查任务 |
 | Plugins / Connectors | 连接 GitHub、Gmail、Drive、Slack 等外部上下文 |
 | Appshots | 把截图、页面状态或视觉反馈带入线程，用于 UI 复核和问题定位 |
+| Developer mode | 通过受控 Chrome / Browser 通道检查性能、网络、console、DOM 和样式问题 |
 
 本系列后续功能都要回到这个模型里解释。
 
 ## 术语表（小白必读）
 
-第一次学 Codex App，最容易混乱的不是“按钮在哪里”，而是这些词到底在工作流里承担什么角色。先把它们分清楚，后面所有章节都会变顺。
+第一次学 Codex App，最容易混乱的不是"按钮在哪里"，而是这些词到底在工作流里承担什么角色。先把它们分清楚，后面所有章节都会变顺。
 
 | 术语 | 一句话解释 | 新手容易误解的地方 |
 |---|---|---|
@@ -113,7 +181,7 @@ Codex App 可以理解为一个桌面开发主控台。它把这些能力放到�
 | Settings | 模型、审批、沙盒、连接器、插件等配置入口 | 不是一次设置永远适用；不同项目风险不同 |
 | Connector / App | GitHub、Drive、Slack 等外部账号连接 | 授权范围要单独看，不等于本地文件权限 |
 | MCP | 外部工具协议 | 它给 Codex 工具，不是让 Codex “更懂一切” |
-| Skill | 可复用工作流 | 适合沉淀 SOP，不适合连接实时外部系统 |
+| Skill | 可复用工作流 | 适合固化 SOP，不适合连接实时外部系统 |
 | Automation | 后台或周期任务 | 适合重复检查，不适合模糊大改 |
 | Cloud handoff | 把任务交给云端环境继续做 | Cloud 看不到你未同步的本机私有状态 |
 
@@ -121,7 +189,7 @@ Codex App 可以理解为一个桌面开发主控台。它把这些能力放到�
 
 ## 1. App 工作流的底层逻辑
 
-Codex App 的核心不是“让 AI 帮你写代码”，而是把一次软件改动拆成六个可控环节：
+Codex App 的核心不是"让 AI 帮你写代码"，而是把一次软件改动拆成六个可控环节：
 
 ```text
 目标输入
@@ -209,6 +277,10 @@ Codex App 的学习难点不在提示词，而在你是否把每个动作放到�
 
 注意：worktree 仍然是真实 Git 工作区。合并前要 Review。
 
+实际创建时，先确认项目在 Git 仓库中。在新聊天输入框下选择 **Worktree**，选择基础分支，再发送任务。默认创建的是 detached HEAD，不会自动生成一个新分支；要长期保留或提交这项工作，使用聊天顶部的 **Create branch here**。需要回到本地 checkout 时用 **Hand off**，不要把同一分支同时 checkout 到两个 worktree。
+
+托管 worktree 默认位于 `$CODEX_HOME/worktrees`，可在 **Settings → Worktrees → Worktree root** 调整。默认保留最近 15 个托管 worktree，永久 worktree 的生命周期另行管理；删除前会保存快照，并可从相关聊天恢复。若新目录缺少被 Git 忽略的本地配置，可在仓库根目录的 `.worktreeinclude` 明确列出需要复制的忽略路径；这只适用于本地 App 托管 worktree，不适用于自己用 Git 创建的目录或远程 worktree。复制前确认这些配置应当进入该任务。详见 [官方 Worktrees 指南](https://learn.chatgpt.com/docs/worktrees)。
+
 ### 2.3 Cloud / Web handoff
 
 适合云端仓库任务、长时间后台任务和 PR 工作流。App 是本地主控台，Cloud 是远程执行环境。不要把 Cloud 当成本地 App 的替代品。
@@ -223,7 +295,7 @@ Codex App 的学习难点不在提示词，而在你是否把每个动作放到�
 | 盯 PR、修 CI、长时间后台任务 | Cloud / Web handoff | 不占用本地环境 |
 | 依赖本机浏览器、私有服务、桌面 App | Local thread | 云端通常拿不到本机状态 |
 
-判断标准不是“哪个功能更酷”，而是：执行环境能不能看到需要的文件、命令和服务；失败时你能不能快速撤销。
+判断标准不是"哪个功能更酷"，而是：执行环境能不能看到需要的文件、命令和服务；失败时你能不能快速撤销。
 
 ## 3. App 任务描述模板
 
@@ -371,7 +443,7 @@ App 用户应该先理解：
 
 ## 8. App 中的 Skills
 
-Skills 是可复用工作流。适合把“每次都要重复说的步骤”沉淀下来。
+Skills 是可复用工作流。适合把“每次都要重复说的步骤”固定下来。
 
 例如：
 
@@ -456,14 +528,14 @@ GitHub / PR 详见 CX-10。
 
 ## 13.1 App 能力地图：什么时候用哪一层
 
-很多新手的问题不是“不会用某个功能”，而是把所有功能都当成同一种按钮。下面这张图可以当作整套 Codex 课程的地图：
+很多新手的问题不是"不会用某个功能"，而是把所有功能都当成同一种按钮。下面这张图可以当作整套 Codex 课程的地图：
 
 ```text
 一次性当前任务
   -> 先用自然语言或 slash command
 
 重复出现的工作流
-  -> 沉淀为 Skill
+  -> 做成 Skill
 
 需要外部工具或服务
   -> 用 MCP / Connector / Plugin
@@ -505,6 +577,40 @@ GitHub / PR 详见 CX-10。
 5. **第 5 天：Worktree / Automations / Cloud**。再进入并行、后台和远程执行。
 
 这条路径符合新手心理：先建立控制感，再逐步放开能力。反过来，一上来讲插件、云端、自动化，容易让人觉得强大但危险，最后不敢真正用。
+
+### 13.4 用内置浏览器验证一个页面
+
+桌面 App 的内置 Browser 和你的常用浏览器使用不同的 profile，不会自动共享已登录会话。验证本地页面前，先从项目脚本确认并启动开发服务器，再在 App 的 **New tab** 中打开准确的 localhost 地址。你也可以在任务中提及 `@Browser`。
+
+例如：“用 @Browser 打开 http://localhost:3000/settings，先复现窄屏下按钮溢出，只修改对应布局。修改后再次打开同一页面，说明是否仍能复现。”检查渲染结果时可在页面元素上添加浏览器评论，然后让 Codex 处理这些评论，并回到 Review 对照代码 diff。
+
+需要检查网络请求、console、DOM 或性能时，到 **Settings → Browser → Developer mode** 启用 **Enable full CDP access**，再按任务授权。组织可以禁止该能力；普通页面预览不要求先开全量 CDP。CLI 和 IDE 没有这个内置 Browser，仍可使用已配置的浏览器 MCP；ChatGPT Work 网页端的托管 Browser 也不共享你本地的登录会话；它不同于 CX-11 的 Codex Cloud VM 环境，后者目前不支持 Browser / Computer Use。详见 [Browser](https://learn.chatgpt.com/docs/browser)。
+
+### 13.5 需要操作真实桌面应用时
+
+在支持的地区，macOS / Windows 桌面 App 的 Work 或 Codex 可通过 **Plugins → Computer Use** 安装并启用插件、server 和 skill，再到 **Settings → Computer use** 查看允许的应用。macOS 还要按系统提示授予 Screen Recording 和 Accessibility。用 `@Computer` 或 `@AppName` 指定目标，并写清要检查的窗口与流程。
+
+Windows Computer Use 在当前活动桌面前台运行，任务会控制鼠标和键盘；保持目标应用可见，不要同时操作同一会话。系统授权、App 内应用授权和项目的文件/命令权限是不同边界。仅验证本地 Web 页面时优先用上一节的内置浏览器；Linux App preview 不意味着同样支持整个桌面的 Computer Use。详见 [Computer Use](https://learn.chatgpt.com/docs/computer-use)。
+
+### 13.6 从手机继续主机上的任务
+
+**Remote** 控制的是连接的 Mac 或 Windows 主机，代码和命令仍在主机上运行。先在主机 App 的 **Settings → Connections → Control this Mac or PC** 选择 Set up / Add，完成验证，再用手机扫描 QR code，确认同一个 ChatGPT 账号和 workspace。iOS 当前从 **Codex** 进入；仍显示 Remote 的客户端就使用该入口。Android 和跨桌面设备控制按实际 rollout 与 workspace 设置核对。
+
+连接后可以从手机选项目、发任务、补充指令、查看 diff 和处理审批。主机必须保持开机、联网、App 运行；睡眠或关闭 App 会中断访问。任务使用主机的文件、工具、连接和权限，不会因为从手机发起就变成 Codex Cloud。Windows Computer Use 还需要主机会话解锁，并为任务保留前台桌面。
+
+项目已在 SSH 主机时，先确认普通 SSH 能连上、远程登录 shell 的 PATH 中有已安装并认证的 Codex，再从 App **Settings → Connections** 添加主机和项目。跨主机 **Hand off** 要求目标保存同一个 Git 仓库项目；该操作不能把聊天直接 Hand off 到 Codex Cloud 环境。详见 [Remote connections](https://learn.chatgpt.com/docs/remote-connections)。
+
+#### Remote 的 iPad 查看方式与连接排障
+
+2026 年 9 月 23 日的 iOS 1.2026.258 公告加入了 iPad 横屏分栏：从 **Codex** 打开已连接主机上的任务时，任务列表可留在旁边，便于切换和查看当前任务。该版还支持浏览嵌套 Git 仓库中的改动。打开任务的更改文件和 diff 后，先确认文件属于父仓库还是嵌套仓库，再决定提交范围；查看支持不代表两层仓库会自动合成一次提交。
+
+配对失败时，先更新手机与主机 App，核对两端账号和 workspace，并检查设备的日期、时间与时区是否准确；设备时钟错误是该公告明确修复的一类原因。SSH 项目连不上时，先在运行 App 的主机确认普通 SSH 可以连接，再检查远程用户的登录 shell 是否能找到已安装并认证的 `codex`；Mac / Linux 的 SSH 连接问题也是该版修复范围。回到 **Settings → Connections** 重新连接并查看错误，仍失败时按具体错误排障，不通过关闭认证或公开 app-server 端口绕过。依据：[9 月 23 日移动端发布记录](https://learn.chatgpt.com/docs/changelog#codex-2026-09-23-mobile)、[Remote connections](https://learn.chatgpt.com/docs/remote-connections)。
+
+### 13.7 需要使用日常浏览器的登录状态时
+
+内置 Browser 使用独立 profile。若任务需要你日常浏览器里已经登录的网站，在桌面 App 的 **Settings → Computer Use** 选择浏览器，按提示安装插件和扩展，再确认显示 **Manage**。当前支持 Chrome、Edge、Brave、Opera、Vivaldi；Opera 没有 side chat，其任务从桌面 App 发起。
+
+使用安装扩展的那个浏览器 profile，在 Work 或 Codex 聊天里用 `@Chrome` / `@Edge` 等选中浏览器，也可提及已打开标签页。第一次使用新站点时按当前任务选择一次允许或站点允许；在浏览器旁的 **Manage** 查看允许/禁止域名。浏览器扩展安装权限和每次任务的网站许可不同，不要把安装扩展当作所有网站均已允许。详见 [Browser extension](https://learn.chatgpt.com/docs/chrome-extension)。
 
 ## 14. 从零到 PR 的完整 App 实战
 
@@ -664,7 +770,7 @@ Verification 只写真实运行过的命令；未运行的命令要说明原因�
 
 ### Q3：App 中看到的命令和 CLI 一样吗？
 
-不一定。以当前 App 的 `/help`、命令补全和官方文档为准。CLI 能帮助核对，但不是 App 的替代品。
+不一定。先在当前 App 输入 `/`，查看命令补全和每项说明，再对照官方文档。CLI 能辅助核对，但两种界面的命令列表不保证相同。
 
 ---
 
@@ -681,7 +787,7 @@ Codex App 不是一个聊天框，而是一套围绕项目、线程、终端、R
 | Review | 看 Git diff 和评论 | 不分 diff 来源 |
 | Sidebar / panes | 看任务、自动化、产物 | 只盯最终回答 |
 
-成熟的 App 工作流不是“发一句话等结果”，而是不断在这 6 个区域之间切换：描述目标、看执行、读终端、看 diff、给反馈、再收窄。
+成熟的 App 工作流不是"发一句话等结果"，而是不断在这 6 个区域之间切换：描述目标、看执行、读终端、看 diff、给反馈、再收窄。
 
 ### 16.1 一次 App 任务的推荐节奏
 
@@ -1372,7 +1478,7 @@ App 工作流的核心是“收束”。不收束的线程第二天会变成上�
 - 会设计可复用 Skill。
 - 会判断什么时候开 subagents。
 - 会把 App Review 嵌入 PR 流程。
-- 会把失败经验沉淀进团队模板。
+- 会把失败经验写进团队模板。
 ```
 
 ### 29.4 团队阶段
@@ -1584,7 +1690,7 @@ Codex 可能给出：
 - [ ] 不跳过Review直接合并
 - [ ] 陌生项目先用只读模式
 
-**如果以上全部勾选，恭喜你掌握Codex App核心工作流！**
+**全部勾选后即掌握 Codex App 核心工作流。**
 
 ---
 
@@ -1622,7 +1728,7 @@ Codex 可能给出：
 ---
 
 **课程制作**：老金
-**最后更新**：2026年5月30日
+**最后更新**：2026年9月14日
 **许可**：本课程采用 MIT License；转载、复制或二次分发时必须保留版权声明与许可声明
 
 ---

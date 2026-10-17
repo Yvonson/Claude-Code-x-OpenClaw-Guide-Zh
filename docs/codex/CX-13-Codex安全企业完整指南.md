@@ -15,7 +15,7 @@
 > - **个人博客**：https://aiking.dev
 > - **预计学时**：2-3小时
 > - **难度等级**：⭐⭐⭐ 进阶级
-> - **更新日期**：2026年5月30日
+> - **更新日期**：2026年9月13日
 > - **信息来源**：OpenAI Codex Settings、Config、Rules、Hooks、MCP、Plugins、Automations 官方文档
 > - **前置要求**：已完成CX-01至CX-12，熟悉App所有基本功能
 
@@ -24,6 +24,8 @@
 ## 📚 本课学习目标
 
 完成本课学习后，你将能够：
+
+> **2026-06-18 安全口径**：App 26.609 增加 Windows Computer Use per-app controls，Automations 会遵循选定 approval mode；CLI 0.141 强化 PostToolUse blocking、加密凭证、Windows sandbox 和远程执行边界。企业落地时要把 App 权限、CLI profile、Hook 信任、Automation 审批和区域性 Memories / Chronicle 策略分开登记。
 
 1. **理解安全模型总览**：掌握六类风险（敏感文件、危险命令、大量改文件、外部数据、工具调用、后台任务）及各自的控制手段
 2. **设置审批与沙盒基线**：为不同场景（只读、日常、陌生仓库、CI、生产）配置合理的审批和沙盒策略
@@ -64,7 +66,7 @@
 
 ## 术语表（进阶必读）
 
-企业安全篇的重点不是“把权限关到最死”，而是把风险分类、控制手段、责任人和审计证据串起来。
+企业安全篇的重点不是"把权限关到最死"，而是把风险分类、控制手段、责任人和审计证据串起来。
 
 | 术语 | 一句话解释 | 在 Codex 里对应什么 |
 |---|---|---|
@@ -132,7 +134,7 @@ Codex 安全可以按六条链路看：
 
 ## 1. 安全模型总览
 
-Codex App 安全不是“完全不让它做事”，而是让每类动作有边界：
+Codex App 安全不是"完全不让它做事"，而是让每类动作有边界：
 
 | 风险 | 控制手段 |
 |---|---|
@@ -146,7 +148,7 @@ Codex App 安全不是“完全不让它做事”，而是让每类动作有边�
 ## 2. 审批与沙盒
 
 
-> **v0.133.0→v0.138.0 权限与审计更新**：permission profiles 已支持列表、继承、managed `requirements.toml`、运行时刷新、named profiles 和更强的 Windows sandbox 集成；后续版本又补强了 cloud-managed config、remote-control grants、personal access token v2、plugin JSON 输出、配置错误展示和 `/app` 交接到 Desktop。企业文档里不要只写单一 approval mode，要把 profile、requirements、项目规则、`--profile` 迁移、插件结构化输出和 `codex doctor` 诊断证据一起看。
+> **v0.133.0→v0.154.0 权限与审计更新（核查日：2026-09-13）**：permission profiles 已支持列表、继承、managed `requirements.toml`、运行时刷新、named profiles 和更强的 Windows sandbox 集成；后续版本又补强了 cloud-managed config、remote-control grants、personal access token v2、plugin JSON 输出、配置错误展示、`/app` 交接到 Desktop、加密凭证、PostToolUse blocking、远程执行权限路径保留和 Windows sandbox 修复。企业文档里不要只写单一 approval mode，要把 profile、requirements、项目规则、`--profile` 迁移、插件结构化输出和 `codex doctor` 诊断证据一起看。还有一处影响存量脚本：`codex mcp-server` 子命令和独立二进制已在 2026-09-05 移除（2026-08-24 起标记废弃），企业内部文档或 CI 里如果还在调用它，升到 0.154.0 会直接失败。官方给的替代是 Codex app server，但 `app-server` 命令目前仍是实验性质，官方明确不建议用于生产，迁移前先在测试环境验证。
 
 推荐基线：
 
@@ -309,6 +311,12 @@ AGENTS.md
 3. 开发者在 App Settings 中选择团队允许的 profile。
 4. 每次大改前记录当前线程状态、权限配置和 Review 证据；App 内入口以当前界面和 `/` 列表为准。
 5. PR Review 时确认没有临时切到危险模式。
+
+### 8.2 Computer History 的当前边界
+
+macOS 的 **Computer History** 已替代早期 Chronicle research preview，是重新实现的交互事件与文字摘要系统；它不是自动屏幕录像，也不录制音频。当前面向支持地区的 Pro、Business、Enterprise，包含 EEA、英国和瑞士；不适用于 API Key 或 Amazon Bedrock，且默认关闭。Business/Enterprise 先由管理员授予访问，再由成员个人选择开启；管理员授权不会自动替所有人开启。
+
+要使用时，在 macOS App 的 **Settings → Integrations → Computer history** 选择 Turn on，按提示开启所需 Memories，并限定允许的 App/网站。到 **History** 查看摘要，使用菜单栏暂停或恢复收集；改变许可只影响后续收集，已有内容要单独删除。该功能不需要 Screen Recording 权限，与前文 Computer Use 的系统权限不同。Memories 的聊天与全局控制见 CX-04 第 8.4 节。详见 [Computer History](https://learn.chatgpt.com/docs/customization/computer-history)。
 
 ## 9. 敏感文件
 
@@ -644,15 +652,32 @@ extends = ":workspace"
 ### 15.4 Rules 示例：发布和推送
 
 ```python
-def prefix_rule(argv):
-    if len(argv) >= 2 and argv[0] == "npm" and argv[1] == "publish":
-        return "prompt"
-    if len(argv) >= 2 and argv[0] == "git" and argv[1] == "push":
-        return "prompt"
-    if len(argv) >= 3 and argv[0] == "git" and argv[1] == "push" and "--force" in argv:
-        return "deny"
-    return None
+prefix_rule(
+    pattern = ["npm", "publish"],
+    decision = "prompt",
+    justification = "发布前确认包、版本、目标 registry 和授权。",
+    match = ["npm publish", "npm publish --tag next"],
+    not_match = ["npm test"],
+)
+
+prefix_rule(
+    pattern = ["git", "push"],
+    decision = "prompt",
+    justification = "推送前确认仓库、分支、参数和影响范围。",
+    match = ["git push origin main", "git push origin main --force"],
+    not_match = ["git status"],
+)
+
+prefix_rule(
+    pattern = ["git", "push", ["--force", "--force-with-lease", "-f"]],
+    decision = "forbidden",
+    justification = "禁止此处列出的强制推送前缀；先查看差异并与分支维护者确认。",
+    match = ["git push --force origin main", "git push -f origin main"],
+    not_match = ["git push origin main --force"],
+)
 ```
+
+上面的强制推送禁令只匹配选项紧接在 `git push` 后的前缀；`git push origin main --force` 仍会匹配推送审批规则。用 `codex execpolicy check` 核对团队实际命令。若要禁止所有推送，把 `git push` 规则改成 `forbidden`；若要检查任意位置的参数，使用经过审查的同步 Hook。
 
 ## 16. MCP 企业治理
 
@@ -782,6 +807,12 @@ Stop condition:
 没有发现时归档，避免制造噪音。
 ```
 
+### 18.4 共享团队任务使用谁的账号
+
+个人桌面 Automation 和云端 **Team Task** 的执行身份不同。Team Tasks 使用团队 service account 和配置的 App connections，不继承创建者的个人 memories、custom instructions 或聊天历史。成员能看到团队既有运行和生成文件，单个任务或运行不能另外设置访问限制，因此先确认团队成员与连接账号的数据范围。
+
+工作区允许创建团队和管理任务后，在网页 **Settings → Teams** 建立团队并配置连接。创建任务时打开 **Scheduled → + New Task**，选择 **Team** 和所属团队，核对 Trigger、时区、Instructions、Plugins 与 Model，然后创建。先用 **Run now**，在 **Previous runs** 审阅输出；失败时检查团队连接的授权，而不是假设创建者个人账号的权限会被继承。详见 [官方 Team Tasks 指南](https://learn.chatgpt.com/docs/enterprise/teams)。
+
 ## 19. Cloud 企业治理
 
 Cloud 的治理重点是环境、secrets、网络和 PR 回流。
@@ -807,7 +838,7 @@ Review path:
 ### 19.2 Secret 边界
 
 ```text
-- Secrets 只在 setup 阶段可用。
+- 当前 Cloud 的 Network secrets 在准备和任务期间都通过代理替换；Legacy 的 setup-only secrets 单独核对。
 - Agent 阶段需要的普通配置用 environment variables。
 - 不在 setup 日志打印 secret。
 - 不把 secret 放进 prompt。
@@ -981,7 +1012,7 @@ Final human action:
 | 产品 | App 任务描述 | diff 用户影响 | Automation 摘要 |
 | 文档 | Skills | docs drift | Review |
 
-这能让企业培训不是“一场大课讲所有功能”，而是按实际工作内容分批吸收。
+这能让企业培训不是"一场大课讲所有功能"，而是按实际工作内容分批吸收。
 
 ## 25. 综合工坊：给一个 20 人团队制定 Codex 使用基线
 
@@ -1064,8 +1095,8 @@ Final human action:
 
 ```text
 1. 降频或停用。
-2. 改 prompt：无发现自动归档。
-3. 增加 Triage owner。
+2. 改 prompt：没有明确发现时不通知；在 Scheduled 中检查几次实际运行，确认降噪效果。
+3. 指定结果审阅负责人。
 4. 一周后复查。
 ```
 
@@ -1390,7 +1421,7 @@ What needs to be done:
 - [ ] 插件安装和授权分开看
 - [ ] 团队有插件/连接器/MCP/Automation登记表
 
-**如果以上全部勾选，恭喜你掌握Codex安全与企业基线！**
+**全部勾选后即掌握 Codex 安全与企业基线。**
 
 ---
 
@@ -1418,14 +1449,14 @@ AGENTS.md                    # 项目规则
 
 ### C. 推荐学习资源
 
-- **Codex Security 官方文档**：https://developers.openai.com/codex/security
+- **Agent approvals & security 官方文档**：https://learn.chatgpt.com/docs/agent-approvals-security
 - **本系列上一篇**：[CX-12 CLI 辅助](./CX-12-Codex-CLI辅助完整指南.md)
 - **本系列下一篇**：[CX-14 Codex vs Claude Code](./CX-14-Codex与Claude-Code对比指南.md)
 
 ---
 
 **课程制作**：老金
-**最后更新**：2026年5月30日
+**最后更新**：2026年9月13日
 **许可**：本课程采用 MIT License；转载、复制或二次分发时必须保留版权声明与许可声明
 
 ---

@@ -17,7 +17,7 @@
 
 ## 一句话说清楚
 
-老金在这篇里不会把 OpenClaw 讲成万能助手，因为真正要学的是它适合接哪些消息流和工作流。
+我在这篇里不会把 OpenClaw 讲成万能助手，因为真正要学的是它适合接哪些消息流和工作流。
 
 OpenClaw 是一个**开源的 AI 私人助手框架**，跑在你自己的电脑或服务器上，能连接 WhatsApp、Telegram、Discord 等消息平台，让 AI 帮你处理消息、执行任务、管理日程。
 
@@ -133,7 +133,7 @@ OpenClaw 的架构设计非常优雅。官方的自我定义是：**Multi-channe
 │                        消息平台层 (Channels)                      │
 │                                                                   │
 │  WhatsApp │ Telegram │ Discord │ Slack │ Signal │ iMessage       │
-│  BlueBubbles │ Google Chat │ Teams │ LINE │ Zalo │ WebChat │ ... │
+│  Google Chat │ Teams │ LINE │ Zalo │ WeChat │ WebChat │ ... │
 └──────────────────────────────┬────────────────────────────────────┘
                                │
 ┌──────────────────────────────▼────────────────────────────────────┐
@@ -260,8 +260,9 @@ Gateway 的安装方式是注册为系统服务：macOS 用 launchd，Linux 用 
 # 安装 Gateway 守护进程
 openclaw onboard --install-daemon
 
-# 手动启动（调试用）
-openclaw gateway --port 18789 --verbose
+# 核对后台 Gateway 并查看日志
+openclaw gateway status
+openclaw logs --follow
 
 # 检查 Gateway 健康状态
 openclaw doctor
@@ -293,9 +294,8 @@ Channel 是 OpenClaw 对消息平台的统一抽象。不管你用的是 WhatsAp
 | Discord | @buape/carbon | Bot Token |
 | Slack | Bolt | OAuth App |
 | Signal | signal-cli | 手机号注册 |
-| BlueBubbles | BlueBubbles API | iMessage（推荐） |
-| iMessage | imsg CLI | macOS 原生（旧版） |
-| WebChat | 内置 | 无需认证 |
+| iMessage | 官方 `@openclaw/imessage` + imsg CLI | 本机 Mac 或经 SSH 连接 Mac；旧 BlueBubbles 已移除 |
+| WebChat | 内置 | 需要 Gateway 认证；首次远程浏览器连接还可能需要设备配对 |
 
 **扩展 Channel（通过 extensions 加载）：**
 
@@ -339,7 +339,7 @@ Channel 的安全默认值很重要。OpenClaw 连接的是真实的消息平台
 | 层级 | 说明 | 来源 |
 |------|------|------|
 | Bundled Skills | 内置技能，随 OpenClaw 一起安装 | 核心仓库 |
-| Managed Skills | 通过 ClawHub 安装的社区技能 | clawhub.com |
+| Managed Skills | 通过 ClawHub 安装的社区技能 | clawhub.ai |
 | Workspace Skills | 你自己写的本地技能 | 工作空间目录 |
 
 内置技能一览（示意）：
@@ -364,7 +364,7 @@ Channel 的安全默认值很重要。OpenClaw 连接的是真实的消息平台
 | | `voice-call` | 语音通话（ElevenLabs） |
 | | `peekaboo` | 屏幕截图 |
 | | `camsnap` | 摄像头拍照 |
-| | `video-frames` | 视频帧提取 |
+| | 视频帧提取 | v2026.9.4 已移除内置 `video-frames`；需要时自行使用 ffmpeg，或审查后安装第三方技能 |
 | 实用工具 | `weather` | 天气查询 |
 | | `summarize` | 内容摘要 |
 | | `nano-pdf` | PDF 处理 |
@@ -377,7 +377,7 @@ Channel 的安全默认值很重要。OpenClaw 连接的是真实的消息平台
 
 OpenClaw 的记忆系统设计哲学是：**简单到极致**。
 
-没有向量数据库，没有 RAG 管道，没有 Embedding 索引。AI 的记忆就是写在磁盘上的 Markdown 文件。
+记忆内容可以用 Markdown 文件保存和编辑。检索层可以为这些文件建立 SQLite 和 embedding 索引，并通过 `memory_search` 召回相关片段；Markdown 是可读的记忆来源，索引负责搜索。
 
 ```
 ~/.openclaw/workspace/
@@ -417,7 +417,7 @@ AI 有两个记忆工具：
 | Canvas | 可视化工作区 | Agent 驱动的 UI，支持 A2UI 推送 |
 | 节点操作 | 摄像头、屏幕录制、位置获取 | 通过 macOS/iOS/Android 节点 |
 | 文件操作 | 读写文件、目录管理 | 在工作空间内操作 |
-| Shell 执行 | 运行命令行命令 | 安全沙箱内执行 |
+| Shell 执行 | 运行命令行命令 | 执行位置取决于 exec 和 sandbox 配置；sandbox 默认关闭 |
 | 消息发送 | 通过任意 Channel 发消息 | 跨平台消息推送 |
 | 定时任务 | Cron 表达式调度 | 定时提醒、自动化任务 |
 | Webhook | 接收外部事件 | 与第三方服务集成 |
@@ -428,12 +428,12 @@ AI 有两个记忆工具：
 
 OpenClaw 的核心保持精简，可选功能通过插件扩展。
 
-自 v2026.4.22 起，内置插件采用懒加载和 manifest 驱动的激活方式，**实测加载时间缩短 82-90%**，显著改善了 CLI 和 Gateway 的启动速度。
+自 v2026.4.22 起，内置插件在支持的运行时上优先走原生 Jiti 加载已构建的 `dist` 模块，**实测捆绑插件加载时间缩短 82-90%**。v2026.4.27 进一步把捆绑插件清单迁移到显式 `activation.onStartup` 声明，Gateway 启动只导入真正需要在启动期注册运行时的插件。
 
 插件的分发方式：
 - **npm 包** — 通过 npm 安装，标准的 Node.js 包管理
 - **本地扩展** — 开发时直接加载本地目录
-- **社区插件** — 通过 ClawHub（clawhub.com）发现和安装
+- **社区插件** — 通过 ClawHub（clawhub.ai）发现和安装
 
 插件 API 提供了 SDK：
 
@@ -446,16 +446,7 @@ import { ... } from 'openclaw/plugin-sdk'
 
 ### MCP 支持
 
-OpenClaw 通过 `mcporter` 桥接支持 MCP（Model Context Protocol）：
-
-```
-OpenClaw Gateway ←→ mcporter ←→ MCP Servers
-```
-
-这种桥接模式的好处：
-- 添加或更换 MCP 服务器不需要重启 Gateway
-- 核心工具/上下文保持精简
-- MCP 生态的变动不影响核心稳定性
+OpenClaw 可以直接连接 MCP server。当前官方配置位于 `mcp.servers`，支持 stdio、SSE 和 Streamable HTTP；Control UI 的 Settings → MCP 也可以添加连接。先按所用版本的 [MCP 文档](https://docs.openclaw.ai/tools/mcp)配置和检查连接，再测试实际工具。`mcporter` 仍可用于需要它的独立工作流，但不是唯一接入路径。
 
 > ⏭️ **小白可跳过** — 这部分是技术深入分析，新手可以先跳过
 
@@ -477,7 +468,7 @@ OpenClaw Gateway ←→ mcporter ←→ MCP Servers
 
 | 类别 | 库 | 用途 |
 |------|-----|------|
-| 运行时 | Node.js 24.x 推荐，22.19+ 兼容 | 服务端 JavaScript 运行时 |
+| 运行时 | v2026.9.4 推荐 Node.js 26.x；支持 24.x 至少 24.16.0，或 26.1.0 及以上 | 服务端 JavaScript 运行时；完整安装要求见 [OC-02](02-安装部署指南.md#2-nodejs-环境安装) |
 | 语言 | TypeScript 5.9+ | 类型安全 |
 | 构建 | tsdown | TypeScript 打包工具 |
 | 测试 | Vitest 4.x | 单元测试 + E2E 测试 |
@@ -624,7 +615,7 @@ OpenClaw 支持多个主流 AI 模型提供商，这是它的核心竞争力之�
 | 智谱 (GLM) | 以当前 provider 目录为准 | 中文、工具和企业场景常见 |
 | Moonshot / Kimi | 以当前 provider 目录为准 | 长文本和中文场景常见 |
 | 小米 (Xiaomi) | 以当前 provider 目录为准 | 是否可用取决于当前版本目录 |
-| MiniMax | 以当前 provider 目录为准；v2026.6.1 release 明确补充 MiniMax M3 元数据 | 多模态和中文生态场景常见 |
+| MiniMax | 以当前 provider 目录为准；v2026.6.x release 已补充 MiniMax M3 元数据 | 多模态和中文生态场景常见 |
 | DeepSeek | 以当前 provider 目录为准 | 编程和中文场景常见 |
 
 **代理/路由服务：**
@@ -663,10 +654,10 @@ OpenClaw 支持配置多个模型的优先级和故障转移策略。主模型�
 
 ```bash
 # 直接跟 AI 对话
-openclaw agent --message "帮我查一下明天的天气"
+openclaw agent --agent main --message "帮我查一下明天的天气"
 
 # 发送消息到指定平台
-openclaw message send --to +1234567890 --message "Hello"
+openclaw message send --channel whatsapp --target +1234567890 --message "Hello"
 
 # 交互式 TUI
 openclaw tui
@@ -711,7 +702,7 @@ openclaw tui
 
 ### ClawHub（技能市场）
 
-ClawHub（clawhub.com）是 OpenClaw 的技能和插件市场。社区开发者可以发布自己的技能，其他用户可以一键安装。
+ClawHub（clawhub.ai）是 OpenClaw 的技能和插件市场。社区开发者可以发布自己的技能，其他用户可以一键安装。
 
 官方鼓励新技能优先发布到 ClawHub，而不是提交到核心仓库。核心仓库的合并门槛很高。
 
@@ -757,7 +748,7 @@ ClawHub（clawhub.com）是 OpenClaw 的技能和插件市场。社区开发者�
 | 企业客服机器人 | OpenClaw 是单用户设计 | Botpress, Intercom |
 | 多用户 SaaS 产品 | 没有多租户架构 | 自建方案 |
 | 不想碰终端的用户 | 目前安装和配置需要命令行 | ChatGPT, Claude.ai |
-| 低配设备 | 需要 Node.js 22+，内存占用不小 | 轻量级 Bot 框架 |
+| 资源紧张的设备 | Gateway 常驻运行，接多平台或本地模型时需要预留内存 | 先减少连接平台和任务数，或另选运行设备 |
 | 需要 100% 可用性 | 个人设备可能关机/断网 | 云端 AI 服务 |
 
 OpenClaw 的设计哲学很明确：**它是一个个人助手，不是企业平台。** 单用户、本地优先、隐私至上。
@@ -787,9 +778,10 @@ OpenClaw 的设计哲学很明确：**它是一个个人助手，不是企业平
 - 全套文档翻译（计划用 AI 自动翻译）
 - 不明确属于模型提供商类别的商业服务集成
 - 已有 Channel 的包装器（除非有明确的能力或安全差距）
-- 核心中的一等 MCP 运行时（mcporter 已经提供了集成路径）
-- Agent 层级框架（管理者的管理者/嵌套规划树）
+- 没有说明实际能力缺口、重复已有 MCP、ACPX、插件或 ClawHub 路径的集成
 - 重复现有 Agent 和工具基础设施的重型编排层
+
+这里不能理解为“OpenClaw 不支持 MCP 或委派”。v2026.9.4 已有内建 MCP client、子 Agent 和可选择的运行时；消息 bindings 路由仍可按配置直接选择 Agent。
 
 官方说这是路线图护栏，不是铁律。强烈的用户需求和技术理由可以改变它。
 
@@ -875,8 +867,9 @@ curl -fsSL https://openclaw.ai/install.sh | bash
 # 2. 运行安装向导（会引导你配置模型和平台）
 openclaw onboard --install-daemon
 
-# 3. 启动 Gateway（调试模式）
-openclaw gateway --port 18789 --verbose
+# 3. 核对后台 Gateway 并查看日志
+openclaw gateway status
+openclaw logs --follow
 
 # 4. 跑一次诊断，确认 Gateway 和配置已就绪
 openclaw doctor
@@ -1096,7 +1089,7 @@ Telegram 私聊
 接 #support，增加技术支持 Skill。
 
 第 3 阶段：
-增加反馈整理 Skill，把高频问题沉淀到 FAQ 草稿，并由人工 Review 后再发布。
+增加反馈整理 Skill，把高频问题整理进 FAQ 草稿，并由人工 Review 后再发布。
 
 第 4 阶段：
 拆 community 和 tech-support 两个 Agent。
@@ -1197,21 +1190,25 @@ OpenClaw 的配置不是孤立字段。每个字段背后都对应一个产品�
 ```json5
 {
   "agents": {
-    "list": [
-      {
-        "id": "docs-helper",
+    "entries": {
+      "docs-helper": {
         "workspace": "~/.openclaw/workspace-docs-helper",
-        "model": "openai/gpt-5.2-mini",
+        "model": "openai/gpt-5.6-luna",
         "skills": ["summarize"]
       }
-    ]
+    }
   },
   "bindings": [
     {
-      "agent": "docs-helper",
-      "channel": "slack",
-      "channelId": "C0123456789"
+  "agentId": "docs-helper",
+  "match": {
+    "channel": "slack",
+    "peer": {
+      "kind": "channel",
+      "id": "C0123456789"
     }
+  }
+}
   ]
 }
 ```
@@ -1220,7 +1217,7 @@ OpenClaw 的配置不是孤立字段。每个字段背后都对应一个产品�
 
 ## 故障地图：看症状就知道先查哪一层
 
-OpenClaw 的错误通常不是“整个系统坏了”，而是某一层没有接上。下面这张地图适合排障时快速定位。
+OpenClaw 的错误通常不是"整个系统坏了"，而是某一层没有接上。下面这张地图适合排障时快速定位。
 
 | 症状 | 先查 | 常见原因 |
 |---|---|---|
@@ -1534,7 +1531,7 @@ Slack #ops -> ops Agent
 Telegram DM -> personal Agent
 ```
 
-这个阶段的核心不是“更多人格”，而是：
+这个阶段的核心：
 
 - 不同 Agent 有不同 workspace。
 - 不同 Agent 有不同模型。
@@ -1572,7 +1569,7 @@ Reverse proxy / VPN
 - 更新前是否备份。
 - 出事时如何关闭入口。
 
-长期系统的关键不是“功能更多”，而是“出了问题能恢复”。这也是 OpenClaw 和一次性聊天脚本最大的区别。
+长期系统的关键不是"功能更多"，而是“出了问题能恢复”。这也是 OpenClaw 和一次性聊天脚本最大的区别。
 
 ## OpenClaw 的边界：它不是万能自动员工
 

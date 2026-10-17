@@ -15,7 +15,7 @@
 > - **个人博客**：https://aiking.dev
 > - **预计学时**：2-3小时
 > - **难度等级**：⭐⭐ 入门级
-> - **更新日期**：2026年5月30日
+> - **更新日期**：2026年10月3日
 > - **信息来源**：OpenAI Codex Config、Rules、Hooks、Settings、CLI 官方文档
 > - **前置要求**：已完成 [CX-01 安装](./CX-01-Codex-App安装与认证完整指南.md) 和 [CX-02 桌面工作流](./CX-02-Codex-App桌面工作流完整指南.md)
 
@@ -24,6 +24,8 @@
 ## 📚 本课学习目标
 
 完成本课学习后，你将能够：
+
+> **2026-06-18 配置口径**：Codex App 26.609 增加 composer `/init` 和 Migrate to Codex，适合把已有项目规则落成 `AGENTS.md`；CLI 0.141 强化 code mode hooks、PostToolUse blocking、插件路由和 Windows sandbox 修复。App 用户仍优先在 Settings / Review 中收口，CLI 只用于配置排查、CI 和高级权限验证。
 
 1. **编写AGENTS.md**：用项目级指令文件告诉Codex项目规则、命令、风格和禁止事项
 2. **掌握多层指令结构**：理解根目录和子目录AGENTS.md的层级关系
@@ -56,7 +58,7 @@
 
 ## 0. 配置系统的四层心智模型
 
-老金，我写项目指令时最关心的是让 Codex 少猜；项目规则越清楚，后面的修改越不容易跑偏。
+我写项目指令时最关心的是让 Codex 少猜；项目规则越清楚，后面的修改越不容易跑偏。
 
 你可以把 Codex 配置想成四层，从软到硬：
 
@@ -93,7 +95,7 @@
 1. **当前项目是否打开对了目录**：工作区错了，`AGENTS.md` 再好也读不到。
 2. **新线程是否读到 `AGENTS.md`**：旧线程可能仍停留在旧上下文。
 3. **App Settings 是否和任务风险匹配**：只读、日常写入、危险模式不能混用。
-4. **项目 `.codex/` 是否被信任**：未信任项目不会加载项目级 `.codex/` 配置层。
+4. **项目是否被信任**：未信任项目不会加载项目级 `.codex/` 配置层；CLI v0.150.0 起也不加载该项目的 `AGENTS.md`。文件存在但指令不生效时，先核对项目的信任状态。
 5. **Rules 是否匹配了真实命令前缀**：用 `match` / `not_match` 和 `execpolicy check` 测。
 6. **Hooks 是否需要信任或是否失败**：未信任、超时、路径错都会影响执行。
 
@@ -124,7 +126,7 @@ Do not modify files.
 
 在项目根目录创建 `AGENTS.md`：
 
-```markdown
+````markdown
 # AGENTS.md
 
 这份文件约束 Codex 在本项目里的工作方式，用来减少常见的 AI 编程失误。你可以在此基础上继续补充项目专属规则。
@@ -222,7 +224,7 @@ Do not modify files.
 - 因为过度复杂而返工的次数更少。
 - 澄清问题发生在动手前，而不是出错之后。
 - 每次修改都有明确验证方式。
-```
+````
 
 创建正式 `AGENTS.md` 前，先让 Codex 根据第一步的分析输出完整版本。命令必须来自项目文件或你亲自确认；没有确认的命令整行删除，不要留空、不要写占位。
 
@@ -409,14 +411,28 @@ App 用户优先通过这几处理解权限：
 | CI / 自动化 | 外部沙箱 + 最小权限 |
 | 涉及密钥 / 生产数据 | 默认拒绝，人工确认 |
 
-> **v0.133.0→v0.138.0 权限口径**：permission profiles 不再只是单个 approval mode。新版已支持 profile 列表、继承、managed `requirements.toml`、运行时刷新、named profiles 和更强的 Windows sandbox 集成；后续又补强了 cloud-managed config、remote-control grants、personal access token v2、plugin JSON 输出和配置错误展示。`--profile` 已成为 CLI / TUI permissions / sandbox flows 的主选择器，旧 profile 配置会走迁移提示；个人项目可以继续先用 App Settings，团队项目要把 profile、`AGENTS.md`、Rules、Plugins、MCP 和 sandbox 一起看。
+> **v0.133.0→v0.154.0 权限口径（核查日：2026-09-14）**：permission profiles 不再只是单个 approval mode。新版已支持 profile 列表、继承、managed `requirements.toml`、运行时刷新、named profiles 和更强的 Windows sandbox 集成；后续又补强了 cloud-managed config、remote-control grants、personal access token v2、plugin JSON 输出、配置错误展示、加密凭证、PostToolUse blocking、远程执行权限路径保留和 Windows sandbox stale credentials 修复。配置 profile 与权限 profile 要分开：本机 CLI 0.157.1 的 `--profile <name>` 会叠加 `$CODEX_HOME/<name>.config.toml`；权限 profile 则由 `[permissions.<name>]` 定义、通过 `default_permissions` 选择。官方 `codex sandbox` 辅助命令另有 `--permission-profile` / `-P`，使用前先核对对应子命令的帮助。旧配置是否需要迁移，要看本机提示；个人项目可以继续先用 App Settings，团队项目要把 profile、`AGENTS.md`、Rules、Plugins、MCP 和 sandbox 一起看。v0.153.0 之后还有两处要注意：Full Access 下 Guardian 会跳过纯确认类操作的复查，而 Guardian 记录能跨压缩、重启和用户主动创建的 fork 保留；记住的 MCP 工具批准按所选连接应用的账号保存，换用另一个账号时，以那个账号自己的审批记录和权限为准。
 
 实操时按这个顺序确认：
 
-1. 在 App Settings 里选默认 profile 和 sandbox。
+1. 在 App Settings 里核对当前权限方案。使用新权限 profile 时，通过 `default_permissions` 选择，并移除同一配置栈中的旧 `sandbox_mode` / `sandbox_workspace_write`；使用旧沙盒设置时按 `--sandbox` 核对，不把两套机制叠加理解。
 2. 用当前 App 的 `/` 列表、线程权限提示或 Settings 查看实际生效的审批策略；`/permissions` 属于 CLI 常见入口，App 是否显示以当前版本为准。
 3. 如果团队下发 managed `requirements.toml`，先读它规定的工具、网络和目录边界。
 4. 修改 profile 后开一个新任务验证；如果当前版本支持 runtime refresh，再确认旧线程是否已刷新。
+
+### 4.1 Guardian 如何核对较早的授权和任务交接
+
+Guardian 是自动审批审查的一部分。CLI v0.160.0 新增两个默认关闭的选项：历史检索让审查器找回较早的用户指令，交接上下文让它核对主任务派给某个子代理的工作和后续撤销。它们用于减少“只看到眼前命令、没看到之前限制”的判断缺口，不会授予新的文件、工具或外部账号权限。
+
+需要这两个选项时，先确认使用 v0.160.0 或支持它们的版本，再按团队配置方式在 `config.toml` 的已有 `[features]` 段中设置；没有该段时再新建，避免重复表头：
+
+```toml
+[features]
+guardian_conversation_history_tools = true
+guardian_root_handoff_context = true
+```
+
+历史检索还要求相应 Apps 连接可用。每次检索都要重新检查父任务当前的应用和工具策略；已禁用的工具或需要另行审批的调用不会因此自动放行。交接上下文会保留近期取消信息，找不到可用交接记录时回退到原有上下文。检索结果可能不完整，因此仍要把范围、授权和停止条件写清楚，也要检查最终审批结果。这里依据官方发布与源码说明，未进行登录后的审批实测：[v0.160.0](https://github.com/openai/codex/releases/tag/rust-v0.160.0)、[历史检索变更](https://github.com/openai/codex/pull/49036)、[交接上下文变更](https://github.com/openai/codex/pull/49057)。
 
 ## 5. 沙盒模式怎么理解
 
@@ -428,6 +444,8 @@ Codex 的沙盒是为了限制命令和文件访问范围。CLI 中常见模式�
 | `read-only` | 只读，适合审计和探索 |
 | `workspace-write` | 可写工作区，适合日常开发 |
 | `danger-full-access` | 无沙盒限制，只能在外部可信沙箱中使用 |
+
+`workspace-write` 允许工作区内的普通写入，不代表所有子目录都能改。CLI v0.159.0 将 `.aws` 与 `.git`、`.agents`、`.codex` 一样纳入可写根目录中的默认受保护路径，避免任务改写 AWS 配置或凭据辅助程序。批准命令扩大写入范围时，显式文件读取拒绝仍会保留；“已批准”不能当作被拒绝目录也已放开。遇到这些路径的拒绝，先核对实际规则与任务范围。默认保护可以受显式规则影响，因此它也不是所有配置下的绝对保证。依据：[审批后的拒绝规则](https://github.com/openai/codex/pull/48155)、[`.aws` 默认保护](https://github.com/openai/codex/pull/48176)。
 
 App 用户不需要一开始背 CLI 参数，但要理解：权限越大，越需要 Review、Git 和备份。
 
@@ -458,7 +476,7 @@ App 主线中，普通读者不需要先手写它。推荐顺序：
 3. 只复制官方当前支持的字段。
 4. 改完后重启或刷新 App，再用 `/status`、Settings、MCP 列表等入口核对。
 
-如果教程需要展示配置，优先展示“要查官方 schema”而不是写死字段。比如 `/goal` 不显示时，官方 App Commands 文档说明可以使用 `[features] goals = true` 或 `codex features enable goals`；其他字段也要以当前官方 Config Reference 为准。
+展示配置前先核对官方 schema 和当前界面。比如 `/goal` 不显示，先在 App 的 `/` 列表核对可用功能和版本；当前命令页没有要求启用 `features.goals`，CLI v0.160.0 的配置 schema 也未列出这个旧字段。无法使用时可以按明确阶段继续，不把旧实验开关当成所有版本的前提。
 
 ```toml
 # 只作为结构提示，实际字段以官方 Config Reference 和当前 App 为准。
@@ -505,7 +523,7 @@ Rules 不适合：
 
 ## 8. Hooks：事件脚本
 
-Hooks 是事件触发脚本，适合做：
+Hooks 是事件触发的处理器，可以运行脚本，也可以调用已连接的 MCP 工具，适合做：
 
 - 命令执行前检查。
 - 工具执行后记录日志。
@@ -524,17 +542,21 @@ App 用户应先理解它的配置入口和风险：
 
 ### 8.1 Hooks 的执行机制
 
-Hooks 厚度不在“能写脚本”，而在你理解它进入了 agentic loop。它不是 Markdown 规则，而是真实命令：
+Hooks 的重点是它在 agentic loop 的哪个阶段运行。触发后，它会真正执行命令或调用工具：
 
 ```text
 某个事件发生
   -> Codex 找到匹配的 hook 配置
   -> 需要信任的 hook 先走 trust review
-  -> hook 命令在当前 session cwd 里运行
-  -> 输出、失败、超时都会影响体验
+  -> command handler 在当前 session cwd 里运行，或由 mcp_tool handler 调用已连接工具
+  -> 输出、失败、超时按对应事件的规则处理
 ```
 
-常见事件包括 `SessionStart`、`PreToolUse`、`PermissionRequest`、`PostToolUse`、`PreCompact`、`PostCompact`、`UserPromptSubmit`、`SubagentStart`、`SubagentStop`、`Stop`。并不是每个事件都适合新手使用；团队最常见的是命令前检查、权限请求检查、命令后审计和停止时校验。
+常见事件包括 `SessionStart`、`PreToolUse`、`PermissionRequest`、`PostToolUse`、`PreCompact`、`PostCompact`、`UserPromptSubmit`、`SubagentStart`、`SubagentStop`、`Stop`、`Interrupt`。团队最常用的是命令前检查、权限请求检查、命令后审计和停止时校验。
+
+CLI v0.148.0 起，命令 handler 可以设置 `"async": true` 在后台运行，适合日志和通知；后台输出在后续安全时点交给模型，不能阻断、批准或改写触发它的动作。需要拦截命令或作权限决定的检查仍应同步执行。同版还加入 `"type": "mcp_tool"` handler，通过 `server`、`tool` 和 `input` 调用已连接的 MCP 工具，仍受 hook 信任与输出规则约束。
+
+CLI v0.150.0 新增 `Interrupt`：只在顶层活动回合被中断时触发，不对子代理触发。它适合短暂清理或记录中断，默认超时 1 秒、最多 3 秒，不能阻止已经发生的中断。配置与事件输出格式见 [官方 Hooks 文档](https://developers.openai.com/codex/hooks)。
 
 示例：只在 Bash 命令前做策略检查：
 
@@ -569,7 +591,7 @@ Hooks 厚度不在“能写脚本”，而在你理解它进入了 agentic loop�
 | 写文件后跑格式化 | Hook | 事件触发更合适 |
 | 记录审计日志 | Hook | 需要把事件写到日志系统 |
 | 统一代码风格 | `AGENTS.md` + 测试 / lint | Rules 不适合写风格 |
-| 发布流程 SOP | Skill | 长流程应该沉淀为 Skill |
+| 发布流程 SOP | Skill | 长流程应该做成 Skill |
 
 能用 Rules 解决的命令边界，不要先写 Hook。Hook 的自由度更高，维护成本和安全风险也更高。
 
@@ -585,6 +607,12 @@ Hooks 厚度不在“能写脚本”，而在你理解它进入了 agentic loop�
 | Windows 上失败 | 路径和解释器不同 | 使用 Windows 专用命令字段或跨平台脚本 |
 
 Hook 是企业治理的强工具，但不适合用来弥补项目说明不清。先把 `AGENTS.md` 写清，再决定是否需要 Hook。
+
+### 8.4 Memories 是回忆层，项目规则仍放 AGENTS.md
+
+本地 Codex Memories 默认关闭；桌面 App 可在 **Settings → Personalization → Enable memories** 开启，并用 `/memories` 分别控制当前聊天是否使用旧记忆、是否成为后续记忆的输入。当前聊天选择不会改全局设置。CLI/IDE 使用对应 Codex host 的本地记忆，网页 ChatGPT Work 使用 ChatGPT 的 memory 设置；它们不是同一个存储。团队必须始终适用的规则仍放 `AGENTS.md` 或版本管理的文档。
+
+例如临时分析一个外部PR时，先用 `/memories` 检查这次聊天的读取和生成选项，再引用明确的仓库文档。记忆不是每次聊天结束就立即生成，也不能作为团队强制规则唯一来源。详见 [官方 Memories 指南](https://learn.chatgpt.com/docs/customization/memories)。
 
 ## 9. 改完配置后怎么核对
 
@@ -731,7 +759,7 @@ tests/AGENTS.md
 
 ## 12. 配置 Cookbook：从个人仓库到团队基线
 
-这一节不是让你复制所有配置，而是给你几种常见情境的组合方式。每个组合都先说明目的，再说明用哪些层解决。
+这一节给你几种常见情境的组合方式。每个组合都先说明目的，再说明用哪些层解决。
 
 ### 12.1 个人学习仓库
 
@@ -889,7 +917,7 @@ Rules 更像命令策略；Hooks 是事件脚本。能用 Rules 解决的，不�
 
 ## 13. `AGENTS.md` 深度写作：让 Codex 读到“项目真实习惯”
 
-很多团队写 `AGENTS.md` 时会犯两个极端：要么写成口号，要么写成百科。好 `AGENTS.md` 不是长，而是让 Codex 在关键决策点不猜。
+很多团队写 `AGENTS.md` 时会犯两个极端：要么写成口号，要么写成百科。好 `AGENTS.md` 让 Codex 在关键决策点不猜。
 
 ### 13.1 `AGENTS.md` 的五类内容
 
@@ -1050,6 +1078,9 @@ Codex 支持内置权限 profile，也支持自定义 profile。新手先记三�
 ```toml
 default_permissions = "project-edit"
 
+[features]
+network_proxy = true
+
 [permissions.project-edit]
 description = "Project editing with narrow network access."
 extends = ":workspace"
@@ -1072,7 +1103,9 @@ enabled = true
 - 从 `:workspace` 继承基本工作区权限。
 - 环境文件始终拒绝。
 - 生成目录只读。
-- 网络只开放需要的域。
+- 启用网络代理后，命令网络访问按列出的域名规则过滤；如果组织配置没有启动代理，也未启用 `features.network_proxy`，这些域名规则不会限制直接联网。
+
+还要区分上面的命令网络代理与应用自身的网络策略。CLI v0.157.0 修正了受应用网络策略约束的 HTTP / WebSocket 连接：首次连接成功不代表后续重定向或持续传输一直有权限；新生效的策略撤销访问时，相关请求会被取消，策略拒绝也不会作为普通临时网络故障重试。管理员修改本地应用网络要求后，要明确刷新配置或重启，不能把编辑文件当成所有现有连接已立即刷新。遇到策略拒绝时先核对实际允许范围和加载状态，再决定是否重试。应用网络要求与这份 profile 的命令域名规则是两层设置，不据此认定它们控制所有 Browser、App 或 MCP 流量。依据：[持续连接与重定向](https://github.com/openai/codex/pull/47389)、[应用网络策略加载与撤销](https://github.com/openai/codex/pull/47407)。
 
 ### 15.2 什么时候不用 full access
 
@@ -1115,34 +1148,38 @@ Rules 适合约束命令执行边界。它比 `AGENTS.md` 更硬，因为它参�
 ```python
 # .codex/rules/default.rules
 
-def prefix_rule(argv):
-    if len(argv) >= 2 and argv[0] == "git" and argv[1] == "push":
-        return "prompt"
-    if len(argv) >= 3 and argv[0] == "git" and argv[1] == "push" and "--force" in argv:
-        return "deny"
-    return None
+prefix_rule(
+    pattern = ["git", "push"],
+    decision = "prompt",
+    justification = "推送前确认仓库、分支、参数和影响范围。",
+    match = ["git push origin main", "git push origin main --force"],
+    not_match = ["git status"],
+)
+
+prefix_rule(
+    pattern = ["git", "push", ["--force", "--force-with-lease", "-f"]],
+    decision = "forbidden",
+    justification = "禁止此处列出的强制推送前缀；先查看差异并与分支维护者确认。",
+    match = ["git push --force origin main", "git push -f origin main"],
+    not_match = ["git push origin main --force"],
+)
 ```
 
-课程里不要把 Rules 写成 TOML 表。它使用 rules 文件和 Starlark 风格函数来表达命令策略。
+把上面代码保存到受信任项目的 `.codex/rules/default.rules`，再用 `codex execpolicy check` 分别检查普通推送和强制推送。Rules 用内置 `prefix_rule(...)` 注册规则，不是定义一个返回字符串的 Python 函数。上面第二条只匹配强制选项紧接在 `git push` 后的前缀；`git push origin main --force` 由第一条要求审批，不会被第二条自动禁止。要阻止所有推送，可把第一条改成 `forbidden`；需要按任意参数位置判断时，使用经过审查的同步 Hook。
 
 ### 16.4 允许只读命令
 
 ```python
-def prefix_rule(argv):
-    readonly = [
-        ["git", "status"],
-        ["git", "diff"],
-        ["git", "log"],
-        ["rg"],
-        ["ls"],
-    ]
-    for prefix in readonly:
-        if argv[:len(prefix)] == prefix:
-            return "allow"
-    return None
+prefix_rule(
+    pattern = ["git", ["status", "diff", "log"]],
+    decision = "allow",
+    justification = "允许常见的 Git 查看命令前缀。",
+    match = ["git status --short", "git diff --stat", "git log --oneline -5"],
+    not_match = ["git push origin main"],
+)
 ```
 
-这类规则适合教学：先让新人安全探索，再逐步开放写操作。
+这段规则演示怎样注册常见查看命令。`allow` 允许匹配命令在沙盒外运行，并不保证该前缀后面的所有参数都只读；例如 Git 的输出到文件参数需要另行评估。先检查实际命令和匹配结果，再决定是否接受这样的前缀。
 
 ## 17. Hooks 深入：事件脚本不是万能自动化
 
@@ -1417,6 +1454,8 @@ AGENTS.md 写 `npm test`，但项目实际使用 `pnpm test`。
 
 ### 22.2 Rules 太宽导致误拦
 
+先找到匹配整个 `git` 前缀的宽泛规则，把它删除或收窄。多个规则匹配时，Codex 采用更严格的结果；额外添加 `allow` 不能覆盖已有的 `prompt` 或 `forbidden`。再采用下方按子命令区分的注册写法。
+
 现象：
 
 ```text
@@ -1426,12 +1465,21 @@ AGENTS.md 写 `npm test`，但项目实际使用 `pnpm test`。
 修复思路：
 
 ```python
-def prefix_rule(argv):
-    if argv[:2] in [["git", "status"], ["git", "diff"], ["git", "log"]]:
-        return "allow"
-    if len(argv) >= 2 and argv[0] == "git" and argv[1] == "push":
-        return "prompt"
-    return None
+prefix_rule(
+    pattern = ["git", ["status", "diff", "log"]],
+    decision = "allow",
+    justification = "允许常见的 Git 查看命令前缀。",
+    match = ["git status --short", "git diff --stat", "git log --oneline -5"],
+    not_match = ["git push origin main"],
+)
+
+prefix_rule(
+    pattern = ["git", "push"],
+    decision = "prompt",
+    justification = "推送前确认仓库、分支、参数和影响范围。",
+    match = ["git push origin main", "git push origin main --force"],
+    not_match = ["git status"],
+)
 ```
 
 ### 22.3 Hooks 太慢
@@ -1525,7 +1573,7 @@ Rules 不影响推理能力，它影响命令执行策略。好的 Rules 会减�
 
 ### Q3：Hooks 和 Automations 有什么区别？
 
-Hooks 是 Codex 执行过程中的事件脚本。Automations 是按时间运行的后台任务。一个是事件触发，一个是时间触发。
+Hooks 在 Codex 执行过程的生命周期事件上运行处理器，例如工具执行前检查。桌面 App 的定时任务按时间启动或继续工作；ChatGPT 网页端和移动端另支持 Gmail、Slack、GitHub 的外部事件触发任务。外部 App 事件任务不等于工具生命周期 Hook，配置位置和可用客户端也不同。
 
 ### Q4：配置改了为什么没生效？
 
@@ -1739,7 +1787,7 @@ prompt 里可以写：
 不要写“已验证”，除非你真的看到命令结果。
 ```
 
-配置课程要训练的不是“多写规则”，而是把含糊偏好翻译成 Codex 能执行、团队能检查的语言。
+配置课程要训练的不是"多写规则"，而是把含糊偏好翻译成 Codex 能执行、团队能检查的语言。
 
 ## 29. 配置冲突长案例：AGENTS.md、Rules、prompt 谁说了算
 
@@ -1846,7 +1894,7 @@ When the user asks for documentation-only edits:
 - [ ] 能区分Rules（命令策略）和Hooks（事件脚本）
 - [ ] 每次改完配置都做过核对
 
-**如果以上全部勾选，恭喜你掌握Codex权限与配置！**
+**全部勾选后即掌握 Codex 权限与配置。**
 
 ---
 
@@ -1933,7 +1981,7 @@ When the user asks for documentation-only edits:
 ---
 
 **课程制作**：老金
-**最后更新**：2026年5月30日
+**最后更新**：2026年9月14日
 **许可**：本课程采用 MIT License；转载、复制或二次分发时必须保留版权声明与许可声明
 
 ---

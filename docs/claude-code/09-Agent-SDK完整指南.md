@@ -9,13 +9,15 @@
 > - **个人博客**：https://aiking.dev
 > - **预计学时**：6-8小时
 > - **难度等级**：⭐⭐⭐ 中级进阶
-> - **更新日期**：2026年6月9日
-> - **适用版本**：Claude Code v2.1.169（验证于 2026-06-09；v2.1.158 以前差量保留为历史基线）
+> - **更新日期**：2026年10月3日
+> - **适用版本**：Claude Code v2.1.270 为 2026-09-14 的历史参考；截至 2026-10-03 的新增行为按正文标注版本与官方文档
 > - **信息来源**：[官方概览](https://platform.claude.com/docs/zh-CN/agent-sdk/overview)、[GitHub Python SDK](https://github.com/anthropics/claude-agent-sdk-python)、[GitHub TypeScript SDK](https://github.com/anthropics/claude-agent-sdk-typescript)
 
 > **版本说明**：Claude Agent SDK（原名Claude Code SDK）是2025年Anthropic官方发布的开发工具包。本教程基于最新官方文档编写，如有更新请以官方为准。
 
 ---
+
+> **版本口径**：本章标注的 Claude Code 版本指运行时。Python 与 TypeScript Agent SDK 各有独立版本；安装、升级和调用参数要以所装 SDK 的 API 文档为准。
 
 ## 本课学习目标
 
@@ -28,7 +30,7 @@
 3. **掌握核心概念**：深入理解Tools、Agent Loop、Context Management
 4. **独立完成3个实战项目**：从one-shot到multi-tool再到streaming模式
 5. **自定义工具开发**：创建SDK内置MCP服务器，扩展Agent能力
-6. **故障排查技能**：独立解决90%的常见问题
+6. **故障排查技能**：解决大多数常见问题
 
 ---
 
@@ -215,7 +217,7 @@ npm install @anthropic-ai/claude-agent-sdk
 - 适合：Web应用、Node.js服务端、全栈开发
 ```
 
-> **老金建议**：两种SDK功能完全相同，选你最熟悉的语言就好。本教程会同时展示两种语言的代码示例。
+> **建议**：选你最熟悉的语言就好。本教程会同时展示两种语言的代码示例。两种 SDK 的核心工作流相近，但接口和部分功能支持不同；例如 `SessionStart`、`SessionEnd` hook 当前支持 TypeScript，Python SDK 尚不支持，复制参数时要查对应语言的参考。
 
 ### 1.4 版本演进说明
 
@@ -314,7 +316,7 @@ npm install -D typescript @types/node ts-node
 
 ### 2.3 配置API密钥
 
-Agent SDK需要Anthropic API密钥才能运行。
+本章以 Claude Console API key 演示认证；SDK 也支持按官方说明配置 Bedrock、Google Cloud Agent Platform、Foundry 等供应商认证。先选认证路径，再运行示例。
 
 **方式一：环境变量（推荐）**
 
@@ -337,7 +339,7 @@ set ANTHROPIC_API_KEY=sk-ant-api03-...
 ANTHROPIC_API_KEY=sk-ant-api03-...
 ```
 
-在代码中加载：
+先在选用的环境中安装加载器：Python 使用 `pip install python-dotenv`，TypeScript 使用 `npm install dotenv`。创建的 `.env` 不要提交到仓库，再在代码中加载：
 
 ```python
 # Python
@@ -358,14 +360,14 @@ import 'dotenv/config';
 
 ```python
 import asyncio
-from claude_agent_sdk import query, ClaudeAgentOptions
+from claude_agent_sdk import query, ClaudeAgentOptions, AssistantMessage, TextBlock
 
 async def main():
     print('启动Agent...')
 
     # 配置选项
     options = ClaudeAgentOptions(
-        model='claude-sonnet-4-6'  # Sonnet 4.6（推荐模型）
+        model='claude-sonnet-5'  # Sonnet 5（推荐模型）
     )
 
     # 执行查询，返回流式响应
@@ -374,9 +376,9 @@ async def main():
         options=options
     ):
         # 处理助手回复
-        if message.type == 'assistant':
+        if isinstance(message, AssistantMessage):
             for block in message.content:
-                if block.type == 'text':
+                if isinstance(block, TextBlock):
                     print(block.text, end='', flush=True)
 
     print('\n\nAgent任务完成！')
@@ -414,7 +416,7 @@ async function main() {
   const stream: Query = query({
     prompt: '你好！请用一句话介绍你能做什么？',
     options: {
-      model: 'claude-sonnet-4-6'  // Sonnet 4.6(推荐)
+      model: 'claude-sonnet-5'  // Sonnet 5(推荐)
     }
   });
 
@@ -443,7 +445,7 @@ npx ts-node src/hello-agent.ts
 
 ### 2.5 验证安装成功
 
-如果你看到了Agent的回复，恭喜！安装成功！
+如果看到了 Agent 的回复，说明安装成功。
 
 **常见问题快速排查**：
 
@@ -468,9 +470,10 @@ npx ts-node src/hello-agent.ts
 ```python
 # Python
 async def query(
-    prompt: str,
-    options: Optional[ClaudeAgentOptions] = None
-) -> AsyncIterator[SDKMessage]:
+    *,
+    prompt: str | AsyncIterable[dict[str, Any]],
+    options: ClaudeAgentOptions | None = None,
+) -> AsyncIterator[Message]: ...
 ```
 
 ```typescript
@@ -496,7 +499,7 @@ from claude_agent_sdk import ClaudeAgentOptions
 
 options = ClaudeAgentOptions(
     # 模型选择
-    model='claude-sonnet-4-6',  # Sonnet 4.6(推荐),也可选Opus 4.6或Haiku 4.5
+    model='claude-sonnet-5',  # Sonnet 5(推荐),也可选Opus 4.8或Haiku 4.5
 
     # 系统提示词（定义Agent的角色和行为）
     system_prompt='你是一个Python专家，专注于代码质量和最佳实践。',
@@ -528,14 +531,13 @@ options = ClaudeAgentOptions(
 `query`返回一个异步迭代器，产生多种类型的消息：
 
 ```python
-# 消息类型
-SDKMessage = Union[
-    AssistantMessage,   # AI的回复
-    UserMessage,        # 用户的输入
-    ToolUseBlock,       # 工具调用请求
-    ToolResultBlock,    # 工具执行结果
-    ResultMessage,      # 最终结果
-]
+# 直接使用 SDK 导出的类型；ToolUseBlock / ToolResultBlock 属于内容块，
+# 不是 query 单独产出的顶层消息。
+from claude_agent_sdk import (
+    Message, AssistantMessage, UserMessage, SystemMessage,
+    ResultMessage, TextBlock, ToolUseBlock, ToolResultBlock,
+)
+# 具体 SDK 版本还可能产生流事件、限流事件等消息，按官方参考处理。
 ```
 
 **处理消息的标准模式**：
@@ -638,21 +640,22 @@ Tools（工具）是Agent能够"做事"的关键。没有工具，Agent只能"�
 | **Bash** | 执行命令 | 运行脚本、安装依赖 |
 | **Glob** | 文件模式匹配 | 查找特定类型的文件 |
 | **Grep** | 搜索文件内容 | 在代码中查找关键词 |
-| **Task** | 创建子代理 | 并行处理复杂任务 |
+| **Agent** | 创建子代理 | 并行处理复杂任务 |
 | **WebSearch** | 网络搜索 | 查找最新信息 |
 
 **限制工具权限**：
 
 ```python
-# 只允许读取和搜索，禁止修改
+# 这个例子只提供三个内置文件查询工具，没有额外的 MCP 服务器。
 options = ClaudeAgentOptions(
-    allowed_tools=['Read', 'Glob', 'Grep'],  # 只读权限
+    tools=['Read', 'Glob', 'Grep'],
+    allowed_tools=['Read', 'Glob', 'Grep'],
 )
 
-# 允许所有工具（默认）
-options = ClaudeAgentOptions(
-    allowed_tools=None,  # 或者不设置这个参数
-)
+# 沿用默认工具与审批规则；不等于所有调用都自动允许。
+options = ClaudeAgentOptions()
+# tools 决定可用的内置工具，allowed_tools 决定哪些调用可免审批。
+# 配了 MCP、hooks 或其他扩展时，还须单独审核它们的能力。
 ```
 
 **自定义工具（SDK MCP Server）**：
@@ -661,6 +664,36 @@ options = ClaudeAgentOptions(
 
 ```python
 from claude_agent_sdk import tool, create_sdk_mcp_server, ClaudeAgentOptions, ClaudeSDKClient
+
+import ast
+import math
+import operator
+
+def safe_calculate(expression: str):
+    """教学计算器：只接受有限长度的基本运算，不执行 Python 代码。"""
+    if not isinstance(expression, str) or not expression.strip() or len(expression) > 200:
+        raise ValueError("请输入不超过 200 字符的数学表达式")
+    tree = ast.parse(expression, mode="eval")
+    if sum(1 for _ in ast.walk(tree)) > 100:
+        raise ValueError("表达式过于复杂")
+    binary = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
+              ast.Div: operator.truediv, ast.Mod: operator.mod}
+    unary = {ast.UAdd: operator.pos, ast.USub: operator.neg}
+
+    def evaluate(node):
+        if isinstance(node, ast.Constant) and type(node.value) in (int, float):
+            value = node.value
+        elif isinstance(node, ast.BinOp) and type(node.op) in binary:
+            value = binary[type(node.op)](evaluate(node.left), evaluate(node.right))
+        elif isinstance(node, ast.UnaryOp) and type(node.op) in unary:
+            value = unary[type(node.op)](evaluate(node.operand))
+        else:
+            raise ValueError("只支持数字、括号和 + - * / % 运算")
+        if not math.isfinite(value) or abs(value) > 1_000_000_000_000:
+            raise ValueError("数值或中间结果超出教学示例的范围")
+        return value
+
+    return evaluate(tree.body)
 
 # 使用@tool装饰器定义工具
 @tool("greet", "向用户问好", {"name": str})
@@ -676,7 +709,7 @@ async def greet_user(args):
 async def calculate(args):
     expression = args.get('expression', '0')
     try:
-        result = eval(expression)  # 注意：生产环境要做安全检查！
+        result = safe_calculate(expression)
         return {"content": [{"type": "text", "text": f"计算结果：{result}"}]}
     except Exception as e:
         return {"content": [{"type": "text", "text": f"计算错误：{str(e)}"}]}
@@ -729,15 +762,16 @@ Subagents方式（主管+多员工）：
 
 | 优势 | 说明 |
 |------|------|
-| **独立上下文** | 每个子代理有独立的200K上下文窗口 |
-| **并行执行** | 最多10个子代理同时运行 |
+| **独立上下文** | 每个子代理有自己的上下文，容量取决于模型和运行时 |
+| **并行执行** | 并发取决于运行时上限、资源和任务配置；不能统一写死为 10 |
 | **专业化分工** | 每个子代理可以有独立的系统提示词 |
 | **失败隔离** | 单个子代理失败不影响其他子代理 |
 
 **使用Subagents的方式**：
 
 ```python
-from claude_agent_sdk import ClaudeAgentOptions, AgentDefinition
+import asyncio
+from claude_agent_sdk import query, ClaudeAgentOptions, AgentDefinition
 
 # 当前 SDK 通过 Agent 工具创建子代理
 options = ClaudeAgentOptions(
@@ -768,8 +802,12 @@ prompt = """请重构以下目录的代码：
 
 请使用子代理并行处理这三个目录。"""
 
-async for message in query(prompt=prompt, options=options):
-    # 处理消息...
+async def main():
+    async for message in query(prompt=prompt, options=options):
+        print(message)
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
 > **版本校准（2026-04）**：官方 Agent SDK 文档当前要求在 `allowed_tools` / `allowedTools` 中包含 `Agent`，因为子代理通过 **Agent tool** 调用。旧资料里可能会看到 `Task`，官方文档说明该工具名在 Claude Code v2.1.63 从 `Task` 改为 `Agent`；为兼容旧 SDK，观测 `tool_use` 事件时可以同时识别 `Task` 和 `Agent`，但新教程示例应写 `Agent`。
@@ -818,7 +856,7 @@ async for message in query(prompt=prompt, options=options):
 2. **Memory 持久化**：子代理可拥有持久记忆目录，跨会话积累知识
 3. **工具访问控制**：通过 `tools` / `disallowedTools` 精细控制子代理能力
 
-> 💡 **提示**：子代理不能再创建子代理（只有一层嵌套），最多可同时运行 10 个并行子代理。
+> 💡 **提示**：从 Claude Code v2.1.219 起，子代理默认可以继续派出子代理，最多到主会话下方三层；`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1` 可以限制为一层。并行数量仍受运行时、配置和资源影响，不能统一写成最多 10 个。SDK 中嵌套的后台子代理如果在派出它的子代理结束后才完成，结果会交回主会话，编排时要跟踪最终结果。
 
 ---
 
@@ -855,9 +893,10 @@ async def analyze_code(file_path: str) -> None:
 
     # 配置Agent
     options = ClaudeAgentOptions(
-        model='claude-sonnet-4-6',
+        model='claude-sonnet-5',
         cwd=str(Path.cwd()),
-        allowed_tools=['Read', 'Glob', 'Grep'],  # 只给读取权限
+        tools=['Read', 'Glob', 'Grep'],  # 限定这个示例的内置工具集合
+        allowed_tools=['Read', 'Glob', 'Grep'],  # 预批准这些读取工具
         max_turns=5,
         system_prompt="""你是一位资深代码审查专家。
         请分析代码并提供：
@@ -926,6 +965,7 @@ from claude_agent_sdk import (
     query,
     ClaudeAgentOptions,
     AssistantMessage,
+    UserMessage,
     TextBlock,
     ToolUseBlock,
     ToolResultBlock
@@ -938,7 +978,7 @@ async def run_multi_tool_agent(task: str) -> None:
     print("=" * 60)
 
     options = ClaudeAgentOptions(
-        model='claude-sonnet-4-6',  # Sonnet 4.6
+        model='claude-sonnet-5',  # Sonnet 5
         cwd=str(Path.cwd()),
         allowed_tools=['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep'],
         max_turns=15,
@@ -967,8 +1007,10 @@ async def run_multi_tool_agent(task: str) -> None:
                 elif isinstance(block, ToolUseBlock):
                     print(f"\n[使用工具: {block.name}]")
 
-        elif isinstance(message, ToolResultBlock):
-            print(f"[工具执行完成]\n")
+        elif isinstance(message, UserMessage):
+            for block in message.content:
+                if isinstance(block, ToolResultBlock):
+                    print(f"[工具结果: {block.tool_use_id}; 错误: {bool(block.is_error)}]")
 
     print("\n" + "=" * 60)
     print("任务执行完成！")
@@ -1040,6 +1082,36 @@ from claude_agent_sdk import (
     ToolUseBlock
 )
 
+import ast
+import math
+import operator
+
+def safe_calculate(expression: str):
+    """教学计算器：只接受有限长度的基本运算，不执行 Python 代码。"""
+    if not isinstance(expression, str) or not expression.strip() or len(expression) > 200:
+        raise ValueError("请输入不超过 200 字符的数学表达式")
+    tree = ast.parse(expression, mode="eval")
+    if sum(1 for _ in ast.walk(tree)) > 100:
+        raise ValueError("表达式过于复杂")
+    binary = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
+              ast.Div: operator.truediv, ast.Mod: operator.mod}
+    unary = {ast.UAdd: operator.pos, ast.USub: operator.neg}
+
+    def evaluate(node):
+        if isinstance(node, ast.Constant) and type(node.value) in (int, float):
+            value = node.value
+        elif isinstance(node, ast.BinOp) and type(node.op) in binary:
+            value = binary[type(node.op)](evaluate(node.left), evaluate(node.right))
+        elif isinstance(node, ast.UnaryOp) and type(node.op) in unary:
+            value = unary[type(node.op)](evaluate(node.operand))
+        else:
+            raise ValueError("只支持数字、括号和 + - * / % 运算")
+        if not math.isfinite(value) or abs(value) > 1_000_000_000_000:
+            raise ValueError("数值或中间结果超出教学示例的范围")
+        return value
+
+    return evaluate(tree.body)
+
 # ============ 自定义工具定义 ============
 
 @tool("get_time", "获取当前时间", {})
@@ -1054,24 +1126,19 @@ async def get_current_time(args):
     }
 
 @tool("calculate", "执行数学计算", {
-    "expression": {"type": "string", "description": "数学表达式，如 2+2, 10*5"}
+    "expression": str
 })
 async def calculate(args):
     """执行数学计算"""
     expression = args.get('expression', '0')
     try:
-        # 安全的数学计算（只允许基本运算）
-        allowed_chars = set('0123456789+-*/().% ')
-        if not all(c in allowed_chars for c in expression):
-            return {"content": [{"type": "text", "text": "错误：表达式包含不允许的字符"}]}
-
-        result = eval(expression)
+        result = safe_calculate(expression)
         return {"content": [{"type": "text", "text": f"{expression} = {result}"}]}
     except Exception as e:
         return {"content": [{"type": "text", "text": f"计算错误：{str(e)}"}]}
 
 @tool("todo_add", "添加待办事项", {
-    "item": {"type": "string", "description": "待办事项内容"}
+    "item": str
 })
 async def add_todo(args):
     """添加待办事项"""
@@ -1111,7 +1178,7 @@ custom_tools = create_sdk_mcp_server(
 # Agent配置
 def get_options():
     return ClaudeAgentOptions(
-        model='claude-sonnet-4-6',  # Sonnet 4.6(推荐)
+        model='claude-sonnet-5',  # Sonnet 5(推荐)
         mcp_servers={"custom": custom_tools},
         allowed_tools=[
             "Read", "Write", "Bash",
@@ -1232,13 +1299,14 @@ options = ClaudeAgentOptions(
         # 文件系统服务器
         "filesystem": {
             "command": "npx",
-            "args": ["-y", "@anthropic/mcp-server-filesystem", "/allowed/path"]
+            "args": ["-y", "@modelcontextprotocol/server-filesystem", "/allowed/path"]
         },
 
-        # SQLite数据库服务器
+        # 历史 SQLite reference server：已归档，仅作教学参考，需先安装 uv。
+        # 新项目先挑选有维护的实现并核查它的工具名、权限和启动参数。
         "database": {
-            "command": "npx",
-            "args": ["-y", "@anthropic/mcp-server-sqlite", "./data/app.db"]
+            "command": "uvx",
+            "args": ["mcp-server-sqlite", "--db-path", "./data/app.db"]
         },
 
         # 自定义Python服务器
@@ -1251,8 +1319,8 @@ options = ClaudeAgentOptions(
         }
     },
     allowed_tools=[
-        "mcp__filesystem__read",
-        "mcp__database__query",
+        "mcp__filesystem__read_text_file",
+        "mcp__database__read_query",
         "mcp__custom__my_tool"
     ]
 )
@@ -1280,8 +1348,8 @@ Hooks（钩子）让你可以在Agent执行的特定时机插入自定义逻辑�
 | **PostToolUse** | 工具执行后 | 记录日志、自动测试 |
 | **Stop** | Agent停止时 | 清理、汇总报告 |
 | **UserPromptSubmit** | 用户提交提示时 | 处理和增强用户输入 |
-| **SessionStart** | 会话开始时 | 加载上次会话状态 |
-| **SessionEnd** | 会话结束时 | 保存会话状态 |
+| **SessionStart（TypeScript）** | 会话开始时 | 初始化日志和状态；Python SDK 当前不支持 |
+| **SessionEnd（TypeScript）** | 会话结束时 | 清理资源和保存应用状态；Python SDK 当前不支持 |
 | **PreCompact** | 上下文压缩前 | 保存关键信息 |
 
 **Python Hooks示例**：
@@ -1314,7 +1382,10 @@ async def block_dangerous_commands(input_data, tool_use_id, context):
                 }
             }
 
-    return {}  # 允许执行
+    return {}  # Hook 不作决定，继续走正常权限流程
+
+# 这里仅演示几个字面子串的匹配：rm -r -f 等写法不会命中。
+# 它不是完整的 shell 命令审计，实际部署还需权限规则和沙箱。
 
 async def log_tool_results(input_data, tool_use_id, context):
     """记录工具执行结果"""
@@ -1338,40 +1409,44 @@ options = ClaudeAgentOptions(
 
 ### 5.3 权限控制
 
-Agent SDK提供多种权限控制方式，确保安全。
+Agent SDK提供多种权限控制方式，需要按任务明确选择。不要只根据交互终端的默认模式推断SDK：会拉取功能开关的SDK会话通常从 Manual 开始；第三方提供商或关闭遥测等不拉取功能开关的会话，从 v2.1.285 起通常从 auto 开始，组织策略可能改变结果。希望本章练习遵守正常权限规则时，显式设 `permission_mode="default"`，并用权限回调处理需要确认的操作。具体条件见[官方启动权限模式](https://code.claude.com/docs/en/permission-modes#which-mode-a-session-starts-in)。
 
 **权限模式**：
 
 | 模式 | 说明 | 适用场景 |
 |------|------|---------|
-| `default` | 每次文件操作都需要确认 | 生产环境、敏感项目 |
+| `default` | 沿用正常权限规则；只读等部分调用无需审批，其余按规则或回调决定 | 需要人工或程序处理审批的场景 |
 | `acceptEdits` | 自动接受文件编辑 | 个人项目、自动化脚本 |
 | `bypassPermissions` | 跳过所有权限检查 | 完全受控环境（谨慎使用） |
 
 **工具白名单**：
 
 ```python
-# 只读Agent - 只能读取和搜索
+# 文件查询 Agent：这个例子未配置 MCP 或 hooks。
 readonly_options = ClaudeAgentOptions(
-    allowed_tools=['Read', 'Glob', 'Grep']
+    tools=['Read', 'Glob', 'Grep'],
+    allowed_tools=['Read', 'Glob', 'Grep'],
 )
 
-# 代码审查Agent - 只能读取和执行测试
+# 代码审查：仅预批准这些测试入口，不给整个 Bash 工具免审批。
+# 测试脚本本身仍可能写文件；提示词不是系统隔离边界。
 review_options = ClaudeAgentOptions(
-    allowed_tools=['Read', 'Glob', 'Grep', 'Bash'],
-    system_prompt="你是代码审查专家。只能运行测试命令，不能修改任何文件。"
+    tools=['Read', 'Glob', 'Grep', 'Bash'],
+    allowed_tools=['Read', 'Glob', 'Grep', 'Bash(pytest *)', 'Bash(npm test)'],
+    permission_mode='dontAsk',
+    system_prompt="审查代码并运行已批准的测试，汇报结果。",
 )
 
-# 完全权限Agent - 可以做任何事
-full_options = ClaudeAgentOptions(
-    allowed_tools=['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'Agent'],
-    permission_mode='acceptEdits'
+# 自动接受文件编辑；其他命令仍按权限规则处理。
+edit_options = ClaudeAgentOptions(
+    tools=['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'Agent'],
+    permission_mode='acceptEdits',
 )
 ```
 
 ### 5.4 沙箱模式
 
-保护你的系统免受意外损害：
+下面用 `sandbox.enabled` 启用 Bash 沙箱，并设置 `allowUnsandboxedCommands=False`，让模型不能通过 `dangerouslyDisableSandbox` 请求脱离沙箱。`can_use_tool` 只处理正常权限流程最终要求审批的调用，已经被规则或权限模式批准的调用不会进入它；若要检查每一次工具调用，应使用 `PreToolUse` hook。沙箱支持的平台、文件和网络范围仍须按[官方沙箱文档](https://code.claude.com/docs/en/sandboxing)配置。
 
 ```python
 from claude_agent_sdk import query, ClaudeAgentOptions
@@ -1386,7 +1461,7 @@ async def can_use_tool(
     if tool_name == "Bash" and tool_input.get("dangerouslyDisableSandbox"):
         print(f"警告：请求在沙箱外执行命令：{tool_input.get('command')}")
         # 返回Deny拒绝，Allow允许
-        return PermissionResultDeny(reason="禁止在沙箱外执行命令")
+        return PermissionResultDeny(message="禁止在沙箱外执行命令")
     return PermissionResultAllow()
 
 options = ClaudeAgentOptions(
@@ -1407,8 +1482,8 @@ options = ClaudeAgentOptions(
 
 #### 错误1：模块导入失败
 
-```python
-# 错误信息
+```text
+# 示意错误信息；实际文案以运行时为准
 ModuleNotFoundError: No module named 'claude_agent_sdk'
 ```
 
@@ -1433,8 +1508,8 @@ pip show claude-agent-sdk
 
 #### 错误2：认证失败
 
-```python
-# 错误信息
+```text
+# 示意错误信息；实际文案以运行时为准
 AuthenticationError: Invalid API key
 ```
 
@@ -1459,8 +1534,8 @@ os.environ["ANTHROPIC_API_KEY"] = "your-key"
 
 #### 错误3：连接超时
 
-```python
-# 错误信息
+```text
+# 示意错误信息；实际文案以运行时为准
 ConnectionTimeout: Request timed out
 ```
 
@@ -1481,9 +1556,9 @@ export HTTPS_PROXY="http://127.0.0.1:7890"
 
 #### 错误4：工具权限被拒绝
 
-```python
-# 错误信息
-PermissionDenied: Tool 'Write' is not in allowed_tools
+```text
+# 示意错误信息；实际文案以运行时为准
+工具调用需要审批，当前配置未取得许可
 ```
 
 **原因**：工具不在白名单中
@@ -1501,8 +1576,8 @@ options = ClaudeAgentOptions(
 
 #### 错误5：CLI未找到
 
-```python
-# 错误信息
+```text
+# 示意错误信息；实际文案以运行时为准
 CLINotFoundError: Claude Code CLI not found
 ```
 
@@ -1534,8 +1609,8 @@ import logging
 # 设置日志级别
 logging.basicConfig(level=logging.DEBUG)
 
-# 或者使用环境变量
-# export CLAUDE_SDK_LOG_LEVEL=DEBUG
+# 需要接收 CLI 子进程的标准错误时，可在选项中设置 stderr 回调：
+# ClaudeAgentOptions(stderr=lambda line: logging.debug("CLI: %s", line))
 ```
 
 **打印消息详情**：
@@ -1569,13 +1644,13 @@ async for message in query(prompt="...", options=options):
 
 | 场景 | 推荐模型 | 理由 |
 |------|---------|------|
-| 日常开发 | claude-sonnet-4-6 | 能力强、速度快、价格适中 |
-| 复杂推理 | claude-opus-4-6 | 最强能力，但价格高 |
-| 简单任务 | claude-haiku-4-5-20251001 | 最便宜，适合简单查询 |
+| 日常开发 | claude-sonnet-5 | 能力强、速度快、价格适中 |
+| 复杂推理 | 当前账号可用的 Opus 型号 | 适合复杂推理，先比较实际质量与价格 |
+| 简单任务 | claude-haiku-4-5-20251001 | 本章轻量任务示例，是否可用及价格以供应商为准 |
 
 ```python
 # 性价比之选
-options = ClaudeAgentOptions(model='claude-sonnet-4-6')
+options = ClaudeAgentOptions(model='claude-sonnet-5')
 ```
 
 ---
@@ -1613,7 +1688,7 @@ options = ClaudeAgentOptions(
 
 ### Q5: 可以同时运行多少个子代理？
 
-**答**：最多10个并行。如果需要处理更多任务，会自动排队。
+**答**：没有可以套用到所有版本和环境的“最多10个”结论。并发受 Claude Code 版本、配置、权限、资源和任务类型影响；本课的 SDK 调用示例也没有创建固定大小的代理池。先按少量、职责清晰的子任务验证，再参照[官方子代理限制](https://code.claude.com/docs/en/sub-agents)调整。
 
 ---
 
@@ -1621,24 +1696,21 @@ options = ClaudeAgentOptions(
 
 **答**：几个建议：
 
-1. **使用权限控制**：设置allowed_tools白名单
+1. **使用权限控制**：用 `tools` 限定内置工具集合；`allowed_tools` 只预批准具体调用，MCP 与 hooks 另行检查
 2. **启用沙箱**：防止危险命令
 3. **添加Hooks**：记录日志、过滤危险操作
 4. **设置超时**：防止任务卡住
 5. **监控Token消耗**：控制成本
 
 ```python
-# 生产环境配置示例
+# 文件分析配置示例；未配置 MCP 和 hooks。
+# 整体部署还需要结合自己的数据范围、鉴权和隔离要求设计。
 production_options = ClaudeAgentOptions(
-    model='claude-sonnet-4-6',  # 推荐模型
-    allowed_tools=['Read', 'Glob', 'Grep'],  # 最小权限
-    permission_mode='default',  # 需要确认
+    model='sonnet',
+    tools=['Read', 'Glob', 'Grep'],
+    allowed_tools=['Read', 'Glob', 'Grep'],
+    permission_mode='dontAsk',
     max_turns=10,
-    sandbox={"enabled": True},
-    hooks={
-        "PreToolUse": [safety_hooks],
-        "PostToolUse": [logging_hooks]
-    }
 )
 ```
 
@@ -1662,8 +1734,10 @@ async for message in query(prompt="...", options=options):
 
 **答**：
 
-1. **使用后台运行的子代理**：在 `AgentDefinition` 中设置 `background=True`
-2. **设置合理的超时**
+1. **使用后台运行的子代理**：在 `AgentDefinition` 中设置 `background=True`，并持续消费 SDK 的消息，直到取得任务的最终结果；后台执行仍依赖宿主进程与会话运行，不会自动变成跨进程的持久任务
+2. **区分命令超时与后台时限**：v2.1.288 的 `-p`、SDK、CI、cloud等无人值守会话中，后台 Bash/PowerShell 默认30分钟；Claude在 `run_in_background` 中传入的 `timeout` 可以指定时限，通常最大2小时。前台命令超时后转后台时，从转移那刻再计时。终端、桌面与VS Code里的交互会话不受这个后台时限约束；v2.1.285–287曾对所有会话应用时限。
+
+   `--bare` 不运行后台任务，命令超时后停止。普通 `-p` 也会在最终结果后不久结束后台命令，不能收到一条结果就把宿主退出，再期待子任务继续完成。长任务要持续消费消息、拿到最终结果并负责停止/清理。完整规则见[官方后台命令时限](https://code.claude.com/docs/en/tools#time-limit-for-background-commands)。
 3. **使用异步并行**
 
 ```python
@@ -1678,7 +1752,7 @@ prompt = """请使用子代理并行处理：
 
 ### Q9: 自定义工具可以访问外部API吗？
 
-**答**：可以！自定义工具就是普通的Python/TypeScript函数：
+**答**：可以！自定义工具可以调用外部 API。下面只展示异步请求的写法，`https://api.weather.com/{city}` 是接口占位示意，不能当作可用的天气 API 直接运行；实际接入时要替换成服务商提供的端点，并补上认证、超时和响应状态检查。片段还需要本章的 `tool` 导入及 `httpx` 依赖：
 
 ```python
 import httpx
@@ -1697,7 +1771,7 @@ async def get_weather(args):
 
 ### Q10: 如何调试Agent的决策过程？
 
-**答**：打印所有消息类型：
+**答**：打印所有消息类型。下面片段需先导入 `UserMessage`；工具结果在它的 `content` 中，不能把内容块当成顶层消息判断。
 
 ```python
 async for message in query(prompt="...", options=options):
@@ -1711,15 +1785,17 @@ async for message in query(prompt="...", options=options):
             elif isinstance(block, ToolUseBlock):
                 print(f"  调用工具: {block.name}({block.input})")
 
-    elif isinstance(message, ToolResultBlock):
-        print(f"工具结果: {str(message.content)[:100]}...")
+    elif isinstance(message, UserMessage):
+        for block in message.content:
+            if isinstance(block, ToolResultBlock):
+                print(f"工具结果: {str(block.content)[:100]}...")
 ```
 
 ---
 
 ### Q11: SDK会自动重试失败的请求吗？
 
-**答**：SDK有基本的重试机制，但你可以自己加强：
+**答**：运行时会处理部分请求重试。下面的 `tenacity` 包装会重新执行整个 `query`，前一次已经完成的写文件、命令或外部 API 操作可能再次发生，所以只把它用于只读或已经设计成可重复执行的任务；其他任务应先确认执行状态，再决定如何继续。示例需安装 `tenacity`。
 
 ```python
 import asyncio
@@ -1758,36 +1834,44 @@ asyncio.run(run())
 
 ### Q13: 可以保存和恢复会话吗？
 
-**答**：SDK本身不提供会话持久化，但你可以自己实现：
+**答**：支持。运行时会保存会话，你可以取得 `session_id`，再通过 `resume` 接着运行。
 
 ```python
-import json
+import asyncio
+from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
 
-# 保存对话历史
-conversation_history = []
+async def main():
+    session_id = None
+    async for message in query(prompt="先概括当前项目", options=ClaudeAgentOptions()):
+        if isinstance(message, ResultMessage):
+            session_id = message.session_id
 
-async for message in query(prompt="...", options=options):
-    conversation_history.append({
-        "type": type(message).__name__,
-        "content": str(message)
-    })
+    if session_id is None:
+        raise RuntimeError("没有取得会话 ID，请先检查上一轮结果")
 
-# 保存到文件
-with open("session.json", "w") as f:
-    json.dump(conversation_history, f)
+    async for message in query(
+        prompt="继续，列出最值得优先检查的模块",
+        options=ClaudeAgentOptions(resume=session_id),
+    ):
+        print(message)
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
+
+保存 ID 方便再次恢复，但会话文件还须存在。把消息转成 `str` 存进 JSON 可以做日志，不能替代运行时的会话状态。保存范围、继续 / 分叉行为和存储位置请看官方会话文档。
 
 ---
 
 ### Q14: TypeScript和Python SDK功能一样吗？
 
-**答**：是的，功能完全相同。选择你熟悉的语言即可。
+**答**：核心工作流相近，但接口、类型和部分功能支持会随两个 SDK 的版本分别演进。选择熟悉的语言后，按对应的 Python 或 TypeScript 官方参考写代码，别把一边的消息字段、选项名称或功能直接照搬到另一边。
 
 ---
 
 ### Q15: 如何处理大文件？
 
-**答**：Agent会自动分块处理。如果文件太大，考虑：
+**答**：不要依赖 Agent 一定自动读完整个大文件。`Read` 支持用 `offset` 和 `limit` 选择行范围，输出超限时需要缩小范围再读；也可以：
 
 1. 只读取需要的部分
 2. 使用Grep搜索而不是Read全文
@@ -1799,36 +1883,46 @@ with open("session.json", "w") as f:
 
 **答**：支持Claude系列模型：
 
-- claude-opus-4-6（最强）
-- claude-sonnet-4-6（推荐）
-- claude-haiku-4-5-20251001（最快最便宜）
+- Opus：复杂推理任务，选择账号实际可用的型号
+- Sonnet：本章使用 `claude-sonnet-5` 演示
+- Haiku：本章使用 `claude-haiku-4-5-20251001` 演示
+
+这不是固定的完整模型目录。可用型号取决于供应商、账号和运行时版本；不要把旧示例中的某个型号理解成一直最强或最便宜。
 
 通过`model`参数指定：
 
 ```python
-options = ClaudeAgentOptions(model='claude-sonnet-4-6')
+options = ClaudeAgentOptions(model='claude-sonnet-5')
 ```
 
 ---
 
 ### Q17: 如何测试自定义工具？
 
-**答**：单独测试工具函数：
+**答**：先沿用本章 3.3 节定义的 `calculate` 和 `my_tools`，再把下面的测试入口放在它们之后。直接调用 handler 只测试函数；后半段会调用模型，需要已配置认证并消耗额度。
 
 ```python
-# 直接调用测试
-result = await calculate({"expression": "2+2"})
-print(result)  # 应该输出 {"content": [{"type": "text", "text": "2+2 = 4"}]}
+import asyncio
+from claude_agent_sdk import query, ClaudeAgentOptions
 
-# 然后在Agent中测试
-async for message in query(
-    prompt="请计算 2+2",
-    options=ClaudeAgentOptions(
-        mcp_servers={"tools": my_tools},
-        allowed_tools=["mcp__tools__calculate"]
-    )
-):
-    print(message)
+async def test_calculator():
+    # 3.3 节的 calculate 返回“计算结果：4”
+    result = await calculate.handler({"expression": "2+2"})
+    print(result)
+    assert result == {"content": [{"type": "text", "text": "计算结果：4"}]}
+
+    # 再通过模型验证工具发现与调用
+    async for message in query(
+        prompt="请使用 calculate 工具计算 2+2",
+        options=ClaudeAgentOptions(
+            mcp_servers={"tools": my_tools},
+            allowed_tools=["mcp__tools__calculate"],
+        ),
+    ):
+        print(message)
+
+if __name__ == "__main__":
+    asyncio.run(test_calculator())
 ```
 
 ---
@@ -1894,7 +1988,7 @@ async def rate_limited_query(prompts, delay=1.0):
 |------|------|
 | 模型选择 | 日常用Sonnet，复杂推理用Opus，简单任务用Haiku |
 | 权限控制 | 生产环境用最小权限，开发可以放宽 |
-| 子代理 | 大任务拆分并行，注意最多10个同时运行 |
+| 子代理 | 按职责拆分，控制并发与成本；限制以当前版本和配置为准 |
 | 自定义工具 | 优先用SDK内置MCP服务器，简单高效 |
 | 错误处理 | 使用try/catch，添加重试机制 |
 
@@ -1909,7 +2003,7 @@ async def rate_limited_query(prompts, delay=1.0):
 ---
 
 **课程版本**：V1.2
-**最后更新**：2026年6月9日
+**最后更新**：2026年9月14日
 **作者**：老金
 
 ---
@@ -1918,7 +2012,7 @@ async def rate_limited_query(prompts, delay=1.0):
 
 | 版本 | 日期 | 修改内容 |
 |------|------|----------|
-| V1.2 | 2026-02-26 | 更新所有模型引用至最新4.6版本：Sonnet 4.6（claude-sonnet-4-6）、Opus 4.6（claude-opus-4-6）、Haiku 4.5（claude-haiku-4-5-20251001） |
+| V1.2 | 2026-02-26 | 更新模型配置示例；具体型号随后继续修订，当前可用范围见正文 |
 | V1.1 | 2025-12-24 | 修正所有模型名称为最新4.5版本（claude-sonnet-4-5-20250929、claude-opus-4-5-20251101、claude-3-5-haiku-20241022） |
 | V1.0 | 2025-12-19 | 初版发布 |
 

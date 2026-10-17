@@ -9,15 +9,19 @@
 > - **个人博客**：https://aiking.dev
 > - **预计学时**：1-2小时
 > - **难度等级**：⭐⭐ 进阶
-> - **更新日期**：2026年6月9日
-> - **适用版本**：Claude Code v2.1.169（验证于 2026-06-09；v2.1.158 以前差量保留为历史基线）
+> - **更新日期**：2026年9月14日
+> - **适用版本**：Claude Code v2.1.270（验证于 2026-09-14；旧差量保留为历史基线）
 > - **信息来源**：[Claude Code 官方文档 - Remote Control](https://code.claude.com/docs/en/remote-control)
 
 ---
 
 ## 本课学习目标
 
-老金我把 Remote Control 写成辅助协作，而不是远程放飞，是因为移动端接力也必须有边界。
+我把 Remote Control 写成辅助协作，而不是远程放飞，是因为移动端接力也必须有边界。
+
+> **2026-06-18 操作口径**：v2.1.181 后 Remote Control 也支持 `/config key=value` 配置入口，并新增 `CLAUDE_CLIENT_PRESENCE_FILE` 用于客户端 presence 状态集成。移动端接力前，仍然先确认登录方式、workspace trust、权限模式和当前项目路径，避免在手机上误以为切到了另一个本地仓库。
+
+> **2026-09-14 当前基线（v2.1.270）**：远程侧修的几处都直接影响接力体验。后台 agent 在跑时，远程和无头会话不再显示"等待你输入"（想要旧行为可设 `CLAUDE_CODE_BG_TASKS_REPORT_RUNNING=0`）；远程按 Stop 现在能真正停掉后台 agent 和 workflow（v2.1.259 修复）；由桌面端或 VS Code 托管的远程会话，在网络变差时不再一卡几分钟（v2.1.252 修复）；从远程执行 `/clear` 不再卡在 SessionStart hook 或未关闭的对话框上。能力上：`/output-style [name]` 现在远程可用，`/advisor` 有了文本形式，前台 subagent 的工具调用和结果可以实时流式推到远程客户端（后台 subagent 仍只显示状态）。
 
 完成本课后，你将能：
 
@@ -32,7 +36,7 @@
 ## 1. 先说结论
 
 
-Remote Control 不是“把你的本地项目同步到云端”，而是：
+Remote Control 不是"把你的本地项目同步到云端"，而是：
 
 > 让 `claude.ai/code` 或 Claude 手机 App 变成你本地 Claude Code 会话的远程窗口。
 
@@ -123,9 +127,17 @@ claude remote-control --name "My Project"
 claude remote-control --verbose
 ```
 
-```bash
-claude remote-control --sandbox
+需要让服务器创建的会话使用 Bash 沙箱时，先在适用的设置文件中启用它，例如将下面字段合并到项目 `.claude/settings.json`，再运行 `claude remote-control`：
+
+```json
+{
+  "sandbox": {
+    "enabled": true
+  }
+}
 ```
+
+按[官方沙箱说明](https://code.claude.com/docs/en/sandboxing)确认平台、文件和网络配置。当前服务器参数不提供 `--sandbox` / `--no-sandbox` 开关；不要把全局 `--settings` 参数放在 `remote-control` 前面当作替代，服务器会拒绝无法传入所创建会话的参数。
 
 ```bash
 claude remote-control --spawn worktree
@@ -135,7 +147,7 @@ claude remote-control --spawn worktree
 
 - `--name`：远端会话标题
 - `--spawn same-dir|worktree|session`：并发会话如何创建（默认 `same-dir`）
-- `--sandbox / --no-sandbox`：是否启用沙箱
+- `sandbox.enabled` 设置：控制服务器创建的会话是否启用 Bash 沙箱；按上方说明写入设置文件
 - `--capacity <N>`：最多允许多少个并发会话
 
 在 server mode 运行时，可以按 `w` 键在 `same-dir` 和 `worktree` 之间实时切换。
@@ -242,9 +254,9 @@ Remote Control 启动后，官方支持三种常见连接方式：
 
 ### `session`
 
-- 每个并发会话独立隔离
-- 不依赖 git
-- 适合不在 git 仓库中的项目
+- 这是单会话模式：服务器只服务一个会话，并拒绝额外连接
+- 必须在启动时选择，不能与 `--capacity` 一起使用
+- 它不提供多个会话的文件隔离；需要并行隔离时选择 `worktree`
 
 ### 运行时切换
 
@@ -256,13 +268,20 @@ Remote Control 启动后，官方支持三种常见连接方式：
 
 不是所有 Claude Code 命令都能在远端界面执行。官方当前清单：
 
-**远端可用**（手机 / 浏览器都能执行）：
+**远端可用**（手机 / 浏览器可用，部分要带参数）：
 
-`/compact`、`/clear`、`/context`、`/usage`、`/exit`、`/usage-credits`、`/recap`、`/reload-plugins`、`/autocompact`
+- 文本与上下文：`/compact`、`/clear`、`/context`、`/usage`、`/exit`、`/usage-credits`、`/recap`、`/autocompact`。
+- 模型与显示：`/model sonnet`、`/effort high`、`/fast off`、`/color <值>`、`/rename <名字>`。
+- `/advisor <模型|off>` 只改本次会话；`/output-style [name]` 可列出并选择内置风格，自定义风格先在本地选择。
+- `/focus [on|off]` 从 v2.1.281 起远程可用，只改当前会话。
+- `/reload-plugins` 需要会话由交互终端托管；没有交互终端的会话会拒绝。
+- `/config` 在手机端可列出可设置的键，或用 `key=value` 设置；网页端打开 Claude Code 设置页，并忽略命令后的文本。
+
+`/usage-credits` 在远端会返回账单入口；Team / Enterprise 向管理员请求额度的确认仍需本地交互终端。功能清单以[官方 Remote Control 限制](https://code.claude.com/docs/en/remote-control#limitations)为准。
 
 **仅本地**（必须在终端操作）：
 
-`/mcp`、`/plugin`、`/resume`（涉及交互式选择器的命令）
+`/plugin`、`/resume` 等只在本地终端运行的命令。`/mcp` 需要单独区分：手机端可返回服务器状态摘要，网页端不带参数会打开 claude.ai connectors 目录；`/mcp reconnect`、`enable`、`disable` 子命令在两端均可用
 
 这意味着你不能在手机上装插件或恢复旧会话，但日常的上下文管理和监控都能远程完成。
 
@@ -315,7 +334,7 @@ Team 和 Enterprise 下，Remote Control 默认可能是关闭的。
 1. 先确认你不是 API key 登录
 2. 再确认管理员已经打开 Claude Code 后台里的 Remote Control 开关
 3. 确认当前项目已接受 workspace trust
-4. 检查是否设置了 `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` 或 `DISABLE_TELEMETRY` 环境变量（会干扰 RC 连接）
+4. 检查 `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` 或 `DISABLE_GROWTHBOOK`，它们会关闭远控所需的功能开关评估。v2.1.283 起，仅设置 `DISABLE_TELEMETRY` 或 `DO_NOT_TRACK` 通常仍可使用远控；要求 Trusted Devices 的组织例外。旧版 v2.1.154–282 会受这两个变量影响，先结合版本与组织策略判断
 5. 用 `/status` 确认当前登录方式和订阅状态
 
 ### 9.2 托管策略：`forceRemoteSettingsRefresh`（v2.1.92）
@@ -328,7 +347,7 @@ Team 和 Enterprise 下，Remote Control 默认可能是关闭的。
 
 ### 9.3 更高版本增强（v2.1.93 → v2.1.158）
 
-v2.1.152 到 v2.1.158 这轮更新里，Remote / 后台相关变化主要不是“多一个入口”，而是稳定性和可控性增强：
+v2.1.152 到 v2.1.158 这轮更新里，Remote / 后台相关变化主要不是"多一个入口"，而是稳定性和可控性增强：
 
 - `claude agents` 可用 `! <command>` 启动可附着的后台 shell，命令行等价入口是 `claude --bg --exec '<command>'`。
 - `/remote-control` autocomplete 会在已连接时显示断开入口，Chrome 集成可通过 `/chrome` 选择连接的浏览器。
@@ -393,7 +412,7 @@ claude --remote-control "deploy-watch"
 
 ### Q1：Remote Control 会把我的代码上传到云端吗？
 
-不会按“云端沙箱执行”的方式迁移过去。会话仍运行在你的本地机器上，远端界面只是连接窗口。
+执行和文件访问仍在本地，不会把项目迁移到云端沙箱。但远控连接期间，对话记录会存储在 Anthropic 服务器上，其中包含你的消息、Claude 回复和工具活动，用来同步设备与恢复连接。不要把“本地执行”理解为“相关内容不会发往云端”。
 
 ### Q2：API key 登录能用吗？
 
@@ -413,15 +432,15 @@ claude --remote-control "deploy-watch"
 
 ### Q5：它能替代 Cloud / Desktop scheduled tasks 吗？
 
-不能。Remote Control 适合”继续一个正在运行的本地会话”，不是长期持久调度系统。
+不能。Remote Control 适合"继续一个正在运行的本地会话"，不是长期持久调度系统。
 
 ### Q6：Ultraplan 模式下能用 Remote Control 吗？
 
-不能。官方文档明确说明 **Ultraplan 会断开 Remote Control**。如果你需要远程监控，避免在 Remote Control 会话中使用 Ultraplan。
+`/ultraplan` 已在 v2.1.222 移除。现在可先用 `/plan` 制定计划，再继续远程接力；如果额外调用第三方工作流 Skill，要单独检查它是否会启动云任务、改变会话或访问其他工具，不能笼统保证所有 Skill 都与 Remote Control 兼容。
 
 ### Q7：网络不稳定会怎样？
 
-短暂断网会自动重连（包括笔记本合盖/休眠）。但如果**网络中断超过约 10 分钟**，会话会超时断开。
+需要区分模式：独立 server mode 在机器醒着但持续断网约 10 分钟后会退出，要重新运行 `claude remote-control`；交互会话会继续重试，网络恢复后自动重连，你可以先继续本地工作。休眠、VPN 或代理引起的拒绝还可能有不同的超时提示，以终端显示的原因排查。
 
 ### Q8：能同时开多个 Remote Control 会话吗？
 
@@ -461,8 +480,8 @@ claude --remote-control
 ## 13. 下一步建议
 
 - 想把外部消息直接推到会话中：继续看 [Channels与计划任务完整指南](./13-Channels与计划任务完整指南.md)
-- 想理解模型切换、1M context 和 `opusplan`：继续看 [安装指南中的模型配置章节](./01-Claude-Code完整安装指南.md#85部分模型配置安装后的进阶配置)
+- 想理解模型切换、1M context 和 `opusplan`：继续看 [安装指南中的模型配置章节](./01-Claude-Code完整安装指南.md#第85部分模型配置安装后的进阶配置)
 
 ---
 
-> **最后更新**：2026年6月9日 | **适用版本**：Claude Code v2.1.169
+> **最后更新**：2026年9月14日 | **适用版本**：Claude Code v2.1.270
